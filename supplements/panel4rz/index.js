@@ -365,6 +365,12 @@
           if (sb) sb.textContent = name;
           var av = document.querySelector(".sb-avatar");
           if (av) av.textContent = name[0].toUpperCase();
+
+          // Populate marquee settings
+          var me = document.getElementById("set-marquee-enabled");
+          var mt = document.getElementById("set-marquee-text");
+          if (me) me.checked = settings.marquee_enabled !== "false" && settings.marquee_enabled !== false;
+          if (mt) mt.value = settings.marquee_text || "";
         }
         renderCats();
         renderProducts();
@@ -1459,6 +1465,25 @@
             document.querySelector(".sb-avatar").textContent = (d ||
               u)[0].toUpperCase();
             showToast("Account info saved!");
+          }
+        } catch (e) {
+          showToast("Error: " + e.message, "error");
+        }
+        hideLoading();
+      }
+      async function saveMarqueeSettings() {
+        const text = document.getElementById("set-marquee-text").value.trim();
+        const enabled = document.getElementById("set-marquee-enabled").checked;
+        showLoading("Saving…");
+        try {
+          const r = await apiPost({
+            action: "updateSettings",
+            updates: { marquee_text: text, marquee_enabled: String(enabled) },
+          });
+          if (r.success) {
+            settings.marquee_text = text;
+            settings.marquee_enabled = String(enabled);
+            showToast("Banner settings saved!");
           }
         } catch (e) {
           showToast("Error: " + e.message, "error");

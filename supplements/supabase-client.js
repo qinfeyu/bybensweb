@@ -97,6 +97,7 @@
       promos: (Array.isArray(raw.promos) ? raw.promos : Array.isArray(raw.promo_codes) ? raw.promo_codes : []).map(_remapPromo),
       deliveryPrices: (Array.isArray(raw.deliveryPrices) ? raw.deliveryPrices : Array.isArray(raw.delivery_prices) ? raw.delivery_prices : []).map(_remapDeliveryPrice),
       orders: (Array.isArray(raw.orders) ? raw.orders : []).map(_remapOrder),
+      settings: Array.isArray(raw.settings) ? raw.settings : [],
     };
   };
 
@@ -114,6 +115,7 @@
       sf("bundle?select=*&limit=1"),
       sf("promo_codes?select=*"),
       sf("delivery_prices?select=*"),
+      sf("settings?select=*"),
     ]).then(function (results) {
       return {
         products:       Array.isArray(results[0]) ? results[0] : [],
@@ -122,6 +124,7 @@
         bundle:         (Array.isArray(results[3]) ? results[3][0] : null) || {},
         promos:         Array.isArray(results[4]) ? results[4] : [],
         deliveryPrices: Array.isArray(results[5]) ? results[5] : [],
+        settings:       Array.isArray(results[6]) ? results[6] : [],
         orders:         [],
       };
     });
