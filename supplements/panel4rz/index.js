@@ -1,4 +1,4 @@
-﻿      // ════════════════════════════════════════════
+      // ════════════════════════════════════════════
       // CONFIG — SUPABASE_URL / SUPABASE_ANON_KEY set by supabase-client.js
       // ════════════════════════════════════════════
       const SUPABASE_URL = window.SUPABASE_URL;
@@ -429,11 +429,11 @@
             renderOrders();
             updateDashboard();
             updateLastUpdated();
-          } else if (!cached) {
+          } else {
             showToast("Failed to load data", "error");
           }
         } catch (e) {
-          if (!cached) showToast("Failed to load: " + e.message, "error");
+          showToast("Failed to load: " + e.message, "error");
         }
         hideLoading();
       });
