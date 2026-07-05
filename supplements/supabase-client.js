@@ -12,7 +12,19 @@
 
   // ── Remapping helpers: snake_case (Supabase REST) → camelCase (app) ──
 
+  function optimizeCloudinaryUrl(url) {
+    if (!url || typeof url !== "string") return "";
+    if (url.indexOf("res.cloudinary.com") !== -1 && url.indexOf("/upload/") !== -1) {
+      if (url.indexOf("/f_auto") !== -1 || url.indexOf("/q_auto") !== -1) return url;
+      return url.replace("/upload/", "/upload/f_auto,q_auto/");
+    }
+    return url;
+  }
+
   function _remapProduct(p) {
+    var rawUrls = Array.isArray(p.image_url) ? p.image_url : (p.image_url ? [p.image_url] : []);
+    var optimizedUrls = rawUrls.map(optimizeCloudinaryUrl);
+
     return {
       id: p.id,
       name: p.name,
@@ -20,7 +32,7 @@
       categoryIds: (p.category_ids || "").split(",").filter(Boolean),
       subCategoryIds: (p.sub_category_ids || "").split(",").filter(Boolean),
       description: p.description || "",
-      imageUrl: Array.isArray(p.image_url) ? p.image_url : (p.image_url ? [p.image_url] : []),
+      imageUrl: optimizedUrls,
       variants: p.variants || [],
       flavors: p.flavors || [],
       stock: Number(p.stock) || 0,
