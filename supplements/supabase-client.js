@@ -4,7 +4,7 @@
 
 (function () {
   var _URL = window.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
-  var _KEY = window.SUPABASE_ANON_KEY || "sb_publishable_1sAjf4MOmaF6w_u6xFd7EQ_evUM6B6A";
+  var _KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZ3dsenVpZW14d3NucGlneWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTA3MDMsImV4cCI6MjA5ODgyNjcwM30.3IrYmHPKPUwki-hmkysLw3EAEcr_h8wLHZmRphDiOpI";
 
   window.SUPABASE_URL = _URL;
   window.SUPABASE_ANON_KEY = _KEY;
