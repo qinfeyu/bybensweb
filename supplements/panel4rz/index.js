@@ -686,35 +686,65 @@
         renderImageGrid();
       }
 
+      async function uploadToCloudinary(file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("upload_preset", CLOUDINARY_PRESET);
+        fd.append("folder", "bybens-products");
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`,
+          { method: "POST", body: fd }
+        );
+        const data = await res.json();
+        if (data.secure_url) {
+          return data.secure_url;
+        }
+        throw new Error(data.error?.message || "Upload failed");
+      }
+
       async function handleImageUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
         e.target.value = "";
         document.getElementById("upload-spinner").style.display = "block";
         try {
-          const fd = new FormData();
-          fd.append("file", file);
-          fd.append("upload_preset", CLOUDINARY_PRESET);
-          fd.append("folder", "bybens-products");
-          const res = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`,
-            { method: "POST", body: fd },
-          );
-          const data = await res.json();
-          if (data.secure_url) {
-            currentImageUrls.push(data.secure_url);
-            renderImageGrid();
-            showToast("Image uploaded!");
-          } else
-            showToast(
-              "Upload failed: " + (data.error?.message || "Unknown"),
-              "error",
-            );
+          const url = await uploadToCloudinary(file);
+          currentImageUrls.push(url);
+          renderImageGrid();
+          showToast("Image uploaded!");
         } catch (err) {
           showToast("Upload error: " + err.message, "error");
+        } finally {
+          document.getElementById("upload-spinner").style.display = "none";
         }
-        document.getElementById("upload-spinner").style.display = "none";
       }
+
+      async function handleRowImageUpload(e, rowEl, selectClass) {
+        const file = e.target.files[0];
+        if (!file) return;
+        e.target.value = "";
+        
+        const uploadBtn = e.target.closest(".row-upload-btn");
+        if (uploadBtn) uploadBtn.classList.add("loading");
+        
+        try {
+          const url = await uploadToCloudinary(file);
+          currentImageUrls.push(url);
+          renderImageGrid();
+          
+          const newIdx = currentImageUrls.length - 1;
+          const select = rowEl.querySelector("." + selectClass);
+          if (select) {
+            select.value = String(newIdx);
+          }
+          showToast("Image uploaded and assigned!");
+        } catch (err) {
+          showToast("Upload error: " + err.message, "error");
+        } finally {
+          if (uploadBtn) uploadBtn.classList.remove("loading");
+        }
+      }
+      window.handleRowImageUpload = handleRowImageUpload;
 
       // ════════════════════════════════════════════
       // CHECKBOX HELPERS (FIXED — no double-toggle)
@@ -1328,9 +1358,15 @@
           </div>
           <div class="form-group">
             <label>Image</label>
-            <select class="form-control form-select variant-image-select">
-              ${getVariantImageOptions(selectedImgIdx)}
-            </select>
+            <div class="row-image-control">
+              <select class="form-control form-select variant-image-select">
+                ${getVariantImageOptions(selectedImgIdx)}
+              </select>
+              <label class="row-upload-btn">
+                <input type="file" accept="image/*" style="display:none" onchange="handleRowImageUpload(event, this.closest('.variant-row'), 'variant-image-select')" />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </label>
+            </div>
           </div>
           <button class="btn-remove-variant" onclick="this.closest('.variant-row').remove();refreshStockMatrix()">×</button>
         `;
@@ -1357,9 +1393,15 @@
           </div>
           <div class="form-group">
             <label>Image</label>
-            <select class="form-control form-select flavor-image-select">
-              ${getVariantImageOptions(selectedImgIdx)}
-            </select>
+            <div class="row-image-control">
+              <select class="form-control form-select flavor-image-select">
+                ${getVariantImageOptions(selectedImgIdx)}
+              </select>
+              <label class="row-upload-btn">
+                <input type="file" accept="image/*" style="display:none" onchange="handleRowImageUpload(event, this.closest('.flavor-row'), 'flavor-image-select')" />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </label>
+            </div>
           </div>
           <button class="btn-remove-variant" onclick="this.closest('.flavor-row').remove();refreshStockMatrix()">×</button>
         `;
