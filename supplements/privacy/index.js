@@ -222,8 +222,8 @@
         if (savedLang !== "en") switchLang(savedLang);
         updateCartBadge();
 
-        const SB_URL = window.SUPABASE_URL || "https://dbezrrzmcosxdoorbrgx.supabase.co";
-        const SB_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiZXpycnptY29zeGRvb3Jicmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTgxMTksImV4cCI6MjA5NTI5NDExOX0.xTBBzmLVX6uuqs-oaPifj-DvpBWIEaPZgQIsMIqbRew";
+        const SB_URL = window.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
+        const SB_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZ3dsenVpZW14d3NucGlneWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTA3MDMsImV4cCI6MjA5ODgyNjcwM30.3IrYmHPKPUwki-hmkysLw3EAEcr_h8wLHZmRphDiOpI";
         const h = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
         fetch(SB_URL + "/rest/v1/products?select=id,name,brand,price,variants,flavors,imageUrl", { headers: h })
           .then(function(r) { return r.json(); })
