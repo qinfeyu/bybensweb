@@ -442,6 +442,7 @@
         brands: [],
         priceMin: "",
         priceMax: "",
+        availability: "",
         sort: "default",
         view: "grid",
         page: 1,
@@ -543,6 +544,35 @@
           </div>
         </div>
 
+        <!-- Availability -->
+        <div class="filter-section open">
+          <div class="filter-header" onclick="toggleFilterSection(this)">
+            <div class="filter-title-wrap">
+              <h4>Availability</h4>
+              ${state.availability ? `<span class="filter-badge">1</span>` : ""}
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div class="filter-body">
+            <div class="filter-option ${state.availability === "in-stock" ? "checked" : ""}" onclick="toggleAvailabilityFilter('in-stock')">
+              <label>
+                <div class="custom-checkbox">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                In Stock
+              </label>
+            </div>
+            <div class="filter-option ${state.availability === "out-of-stock" ? "checked" : ""}" onclick="toggleAvailabilityFilter('out-of-stock')">
+              <label>
+                <div class="custom-checkbox">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                Out of Stock
+              </label>
+            </div>
+          </div>
+        </div>
+
         <!-- Price -->
         <div class="filter-section open">
           <div class="filter-header" onclick="toggleFilterSection(this)">
@@ -606,6 +636,11 @@
           list = list.filter(
             (p) => getProductPrice(p) <= Number(state.priceMax),
           );
+        if (state.availability === "in-stock") {
+          list = list.filter((p) => Number(p.stock) > 0);
+        } else if (state.availability === "out-of-stock") {
+          list = list.filter((p) => Number(p.stock) <= 0);
+        }
 
         switch (state.sort) {
           case "price-asc":
@@ -629,7 +664,8 @@
           state.categories.length +
           state.subCategories.length +
           state.brands.length +
-          (state.priceMin || state.priceMax ? 1 : 0)
+          (state.priceMin || state.priceMax ? 1 : 0) +
+          (state.availability ? 1 : 0)
         );
       }
 
@@ -864,6 +900,15 @@
         refresh();
       }
 
+      function toggleAvailabilityFilter(val) {
+        if (state.availability === val) {
+          state.availability = "";
+        } else {
+          state.availability = val;
+        }
+        refresh();
+      }
+
       function applyPrice() {
         const minEl = document.getElementById("priceMin");
         const maxEl = document.getElementById("priceMax");
@@ -878,6 +923,7 @@
         state.brands = [];
         state.priceMin = "";
         state.priceMax = "";
+        state.availability = "";
         state.search = "";
         state.page = 1;
         document.getElementById("productSearch").value = "";

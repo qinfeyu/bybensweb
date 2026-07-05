@@ -10,7 +10,7 @@
       // ════════════════════════════════════════════
       // AUTH GUARD — redirect to login if not authenticated
       // ════════════════════════════════════════════
-      if (sessionStorage.getItem("bb_admin_auth") !== "1") {
+      if (localStorage.getItem("bb_admin_auth") !== "1") {
         window.location.href = "/supplements/mgmt9kx";
       }
 
@@ -34,7 +34,7 @@
       let _dashOrders = [];
       const _PAGE = 15;
       let productPage = 1, catPage = 1, deliveryPage = 1, orderPage = 1;
-      let _prodFilter = "", _delFilter = "";
+      let _prodFilter = "", _delFilter = "", _prodAvailabilityFilter = "";
       function _pagCtrl(total, cur, setFn) {
         const totalPages = Math.ceil(total / _PAGE);
         if (totalPages <= 1) return "";
@@ -656,8 +656,8 @@
       }
       function doLogout() {
         sb.auth.signOut();
-        sessionStorage.removeItem("bb_admin_auth");
-        sessionStorage.removeItem("bb_admin_name");
+        localStorage.removeItem("bb_admin_auth");
+        localStorage.removeItem("bb_admin_name");
         window.location.href = "/supplements/mgmt9kx";
       }
 
@@ -764,16 +764,34 @@
         _prodFilter = q.toLowerCase();
         renderProducts(_prodFilter);
       }
+      window.filterProducts = filterProducts;
+
+      function filterProductsByAvailability(val) {
+        productPage = 1;
+        _prodAvailabilityFilter = val;
+        renderProducts(_prodFilter);
+      }
+      window.filterProductsByAvailability = filterProductsByAvailability;
 
       function renderProducts(filter = "") {
         _selReset("product");
         const tbody = document.getElementById("products-tbody");
         const pag = document.getElementById("products-pag");
         const filtered = products.filter(
-          (p) =>
-            !filter ||
-            p.name.toLowerCase().includes(filter) ||
-            (p.brand || "").toLowerCase().includes(filter),
+          (p) => {
+            const matchesText = !filter ||
+              p.name.toLowerCase().includes(filter) ||
+              (p.brand || "").toLowerCase().includes(filter);
+            
+            let matchesAvailability = true;
+            if (_prodAvailabilityFilter === "in-stock") {
+              matchesAvailability = Number(p.stock) > 0;
+            } else if (_prodAvailabilityFilter === "out-of-stock") {
+              matchesAvailability = Number(p.stock) <= 0;
+            }
+            
+            return matchesText && matchesAvailability;
+          }
         );
         if (!filtered.length) {
           tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><p>No products</p></div></td></tr>`;
@@ -1006,8 +1024,8 @@
       window.populateBundleProductsDropdown = function() {
         const select = document.getElementById("bundle-item-select");
         if (!select) return;
-        const filtered = products.filter(p => !editingProductId || p.id !== editingProductId);
-        select.innerHTML = filtered.map(p => `<option value="${p.id}">${p.brand ? p.brand + ' - ' : ''}${p.name}</option>`).join("");
+        const filtered = products.filter(p => (!editingProductId || p.id !== editingProductId) && Number(p.stock) > 0);
+        select.innerHTML = filtered.map(p => `<option value="${p.id}">${p.brand ? p.brand + ' - ' : ''}${p.name} (Stock: ${p.stock})</option>`).join("");
         onBundleItemSelectChange();
       };
 

@@ -4,7 +4,7 @@
       const _sbLogin = window.supabase;
 
       // If already logged in, go straight to admin
-      if (sessionStorage.getItem("bb_admin_auth") === "1") {
+      if (localStorage.getItem("bb_admin_auth") === "1") {
         window.location.href = "/supplements/panel4rz";
       }
 
@@ -26,8 +26,8 @@
           const { data: authData, error } = await _sbLogin.auth.signInWithPassword({ email, password: p });
 
           if (!error && authData.session) {
-            sessionStorage.setItem("bb_admin_auth", "1");
-            sessionStorage.setItem("bb_admin_name", authData.user?.email || email);
+            localStorage.setItem("bb_admin_auth", "1");
+            localStorage.setItem("bb_admin_name", authData.user?.email || email);
             window.location.href = "/supplements/panel4rz";
           } else {
             showError("Invalid email or password");
