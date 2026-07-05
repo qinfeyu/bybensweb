@@ -1490,6 +1490,24 @@
         }
         hideLoading();
       }
+      async function disableBannerQuick() {
+        showLoading("Disabling banner…");
+        try {
+          const r = await apiPost({
+            action: "updateSettings",
+            updates: { marquee_enabled: "false" },
+          });
+          if (r.success) {
+            settings.marquee_enabled = "false";
+            var me = document.getElementById("set-marquee-enabled");
+            if (me) me.checked = false;
+            showToast("Banner disabled successfully!");
+          }
+        } catch (e) {
+          showToast("Error: " + e.message, "error");
+        }
+        hideLoading();
+      }
       async function savePassword() {
         const cur = document.getElementById("set-cur-pass").value;
         const nw = document.getElementById("set-new-pass").value;
