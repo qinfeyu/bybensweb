@@ -29,6 +29,7 @@
       promoCodeIds: (p.promo_code_ids || "").split(",").filter(Boolean),
       status: p.status || "active",
       createdAt: p.created_at,
+      bundleItems: p.bundle_items || [],
     };
   }
 
@@ -81,16 +82,72 @@
     };
   }
 
+  function calculateBundleStockAndPrice(bundle, productsList) {
+    if (!bundle || !Array.isArray(bundle.bundleItems) || bundle.bundleItems.length === 0) return null;
+    
+    var totalBasePrice = 0;
+    var totalStock = Infinity;
+    
+    bundle.bundleItems.forEach(function (item) {
+      var prod = productsList.find(function (p) { return p.id === item.productId; });
+      if (prod) {
+        var price = 0;
+        var stock = 0;
+        var variants = prod.variants || [];
+        if (item.variant && variants.length > 0) {
+          var v = variants.find(function (x) {
+            var label = x.weight ? (x.weight + (x.unit || "")).trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+            return label === String(item.variant).trim().toLowerCase();
+          });
+          price = v ? Number(v.price) || 0 : Number(variants[0].price) || 0;
+          stock = v ? Number(v.stock) || 0 : 0;
+        } else {
+          price = variants.length > 0 ? Number(variants[0].price) || 0 : 0;
+          stock = Number(prod.stock) || 0;
+        }
+        totalBasePrice += price * (Number(item.qty) || 1);
+        totalStock = Math.min(totalStock, Math.floor(stock / (Number(item.qty) || 1)));
+      } else {
+        totalStock = 0;
+      }
+    });
+    
+    if (totalStock === Infinity) totalStock = 0;
+    
+    return {
+      price: totalBasePrice,
+      stock: totalStock
+    };
+  }
+
   window.sbRemapInitialData = function (raw) {
     if (!raw) return null;
     var prods = Array.isArray(raw.products) ? raw.products : [];
+
+    var productsRemapped = prods.map(_remapProduct);
+    
+    // Post-process bundles to calculate dynamic price & stock
+    productsRemapped.forEach(function (p) {
+      if (p.bundleItems && p.bundleItems.length > 0) {
+        var calc = calculateBundleStockAndPrice(p, productsRemapped);
+        if (calc) {
+          p.stock = calc.stock;
+          if (p.variants && p.variants.length > 0) {
+            p.variants[0].price = calc.price;
+            p.variants[0].stock = calc.stock;
+          } else {
+            p.variants = [{ weight: "1", unit: "Bundle", price: calc.price, stock: calc.stock }];
+          }
+        }
+      }
+    });
 
     var bundleRow = raw.bundle;
     if (Array.isArray(bundleRow)) bundleRow = bundleRow[0] || {};
 
     return {
       success: true,
-      products: prods.map(_remapProduct),
+      products: productsRemapped,
       categories: (Array.isArray(raw.categories) ? raw.categories : []).map(_remapCategory),
       subCategories: (Array.isArray(raw.subCategories) ? raw.subCategories : Array.isArray(raw.sub_categories) ? raw.sub_categories : []).map(_remapSubCategory),
       bundle: _remapBundle(bundleRow),
@@ -109,7 +166,7 @@
       return fetch(_URL + "/rest/v1/" + path, { headers: h }).then(function (r) { return r.json(); });
     }
     return Promise.all([
-      sf("products?select=id,name,brand,category_ids,sub_category_ids,description,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at&hidden=not.is.true"),
+      sf("products?select=id,name,brand,category_ids,sub_category_ids,description,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,bundle_items&hidden=not.is.true"),
       sf("categories?select=*"),
       sf("sub_categories?select=*"),
       sf("bundle?select=*&limit=1"),

@@ -1323,7 +1323,24 @@
           flavors = [];
           globalStock = totalStock;
           bundleItems = editingBundleItems;
-        } else {
+        }
+
+        let description = document.getElementById("pm-desc").innerHTML.trim();
+        if (isBundle) {
+          let bundleDesc = `<div class="bundle-includes-section" style="margin-top:20px; padding:16px; background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px;">`;
+          bundleDesc += `<h4 style="margin:0 0 10px 0; font-size:14px; font-weight:600; color:var(--black);">Pack Includes:</h4>`;
+          bundleDesc += `<ul style="margin:0; padding-left:20px; font-size:13px; color:var(--gray-600); line-height:1.6;">`;
+          editingBundleItems.forEach(item => {
+            const variantText = item.variant ? ` (${item.variant})` : "";
+            bundleDesc += `<li style="margin-bottom:4px;"><strong>${item.brand ? item.brand + ' - ' : ''}${item.name}</strong>${variantText} x${item.qty}</li>`;
+          });
+          bundleDesc += `</ul></div>`;
+          
+          const cleanDesc = description.replace(/<div class="bundle-includes-section"[\s\S]*?<\/div>/g, "");
+          description = cleanDesc.trim() + "\n" + bundleDesc;
+        }
+
+        if (!isBundle) {
           // Standard product logic
           const showMatrix = document.getElementById("stock-matrix-section").style.display !== "none";
           const showVStock = document.getElementById("variant-stock-section").style.display !== "none";
@@ -1369,7 +1386,7 @@
           brand: document.getElementById("pm-brand").value.trim(),
           categoryIds,
           subCategoryIds,
-          description: document.getElementById("pm-desc").innerHTML.trim(),
+          description: description,
           nutritionalFacts: document.getElementById("pm-nutritional").innerHTML.trim(),
           benefits: document.getElementById("pm-benefits").innerHTML.trim(),
           imageUrl: currentImageUrls,
