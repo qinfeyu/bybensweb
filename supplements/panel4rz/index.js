@@ -1015,7 +1015,9 @@
         const select = document.getElementById("bundle-item-select");
         const varGroup = document.getElementById("bundle-variant-group");
         const varSelect = document.getElementById("bundle-variant-select");
-        if (!select || !varGroup || !varSelect) return;
+        const flavorGroup = document.getElementById("bundle-flavor-group");
+        const flavorSelect = document.getElementById("bundle-flavor-select");
+        if (!select || !varGroup || !varSelect || !flavorGroup || !flavorSelect) return;
 
         const productId = select.value;
         const prod = products.find(p => p.id === productId);
@@ -1029,6 +1031,52 @@
           varGroup.style.display = "none";
           varSelect.innerHTML = "";
         }
+
+        updateBundleFlavorsDropdown();
+      };
+
+      window.updateBundleFlavorsDropdown = function() {
+        const select = document.getElementById("bundle-item-select");
+        const varGroup = document.getElementById("bundle-variant-group");
+        const varSelect = document.getElementById("bundle-variant-select");
+        const flavorGroup = document.getElementById("bundle-flavor-group");
+        const flavorSelect = document.getElementById("bundle-flavor-select");
+        if (!select || !flavorGroup || !flavorSelect) return;
+
+        const productId = select.value;
+        const prod = products.find(p => p.id === productId);
+        if (!prod) {
+          flavorGroup.style.display = "none";
+          flavorSelect.innerHTML = "";
+          updateBundleQtyMax();
+          return;
+        }
+
+        let flavorsList = [];
+        const variants = prod.variants || [];
+        if (varGroup.style.display !== "none" && varSelect && varSelect.value) {
+          const selectedLabel = varSelect.value.trim().toLowerCase();
+          const v = variants.find(x => {
+            const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+            return label === selectedLabel;
+          });
+          if (v && v.flavorStock) {
+            flavorsList = Object.keys(v.flavorStock);
+          }
+        }
+
+        if (flavorsList.length === 0 && Array.isArray(prod.flavors)) {
+          flavorsList = prod.flavors.map(f => typeof f === "object" ? f.name : f).filter(Boolean);
+        }
+
+        if (flavorsList.length > 0) {
+          flavorGroup.style.display = "";
+          flavorSelect.innerHTML = flavorsList.map(fn => `<option value="${fn}">${fn}</option>`).join("");
+        } else {
+          flavorGroup.style.display = "none";
+          flavorSelect.innerHTML = "";
+        }
+
         updateBundleQtyMax();
       };
 
@@ -1036,6 +1084,8 @@
         const select = document.getElementById("bundle-item-select");
         const varGroup = document.getElementById("bundle-variant-group");
         const varSelect = document.getElementById("bundle-variant-select");
+        const flavorGroup = document.getElementById("bundle-flavor-group");
+        const flavorSelect = document.getElementById("bundle-flavor-select");
         const qtyInp = document.getElementById("bundle-item-qty");
         if (!select || !qtyInp) return;
 
@@ -1044,16 +1094,33 @@
         if (!prod) return;
 
         let availableStock = 0;
+        let selectedVariant = null;
+
         if (varGroup.style.display !== "none" && varSelect && varSelect.value) {
           const selectedLabel = varSelect.value.trim().toLowerCase();
           const variants = prod.variants || [];
-          const v = variants.find(x => {
+          selectedVariant = variants.find(x => {
             const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
             return label === selectedLabel;
           });
-          availableStock = v ? Number(v.stock) || 0 : 0;
+          availableStock = selectedVariant ? Number(selectedVariant.stock) || 0 : 0;
         } else {
           availableStock = Number(prod.stock) || 0;
+        }
+
+        if (flavorGroup.style.display !== "none" && flavorSelect && flavorSelect.value) {
+          const selectedFlavorName = flavorSelect.value.trim();
+          if (selectedVariant && selectedVariant.flavorStock && selectedVariant.flavorStock[selectedFlavorName] !== undefined) {
+            availableStock = Number(selectedVariant.flavorStock[selectedFlavorName]) || 0;
+          } else if (Array.isArray(prod.flavors)) {
+            const fObj = prod.flavors.find(f => {
+              const name = typeof f === "object" ? f.name : f;
+              return String(name).trim() === selectedFlavorName;
+            });
+            if (fObj) {
+              availableStock = typeof fObj === "object" ? Number(fObj.qty) || 0 : Number(prod.stock) || 0;
+            }
+          }
         }
 
         qtyInp.max = availableStock;
@@ -1074,17 +1141,20 @@
         const qtyInp = document.getElementById("bundle-item-qty");
         const varGroup = document.getElementById("bundle-variant-group");
         const varSelect = document.getElementById("bundle-variant-select");
-        if (!select || !qtyInp || !varSelect) return;
+        const flavorGroup = document.getElementById("bundle-flavor-group");
+        const flavorSelect = document.getElementById("bundle-flavor-select");
+        if (!select || !qtyInp || !varSelect || !flavorSelect) return;
 
         const productId = select.value;
         if (!productId) return;
         const qty = parseInt(qtyInp.value) || 1;
         const variant = varGroup.style.display !== "none" ? varSelect.value : "";
+        const flavor = flavorGroup.style.display !== "none" ? flavorSelect.value : "";
 
         const selectedProd = products.find(p => p.id === productId);
         if (!selectedProd) return;
 
-        const existingIndex = editingBundleItems.findIndex(x => x.productId === productId && x.variant === variant);
+        const existingIndex = editingBundleItems.findIndex(x => x.productId === productId && x.variant === variant && x.flavor === flavor);
         if (existingIndex >= 0) {
           editingBundleItems[existingIndex].qty += qty;
         } else {
@@ -1092,6 +1162,7 @@
             productId,
             qty,
             variant,
+            flavor,
             name: selectedProd.name,
             brand: selectedProd.brand || ""
           });
@@ -1116,10 +1187,11 @@
         }
         list.innerHTML = editingBundleItems.map((item, index) => {
           const variantText = item.variant ? ` (${item.variant})` : "";
+          const flavorText = item.flavor ? ` - ${item.flavor}` : "";
           return `
             <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fff; border:1px solid var(--gray-100); border-radius:6px; font-size:13px; margin-bottom:4px;">
               <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
-                <strong>${item.brand ? item.brand + ' - ' : ''}${item.name}</strong>${variantText} <span style="color:var(--black);font-weight:600;">x${item.qty}</span>
+                <strong>${item.brand ? item.brand + ' - ' : ''}${item.name}</strong>${variantText}${flavorText} <span style="color:var(--black);font-weight:600;">x${item.qty}</span>
               </div>
               <button type="button" class="btn-text-danger" onclick="removeBundleItem(${index})" style="background:none; border:none; color:var(--red); cursor:pointer; font-weight:600; padding:2px 8px; font-size:12px;">Remove</button>
             </div>
@@ -1137,8 +1209,9 @@
             let price = 0;
             let stock = 0;
             const vList = prod.variants || [];
+            let v = null;
             if (item.variant && vList.length > 0) {
-              const v = vList.find(x => {
+              v = vList.find(x => {
                 const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
                 return label === String(item.variant).trim().toLowerCase();
               });
@@ -1148,6 +1221,21 @@
               price = vList.length > 0 ? Number(vList[0].price) || 0 : 0;
               stock = Number(prod.stock) || 0;
             }
+
+            if (item.flavor) {
+              if (v && v.flavorStock && v.flavorStock[item.flavor] !== undefined) {
+                stock = Number(v.flavorStock[item.flavor]) || 0;
+              } else if (Array.isArray(prod.flavors)) {
+                const fObj = prod.flavors.find(f => {
+                  const name = typeof f === "object" ? f.name : f;
+                  return String(name).trim() === item.flavor;
+                });
+                if (fObj) {
+                  stock = typeof fObj === "object" ? Number(fObj.qty) || 0 : Number(prod.stock) || 0;
+                }
+              }
+            }
+
             totalBasePrice += price * item.qty;
             totalStock = Math.min(totalStock, Math.floor(stock / item.qty));
           }
@@ -1340,8 +1428,9 @@
               let price = 0;
               let stock = 0;
               const vList = prod.variants || [];
+              let v = null;
               if (item.variant && vList.length > 0) {
-                const v = vList.find(x => {
+                v = vList.find(x => {
                   const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
                   return label === String(item.variant).trim().toLowerCase();
                 });
@@ -1351,6 +1440,21 @@
                 price = vList.length > 0 ? Number(vList[0].price) || 0 : 0;
                 stock = Number(prod.stock) || 0;
               }
+
+              if (item.flavor) {
+                if (v && v.flavorStock && v.flavorStock[item.flavor] !== undefined) {
+                  stock = Number(v.flavorStock[item.flavor]) || 0;
+                } else if (Array.isArray(prod.flavors)) {
+                  const fObj = prod.flavors.find(f => {
+                    const name = typeof f === "object" ? f.name : f;
+                    return String(name).trim() === item.flavor;
+                  });
+                  if (fObj) {
+                    stock = typeof fObj === "object" ? Number(fObj.qty) || 0 : Number(prod.stock) || 0;
+                  }
+                }
+              }
+
               totalBasePrice += price * item.qty;
               totalStock = Math.min(totalStock, Math.floor(stock / item.qty));
             }
@@ -1370,7 +1474,8 @@
           bundleDesc += `<ul style="margin:0; padding-left:20px; font-size:13px; color:var(--gray-600); line-height:1.6;">`;
           editingBundleItems.forEach(item => {
             const variantText = item.variant ? ` (${item.variant})` : "";
-            bundleDesc += `<li style="margin-bottom:4px;"><strong>${item.brand ? item.brand + ' - ' : ''}${item.name}</strong>${variantText} x${item.qty}</li>`;
+            const flavorText = item.flavor ? ` - ${item.flavor}` : "";
+            bundleDesc += `<li style="margin-bottom:4px;"><strong>${item.brand ? item.brand + ' - ' : ''}${item.name}</strong>${variantText}${flavorText} x${item.qty}</li>`;
           });
           bundleDesc += `</ul></div>`;
           

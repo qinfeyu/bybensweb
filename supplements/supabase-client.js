@@ -94,8 +94,9 @@
         var price = 0;
         var stock = 0;
         var variants = prod.variants || [];
+        var v = null;
         if (item.variant && variants.length > 0) {
-          var v = variants.find(function (x) {
+          v = variants.find(function (x) {
             var label = x.weight ? (x.weight + (x.unit || "")).trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
             return label === String(item.variant).trim().toLowerCase();
           });
@@ -105,6 +106,21 @@
           price = variants.length > 0 ? Number(variants[0].price) || 0 : 0;
           stock = Number(prod.stock) || 0;
         }
+
+        if (item.flavor) {
+          if (v && v.flavorStock && v.flavorStock[item.flavor] !== undefined) {
+            stock = Number(v.flavorStock[item.flavor]) || 0;
+          } else if (Array.isArray(prod.flavors)) {
+            var fObj = prod.flavors.find(function (f) {
+              var name = typeof f === "object" ? f.name : f;
+              return String(name).trim() === item.flavor;
+            });
+            if (fObj) {
+              stock = typeof fObj === "object" ? Number(fObj.qty) || 0 : Number(prod.stock) || 0;
+            }
+          }
+        }
+
         totalBasePrice += price * (Number(item.qty) || 1);
         totalStock = Math.min(totalStock, Math.floor(stock / (Number(item.qty) || 1)));
       } else {

@@ -66,11 +66,15 @@ async function adjustStock(items: any[], direction: number) {
 
     if (matchedIdx >= 0) {
       const v = variants[matchedIdx];
-      if (itemFlavor && v.flavorStock && v.flavorStock[itemFlavor] !== undefined) {
-        v.flavorStock[itemFlavor] = Math.max(0, (Number(v.flavorStock[itemFlavor]) || 0) + direction * qty);
+      let matchedFlavorKey = "";
+      if (itemFlavor && v.flavorStock) {
+        matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === itemFlavor.toLowerCase()) || "";
+      }
+      if (matchedFlavorKey) {
+        v.flavorStock[matchedFlavorKey] = Math.max(0, (Number(v.flavorStock[matchedFlavorKey]) || 0) + direction * qty);
         v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
-        if (direction < 0 && v.flavorStock[itemFlavor] === 0) {
-          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} – ${itemFlavor} (${itemVariantLabel}) is now out of stock.`);
+        if (direction < 0 && v.flavorStock[matchedFlavorKey] === 0) {
+          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} – ${matchedFlavorKey} (${itemVariantLabel}) is now out of stock.`);
         }
       } else {
         v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
