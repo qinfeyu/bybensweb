@@ -5,30 +5,9 @@
 
 (function() {
 
-  // Dark mode toggle — shared across all pages
-  function updateLogos(isDark) {
-    document.querySelectorAll('.logo img, .footer-brand img').forEach(function(img) {
-      img.src = isDark ? '/images/logo-dark.png' : '/images/logo.png';
-    });
-  }
-
-  window.toggleTheme = function() {
-    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    if (isDark) {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('bybens_theme', 'light');
-      updateLogos(false);
-    } else {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('bybens_theme', 'dark');
-      updateLogos(true);
-    }
-  };
-
-  // Sync logos on page load after DOM is ready
-  document.addEventListener('DOMContentLoaded', function() {
-    updateLogos(document.documentElement.getAttribute('data-theme') === 'dark');
-  });
+  // Force light mode and clean up any legacy dark mode settings
+  document.documentElement.removeAttribute('data-theme');
+  localStorage.removeItem('bybens_theme');
 
   const footerHTML = `
     <footer class="site-footer" role="contentinfo">

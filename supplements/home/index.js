@@ -652,7 +652,7 @@ function handleSearch(query) {
       ? `<img src="${_t0}" alt="${p.name}" />`
       : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
     return `
-      <div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/products?search=${encodeURIComponent(p.name)}'">
+      <div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/product-detail?id=${p.id}'">
         <div class="search-drop-thumb">${thumb}</div>
         <div class="search-drop-info">
           <p class="search-drop-brand">${p.brand || ""}</p>
@@ -923,7 +923,7 @@ function handleMobileSearch(query) {
           ? `<img src="${_i0}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`
           : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gray-200)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
         return `
-<div onclick="window.location.href='/supplements/products?search=${encodeURIComponent(p.name)}'" style="display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--gray-100); cursor:pointer;">
+<div onclick="window.location.href='/supplements/product-detail?id=${p.id}'" style="display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--gray-100); cursor:pointer;">
   <div style="width:48px; height:48px; background:var(--gray-50); border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border:1px solid var(--gray-100); overflow:hidden;">
     ${imgEl}
   </div>

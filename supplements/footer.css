@@ -143,3 +143,8 @@ html[data-theme="dark"] .cart-drawer-ft { border-top-color: #2a2a2a; }
 .theme-btn .icon-moon { display: block; }
 html[data-theme="dark"] .theme-btn .icon-sun { display: block; }
 html[data-theme="dark"] .theme-btn .icon-moon { display: none; }
+
+/* Remove theme switcher buttons */
+.theme-btn {
+  display: none !important;
+}
