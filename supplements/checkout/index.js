@@ -1,8 +1,8 @@
-﻿      /* ══════════════════════════════════════════════════════
+      /* ══════════════════════════════════════════════════════
          CONFIG
       ══════════════════════════════════════════════════════ */
-      const SUPABASE_URL = "https://dbezrrzmcosxdoorbrgx.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiZXpycnptY29zeGRvb3Jicmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTgxMTksImV4cCI6MjA5NTI5NDExOX0.xTBBzmLVX6uuqs-oaPifj-DvpBWIEaPZgQIsMIqbRew";
+      const SUPABASE_URL = window.SUPABASE_URL || "https://dbezrrzmcosxdoorbrgx.supabase.co";
+      const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiZXpycnptY29zeGRvb3Jicmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTgxMTksImV4cCI6MjA5NTI5NDExOX0.xTBBzmLVX6uuqs-oaPifj-DvpBWIEaPZgQIsMIqbRew";
       const PAGE_LOAD_TIME = Date.now(); // used for bot timing check
       // getInitialData is provided by supabase-client.js
       const CART_KEY = "bybens_cart";

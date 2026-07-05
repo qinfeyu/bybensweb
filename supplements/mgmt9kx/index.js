@@ -1,9 +1,7 @@
       // ════════════════════════════════════════════
       // CONFIG
       // ════════════════════════════════════════════
-      const SUPABASE_URL = "https://dbezrrzmcosxdoorbrgx.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiZXpycnptY29zeGRvb3Jicmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTgxMTksImV4cCI6MjA5NTI5NDExOX0.xTBBzmLVX6uuqs-oaPifj-DvpBWIEaPZgQIsMIqbRew";
-      const _sbLogin = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const _sbLogin = window.supabase;
 
       // If already logged in, go straight to admin
       if (sessionStorage.getItem("bb_admin_auth") === "1") {

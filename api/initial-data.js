@@ -1,5 +1,6 @@
-const SUPABASE_URL = "https://dbezrrzmcosxdoorbrgx.supabase.co";
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://dbezrrzmcosxdoorbrgx.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiZXpycnptY29zeGRvb3Jicmd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTcxODExOSwiZXhwIjoyMDk1Mjk0MTE5fQ.TJLVdjwyNCKhS0vyFlUnRW6LQLvotuuFqxUj6H2-JGs";
 
 const SB_HEADERS = {
