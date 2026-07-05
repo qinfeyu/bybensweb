@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product – ByBens Sports Nutrition Algeria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://dbezrrzmcosxdoorbrgx.supabase.co" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="/images/favicon.ico" />
+    <script>if(localStorage.getItem('bybens_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+    <link rel="stylesheet" href="/supplements/footer.css" />
+    <script>
+      window.__initialDataPromise = fetch("/api/initial-data")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; });
+    </script>
+
+    <link rel="stylesheet" href="/supplements/product-detail/index.css" />
+    <script>if(sessionStorage.getItem('bb_wl'))document.documentElement.classList.add('bb-noanim');</script>
+  </head>
+  <body>
+    <!-- PAGE LOADER -->
+    <div id="pageLoader">
+      <div class="wl-bg"></div>
+      <div class="wl-grid"></div>
+      <div class="wl-rings"><div class="wl-ring"></div><div class="wl-ring"></div><div class="wl-ring"></div></div>
+      <div class="wl-flares"><div class="wl-flare"></div><div class="wl-flare"></div><div class="wl-flare"></div><div class="wl-flare"></div></div>
+      <div class="wl-particles"><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div></div>
+      <div class="wl-body">
+        <div class="wl-logo-wrap">
+          <div class="wl-logo-glow"></div>
+          <img src="/images/logo.png" alt="ByBens" class="wl-logo" />
+          <div class="wl-shine"></div>
+          <div class="wl-shine2"></div>
+        </div>
+        <div class="wl-line"></div>
+        <div class="wl-tagline">
+          <span class="wl-word">FUEL</span><span class="wl-word">·</span><span class="wl-word">PERFORM</span><span class="wl-word">·</span><span class="wl-word">DOMINATE</span>
+        </div>
+      </div>
+    </div>
+    <!-- Data loading spinner -->
+    <div id="dataSpinner"><div class="ds-ring"></div></div>
+    <!-- Marquee Placeholder -->
+    <div id="marqueePlaceholder"></div>
+
+    <!-- ─── HEADER ──────────────────────────────────────────────── -->
+    <header id="site-header">
+      <div class="container">
+        <nav class="top-nav" aria-label="Main navigation">
+          <button
+            class="hamburger"
+            id="hamburgerBtn"
+            aria-label="Toggle menu"
+            aria-expanded="false"
+            onclick="toggleMobileMenu()"
+          >
+            <span></span><span></span><span></span>
+          </button>
+          <a href="/supplements" class="logo" aria-label="ByBens Home">
+            <img
+              src="/images/logo.png"
+              alt="ByBens Logo"
+              width="140"
+              height="40"
+              fetchpriority="high"
+              decoding="async"
+              style="
+                height: auto;
+                width: auto;
+                max-width: 140px;
+                object-fit: contain;
+              "
+              onerror="
+                this.style.display = 'none';
+                this.nextElementSibling.style.display = 'flex';
+              "
+            />
+            <span
+              class="logo-fallback"
+              style="display: none; align-items: center; gap: 10px"
+            >
+              <span class="logo-mark"><span>BB</span></span>
+              <span class="logo-text">By<em>Bens</em></span>
+            </span>
+          </a>
+
+          <!-- Supplements link (desktop only) -->
+          <a
+            href="/supplements/products"
+            class="nav-link active"
+            id="desktopSupplementsBtn"
+            >Supplements</a
+          >
+
+          <div class="search-wrap" role="search" id="desktopSearch">
+            <input
+              type="search"
+              id="searchInput"
+              placeholder="Search supplements, proteins, vitamins…"
+              aria-label="Search products"
+              autocomplete="off"
+              oninput="handleSearch(this.value)"
+            />
+            <button
+              class="search-btn"
+              aria-label="Submit search"
+              onclick="
+                handleSearch(document.getElementById('searchInput').value)
+              "
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+            </button>
+            <div class="search-dropdown" id="searchDropdown"></div>
+          </div>
+
+          <button
+            id="mobileSearchBtn"
+            onclick="openMobileSearch()"
+            aria-label="Search"
+            style="
+              display: none;
+              width: 40px;
+              height: 40px;
+              align-items: center;
+              justify-content: center;
+              border-radius: 8px;
+              color: var(--black);
+              background: none;
+              border: none;
+              cursor: pointer;
+            "
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+          </button>
+
+          <div class="nav-right">
+            <div
+              class="lang-switch"
+              role="group"
+              aria-label="Language switcher"
+            >
+              <button
+                class="lang-btn active"
+                data-lang="en"
+                onclick="switchLang('en')"
+              >
+                EN
+              </button>
+              <button
+                class="lang-btn"
+                data-lang="fr"
+                onclick="switchLang('fr')"
+              >
+                FR
+              </button>
+              <button
+                class="lang-btn"
+                data-lang="ar"
+                onclick="switchLang('ar')"
+              >
+                AR
+              </button>
+            </div>
+            <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode">
+              <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <button
+              class="cart-btn"
+              aria-label="Shopping cart"
+              onclick="toggleCart()"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+              <span class="cart-badge" id="cartBadge">3</span>
+            </button>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Category Nav — populated by JS -->
+    <div class="cat-nav" aria-label="Product categories">
+      <div class="container">
+        <div class="cat-nav-inner" id="catNavInner"></div>
+      </div>
+    </div>
+
+    <!-- Mobile search overlay -->
+    <div
+      id="mobileSearchOverlay"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: var(--white);
+        z-index: 9998;
+        flex-direction: column;
+        padding: 20px 24px;
+      "
+    >
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 24px;
+        "
+      >
+        <div style="position: relative; flex: 1">
+          <input
+            type="search"
+            id="mobileSearchInput"
+            placeholder="Search supplements, proteins…"
+            oninput="handleMobileSearch(this.value)"
+            style="
+              width: 100%;
+              height: 48px;
+              padding: 0 48px 0 16px;
+              border: 1.5px solid var(--gray-200);
+              border-radius: 10px;
+              font-size: 16px;
+              background: var(--gray-50);
+              outline: none;
+              font-family: var(--font-body);
+            "
+          />
+          <svg
+            style="
+              position: absolute;
+              right: 14px;
+              top: 50%;
+              transform: translateY(-50%);
+              color: var(--gray-400);
+            "
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+        </div>
+        <button
+          onclick="closeMobileSearch()"
+          style="
+            flex-shrink: 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--red);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-body);
+            padding: 8px 4px;
+          "
+        >
+          Cancel
+        </button>
+      </div>
+      <div id="mobileSearchResults" style="flex: 1; overflow-y: auto">
+        <p
+          style="
+            font-size: 13px;
+            color: var(--gray-400);
+            text-align: center;
+            margin-top: 40px;
+          "
+        >
+          Start typing to search products…
+        </p>
+      </div>
+    </div>
+
+    <!-- Mobile menu -->
+    <div class="mobile-menu" id="mobileMenu">
+      <div class="mobile-nav-links">
+        <a class="mobile-nav-link active" href="/supplements/products"
+          >Supplements</a
+        >
+      </div>
+      <div id="mobileCatItems"></div>
+      <div class="mobile-lang">
+        <button
+          class="lang-btn active"
+          data-lang="en"
+          onclick="switchLang('en')"
+        >
+          EN
+        </button>
+        <button class="lang-btn" data-lang="fr" onclick="switchLang('fr')">
+          FR
+        </button>
+        <button class="lang-btn" data-lang="ar" onclick="switchLang('ar')">
+          AR
+        </button>
+        <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" style="margin-left:auto;">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div
+      class="mobile-overlay"
+      id="mobileOverlay"
+      onclick="toggleMobileMenu()"
+    ></div>
+
+    <!-- ─── MAIN ─────────────────────────────────────────────────── -->
+    <main>
+      <div class="container">
+        <nav class="breadcrumb">
+          <a href="/supplements" data-i18n="breadcrumb.home">Home</a>
+          <span class="sep">›</span>
+          <a href="/supplements/products" data-i18n="breadcrumb.products"
+            >Products</a
+          >
+          <span class="sep">›</span>
+          <span class="current" id="breadcrumbName">Product</span>
+        </nav>
+
+        <section class="product-detail-section">
+          <div class="product-detail-grid">
+            <!-- LEFT: Image -->
+            <div class="product-gallery">
+              <div class="product-main-img" id="productImgWrap">
+                <span
+                  class="product-badge badge-hot"
+                  id="productBadge"
+                  style="display: none"
+                ></span>
+                <div class="placeholder-img-wrap">
+                  <svg
+                    width="80"
+                    height="80"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width=".8"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <path d="M3 9h18M9 21V9" />
+                  </svg>
+                  <span>Product Image</span>
+                </div>
+              </div>
+              <div
+                class="gallery-thumbs"
+                id="galleryThumbs"
+                style="display: none"
+              ></div>
+            </div>
+
+            <!-- RIGHT: Info + Form -->
+            <div class="product-info-col">
+              <div class="product-detail-brand" id="productBrand">Brand</div>
+              <h1 class="product-detail-name" id="productName">Product Name</h1>
+              <div class="product-detail-flavor" id="productFlavor"></div>
+              <div
+                id="productCategories"
+                style="
+                  margin-bottom: 14px;
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 6px;
+                "
+              ></div>
+
+              <div class="product-detail-pricing">
+                <span class="product-detail-price" id="productPrice">0 DA</span>
+                <span
+                  class="product-detail-price-old"
+                  id="productOldPrice"
+                  style="display: none"
+                ></span>
+                <span
+                  class="product-detail-save"
+                  id="productSave"
+                  style="display: none"
+                ></span>
+              </div>
+
+              <!-- Weight selector -->
+              <div class="variant-group" id="weightGroup" style="display: none">
+                <div class="variant-label" data-i18n="detail.weight">
+                  SIZE
+                </div>
+                <div class="variant-pills" id="weightPills"></div>
+              </div>
+
+              <!-- Flavor selector -->
+              <div class="variant-group" id="flavorGroup" style="display: none">
+                <div class="variant-label" data-i18n="detail.flavor">
+                  Flavor
+                </div>
+                <div class="variant-pills" id="flavorPills"></div>
+              </div>
+
+              <!-- Quantity -->
+              <div class="variant-group">
+                <div class="variant-label">Quantity</div>
+                <div class="qty-stepper">
+                  <button class="qty-btn" onclick="changeQty(-1)">−</button>
+                  <span class="qty-value" id="qtyValue">1</span>
+                  <button class="qty-btn" onclick="changeQty(1)">+</button>
+                </div>
+                <div id="bulkNotice">
+                  <a href="https://wa.me/213662269449" target="_blank" class="bulk-notice-content">
+                    <div class="bulk-notice-icon"><svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></div>
+                    <div>
+                      <span class="bulk-notice-tag" data-i18n="detail.bulkLabel">Wholesale</span>
+                      <p class="bulk-notice-msg" data-i18n="detail.bulkNotice">Ordering 5 or more? Contact us on WhatsApp for a special wholesale discount!</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div class="product-description" id="productDescriptionBox">
+                <div class="product-description-title" data-i18n="detail.about">
+                  Product Description
+                </div>
+                <div id="productDescription">Loading…</div>
+              </div>
+
+              <!-- Nutritional Facts (shown only if data exists) -->
+              <div
+                class="product-description"
+                id="productNutritionalFactsBox"
+                style="display: none"
+              >
+                <div class="product-description-title">Nutritional Facts</div>
+                <div id="productNutritionalFacts"></div>
+              </div>
+
+              <!-- Benefits (shown only if data exists) -->
+              <div
+                class="product-description"
+                id="productBenefitsBox"
+                style="display: none"
+              >
+                <div class="product-description-title">About This Product</div>
+                <div id="productBenefits"></div>
+              </div>
+
+              <hr class="section-divider" />
+
+              <!-- ORDER FORM -->
+              <div class="order-form-title">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
+                  />
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                </svg>
+                <span data-i18n="form.orderNow">Order Now</span>
+              </div>
+
+              <!-- honeypot: hidden from real users, bots fill it -->
+              <input
+                type="text"
+                id="hp_website"
+                name="website"
+                autocomplete="off"
+                tabindex="-1"
+                style="
+                  position: absolute;
+                  left: -9999px;
+                  width: 1px;
+                  height: 1px;
+                  opacity: 0;
+                  pointer-events: none;
+                "
+                aria-hidden="true"
+              />
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="firstName" data-i18n="form.firstName"
+                    >First Name</label
+                  >
+                  <input type="text" id="firstName" placeholder="John" />
+                  <span class="error-msg" id="firstNameErr"></span>
+                </div>
+                <div class="form-group">
+                  <label for="lastName" data-i18n="form.lastName"
+                    >Last Name</label
+                  >
+                  <input type="text" id="lastName" placeholder="Doe" />
+                  <span class="error-msg" id="lastNameErr"></span>
+                </div>
+              </div>
+
+              <div class="form-row single">
+                <div class="form-group">
+                  <label for="phone" data-i18n="form.phone">Phone Number</label>
+                  <input type="tel" id="phone" placeholder="0550 000 000" />
+                  <span class="error-msg" id="phoneErr"></span>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label data-i18n="form.wilaya">Wilaya</label>
+                  <div class="custom-select-wrap" id="wilayaWrap">
+                    <div
+                      class="custom-select-trigger placeholder"
+                      id="wilayaTrigger"
+                      tabindex="0"
+                      role="combobox"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      onclick="toggleCustomSelect('wilaya')"
+                      onkeydown="handleDropdownKey(event, 'wilaya')"
+                    >
+                      <span id="wilayaLabel" data-i18n="form.selectWilaya"
+                        >Select wilaya…</span
+                      >
+                      <svg
+                        class="caret"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </div>
+                    <div
+                      class="custom-dropdown-list"
+                      id="wilayaDropdown"
+                      role="listbox"
+                    >
+                      <div class="dropdown-search">
+                        <input
+                          type="text"
+                          placeholder="Search wilaya…"
+                          oninput="filterDropdown('wilaya', this.value)"
+                          onclick="event.stopPropagation()"
+                        />
+                      </div>
+                      <div id="wilayaOptions"></div>
+                    </div>
+                  </div>
+                  <span class="error-msg" id="wilayaErr"></span>
+                </div>
+                <div class="form-group">
+                  <label data-i18n="form.commune">Commune</label>
+                  <div class="custom-select-wrap" id="communeWrap">
+                    <div
+                      class="custom-select-trigger placeholder"
+                      id="communeTrigger"
+                      tabindex="0"
+                      role="combobox"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-disabled="true"
+                      onclick="toggleCustomSelect('commune')"
+                      onkeydown="handleDropdownKey(event, 'commune')"
+                    >
+                      <span id="communeLabel" data-i18n="form.selectWilayaFirst"
+                        >Select wilaya first</span
+                      >
+                      <svg
+                        class="caret"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </div>
+                    <div
+                      class="custom-dropdown-list"
+                      id="communeDropdown"
+                      role="listbox"
+                    >
+                      <div class="dropdown-search">
+                        <input
+                          type="text"
+                          placeholder="Search commune…"
+                          oninput="filterDropdown('commune', this.value)"
+                          onclick="event.stopPropagation()"
+                        />
+                      </div>
+                      <div id="communeOptions"></div>
+                    </div>
+                  </div>
+                  <span class="error-msg" id="communeErr"></span>
+                </div>
+              </div>
+
+              <div class="form-row single">
+                <div class="form-group">
+                  <label for="address" data-i18n="form.address">Address (Optional)</label>
+                  <input type="text" id="address" placeholder="Street name, building, apartment..." />
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 14px">
+                <label data-i18n="form.deliveryType">Delivery Type</label>
+                <div class="delivery-options">
+                  <div
+                    class="delivery-option active"
+                    id="deliveryHome"
+                    onclick="selectDelivery('home')"
+                  >
+                    <input type="radio" name="delivery" value="home" checked />
+                    <div class="delivery-option-top">
+                      <span
+                        class="delivery-option-name"
+                        data-i18n="form.homeDelivery"
+                        >🏠 Home Delivery</span
+                      >
+                      <div class="delivery-option-check">
+                        <div class="delivery-option-dot"></div>
+                      </div>
+                    </div>
+                    <div class="delivery-option-price">—</div>
+                    <div
+                      class="delivery-option-desc"
+                      data-i18n="form.deliveredDoor"
+                    >
+                      Delivered to your door
+                    </div>
+                  </div>
+                  <div
+                    class="delivery-option"
+                    id="deliveryOffice"
+                    onclick="selectDelivery('office')"
+                  >
+                    <input type="radio" name="delivery" value="office" />
+                    <div class="delivery-option-top">
+                      <span
+                        class="delivery-option-name"
+                        data-i18n="form.officePick"
+                        >📦 Office Pickup</span
+                      >
+                      <div class="delivery-option-check">
+                        <div class="delivery-option-dot"></div>
+                      </div>
+                    </div>
+                    <div class="delivery-option-price">—</div>
+                    <div
+                      class="delivery-option-desc"
+                      data-i18n="form.pickupOffice"
+                    >
+                      Pickup at nearest office
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Promo Code — shown only when allowPromo is true -->
+              <div
+                class="form-group"
+                id="promoSection"
+                style="margin-bottom: 14px; display: none"
+              >
+                <label for="promoCode">Promo Code</label>
+                <div style="display: flex; gap: 8px">
+                  <input
+                    type="text"
+                    id="promoCode"
+                    placeholder="Enter code…"
+                    style="text-transform: uppercase"
+                    oninput="this.value = this.value.toUpperCase()"
+                    onkeydown="
+                      if (event.key === 'Enter') {
+                        applyPromo();
+                        event.preventDefault();
+                      }
+                    "
+                  />
+                  <button
+                    onclick="applyPromo()"
+                    style="
+                      flex-shrink: 0;
+                      padding: 0 18px;
+                      height: 44px;
+                      background: #0a0a0a;
+                      color: #fff;
+                      border-radius: 8px;
+                      font-size: 13px;
+                      font-weight: 700;
+                      letter-spacing: 0.5px;
+                      cursor: pointer;
+                      transition: background var(--transition);
+                    "
+                    onmouseover="this.style.background = 'var(--red)'"
+                    onmouseout="this.style.background = '#0a0a0a'"
+                  >
+                    APPLY
+                  </button>
+                </div>
+                <div
+                  id="promoTagsPD"
+                  style="
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    margin-top: 8px;
+                  "
+                ></div>
+                <span
+                  id="promoMsg"
+                  style="font-size: 12px; margin-top: 4px"
+                ></span>
+              </div>
+
+              <!-- Order Summary -->
+              <div class="order-summary">
+                <div class="order-summary-title" data-i18n="form.orderSummary">
+                  Order Summary
+                </div>
+                <div class="order-summary-row">
+                  <span class="order-summary-label" data-i18n="form.product"
+                    >Product</span
+                  >
+                  <span class="order-summary-val" id="summaryProduct">—</span>
+                </div>
+                <div class="order-summary-row">
+                  <span class="order-summary-label" data-i18n="form.price"
+                    >Price</span
+                  >
+                  <span class="order-summary-val" id="summaryPrice">—</span>
+                </div>
+                <div class="order-summary-row">
+                  <span class="order-summary-label" data-i18n="form.delivery"
+                    >Delivery</span
+                  >
+                  <span class="order-summary-val" id="summaryDelivery"
+                    >+500 DA (Home)</span
+                  >
+                </div>
+                <div class="order-summary-total">
+                  <span class="order-summary-total-label" data-i18n="form.total"
+                    >Total</span
+                  >
+                  <span class="order-summary-total-price" id="summaryTotal"
+                    >— DA</span
+                  >
+                </div>
+              </div>
+
+              <button
+                class="btn-add-to-cart-detail"
+                onclick="addToCartFromDetail()"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path
+                    d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
+                  />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
+                <span data-i18n="form.addToCart">ADD TO CART</span>
+              </button>
+
+              <button class="btn-order" onclick="submitOrder()">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+                <span data-i18n="form.confirmOrder">CONFIRM ORDER</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- ─── YOU MAY ALSO LIKE ──────────────────────────────────── -->
+    <section class="also-like-section">
+      <div class="container">
+        <h2 class="also-like-title" data-i18n="section.alsoLike">
+          You May Also Like
+        </h2>
+        <div class="also-like-grid" id="alsoLikeGrid"></div>
+      </div>
+    </section>
+
+    <!-- ══ ADD-TO-CART MODAL ══ -->
+    <div
+      class="atc-overlay"
+      id="atcOverlay"
+      onclick="if (event.target === this) closeAddToCartModal();"
+    >
+      <div class="atc-modal">
+        <button class="atc-close" onclick="closeAddToCartModal()">
+          &#x2715;
+        </button>
+        <div class="atc-modal-img" id="atcImg"></div>
+        <div class="atc-modal-name" id="atcName"></div>
+        <div class="atc-modal-price" id="atcPrice"></div>
+        <div class="atc-section" id="atcFlavorSection">
+          <div class="atc-label">Flavor</div>
+          <div class="atc-options" id="atcFlavorOptions"></div>
+        </div>
+        <div class="atc-section" id="atcWeightSection">
+          <div class="atc-label" data-i18n="detail.weight">SIZE</div>
+          <div class="atc-options" id="atcWeightOptions"></div>
+        </div>
+        <div class="atc-section">
+          <div class="atc-label">Quantity</div>
+          <div class="atc-qty-row">
+            <button class="atc-qty-btn" onclick="atcChangeQty(-1)">
+              &#8722;
+            </button>
+            <span class="atc-qty-val" id="atcQtyVal">1</span>
+            <button class="atc-qty-btn" onclick="atcChangeQty(1)">+</button>
+          </div>
+        </div>
+        <button class="atc-confirm-btn" onclick="confirmAddToCart()">
+          Add to Cart
+        </button>
+      </div>
+    </div>
+
+    <!-- Image Popup Overlay -->
+    <div class="img-popup-overlay" id="imgPopupOverlay" onclick="closeImagePopup()">
+      <button class="img-popup-close" onclick="closeImagePopup()">&#x2715;</button>
+      <button class="popup-nav prev" id="popupPrev" onclick="navigatePopupImage(-1, event)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <img src="" alt="Product Large View" class="img-popup-content" id="imgPopupContent" onclick="event.stopPropagation()" />
+      <button class="popup-nav next" id="popupNext" onclick="navigatePopupImage(1, event)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+
+    <div id="footerPlaceholder"></div>
+
+    <!-- Success overlay -->
+    <div class="success-overlay" id="successOverlay">
+      <div class="success-card">
+        <div class="success-icon">
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <div class="success-title" data-i18n="success.title">Order Placed!</div>
+        <div class="success-msg" id="successMsg">
+          Thank you! We'll call you shortly to confirm your order.
+        </div>
+        <a
+          class="success-instagram"
+          href="https://www.instagram.com/bens.supplements?igsh=MTlpaGRnOGxsazBvbA=="
+          target="_blank"
+          rel="noopener"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path
+              d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"
+            />
+          </svg>
+          Visit our Instagram
+        </a>
+        <button class="success-close" onclick="closeSuccess()">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          <span data-i18n="success.back">Back to Products</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+    <button
+      id="scrollTop"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      title="Back to top"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+      >
+        <path d="m18 15-6-6-6 6" />
+      </svg>
+    </button>
+
+    <a
+      href="https://wa.me/213662269449"
+      target="_blank"
+      class="wa-btn"
+      aria-label="WhatsApp"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="30"
+        height="30"
+        viewBox="0 0 24 24"
+        fill="white"
+      >
+        <path
+          d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+        />
+      </svg>
+    </a>
+
+    <script src="/supplements/product-detail/index.js?v=2" defer></script>
+
+    <!-- ══ CART DRAWER ══ -->
+    <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+    <div class="cart-drawer" id="cartDrawer">
+      <div class="cart-drawer-hd">
+        <span class="cart-drawer-title"
+          >Cart &nbsp;<span
+            id="cartDrawerCount"
+            style="font-size: 15px; font-weight: 600; color: var(--gray-400)"
+            >0 items</span
+          ></span
+        >
+        <button class="cart-drawer-x" onclick="toggleCart()">&#x2715;</button>
+      </div>
+      <div class="cart-drawer-body" id="cartDrawerBody"></div>
+      <div class="cart-drawer-ft">
+        <div class="cart-total">
+          <span class="cart-total-lbl">Total</span>
+          <span class="cart-total-num"
+            ><span id="cartDrawerTotal">0</span> DA</span
+          >
+        </div>
+        <button class="cart-checkout" onclick="cartCheckout()">Checkout</button>
+      </div>
+    </div>
+    <script src="/supplements/marquee.js"></script>
+    <script src="/content.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/supplements/supabase-client.js"></script>
+    <script src="/supplements/footer.js"></script>
+  </body>
+</html>

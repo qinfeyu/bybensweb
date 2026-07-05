@@ -1,0 +1,145 @@
+.site-footer { background: var(--black); color: rgba(255, 255, 255, 0.65); padding: 64px 0 0; }
+.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: 48px; padding-bottom: 48px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.footer-brand p { font-size: 14px; line-height: 1.65; margin: 16px 0 24px; max-width: 280px; }
+.footer-col h4 { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--white); margin-bottom: 20px; }
+.footer-col ul { display: flex; flex-direction: column; gap: 10px; }
+.footer-col a { font-size: 14px; transition: color var(--transition); }
+.footer-col a:hover { color: var(--white); }
+.social-links { display: flex; gap: 10px; }
+.social-link { width: 38px; height: 38px; background: rgba(255, 255, 255, 0.06); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.6); transition: all var(--transition); font-size: 15px; font-weight: 700; }
+.social-link:hover { background: var(--red); color: var(--white); }
+.contact-form { display: flex; flex-direction: column; gap: 12px; }
+.site-footer .form-input { 
+  height: 44px; 
+  padding: 0 14px; 
+  background: var(--black); 
+  border: 1px solid rgba(255, 255, 255, 0.15); 
+  border-radius: 7px; 
+  color: var(--white); 
+  font-size: 14px; 
+  outline: none; 
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.5px;
+}
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+.site-footer .form-input:focus {
+  border-color: var(--red);
+  background: rgba(255, 255, 255, 0.05);
+}
+.site-footer .form-textarea { padding: 12px 14px; height: 88px; resize: vertical; }
+.btn-send { height: 44px; background: var(--red); color: var(--white); border-radius: 7px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background var(--transition); }
+.btn-send:hover { background: var(--red-hover); }
+.footer-bottom { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; flex-wrap: wrap; gap: 12px; font-size: 13px; }
+
+.about-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; visibility: hidden; transition: all .25s; }
+.about-overlay.open { opacity: 1; visibility: visible; }
+.about-modal { background: #fff; border-radius: 20px; width: 100%; max-width: 540px; position: relative; transform: translateY(28px); transition: transform .3s; max-height: 90vh; overflow-y: auto; }
+.about-overlay.open .about-modal { transform: translateY(0); }
+.about-close { position: absolute; top: 14px; right: 14px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.15); border: none; cursor: pointer; font-size: 18px; color: #fff; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.about-close:hover { background: rgba(255,255,255,.28); }
+[dir="rtl"] .about-close { right: auto; left: 14px; }
+.about-header { background: linear-gradient(135deg,#0a0a0a 0%,#1a1a1a 100%); padding: 30px; text-align: center; color: #fff; position: relative; border-radius: 20px 20px 0 0; }
+.about-header::after { content:''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--red); }
+.about-brand { font-family: "Bebas Neue", sans-serif; font-size: 2.5rem; }
+.about-brand span { color: var(--red); }
+.about-sub { font-family: "Bebas Neue", sans-serif; font-size: .95rem; letter-spacing: .3em; color: rgba(255,255,255,.45); margin-top: 6px; text-transform: uppercase; }
+.about-body { padding: 20px; }
+.about-card { display: flex; gap: 16px; align-items: flex-start; padding: 18px; border-radius: 14px; background: var(--gray-50); border: 1px solid var(--gray-100); margin-bottom: 12px; transition: border-color .2s; }
+.about-card:hover { border-color: var(--gray-200); }
+.about-card-icon { width: 46px; height: 46px; min-width: 46px; background: var(--red-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--red); }
+.about-card-text h4 { font-size: 13px; font-weight: 700; color: var(--black); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .6px; }
+.about-card-text p { font-size: 13.5px; color: var(--gray-600); line-height: 1.65; margin: 0; }
+
+@media (max-width: 768px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+  .nav-right .theme-btn { display: none; }
+}
+
+/* ── Dark Mode Variables ──────────────────────────────────── */
+/* Specificity (0,1,1) beats :root (0,1,0) so these always win */
+html[data-theme="dark"] {
+  --white: #121212;
+  --off-white: #181818;
+  --gray-50: #1f1f1f;
+  --gray-100: #2a2a2a;
+  --gray-200: #3d3d3d;
+  --gray-400: #6b6b6b;
+  --gray-600: #a8a8a8;
+  --gray-800: #e0e0e0;
+  --black: #f0f0f0;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* Keep footer dark in both modes */
+html[data-theme="dark"] .site-footer { background: #0a0a0a; color: rgba(255,255,255,0.65); }
+html[data-theme="dark"] .footer-col h4 { color: #ffffff; }
+html[data-theme="dark"] .footer-col a { color: rgba(255,255,255,0.65); }
+html[data-theme="dark"] .footer-bottom { color: rgba(255,255,255,0.65); }
+html[data-theme="dark"] .site-footer .form-input { background: #111; border-color: rgba(255,255,255,0.1); color: #ffffff; }
+html[data-theme="dark"] .site-footer .form-input::placeholder { color: rgba(255,255,255,0.25); }
+
+/* Marquee bar always white text on red */
+html[data-theme="dark"] .marquee-bar { color: #ffffff; }
+
+/* Data spinner */
+html[data-theme="dark"] #dataSpinner { background: rgba(18,18,18,0.95); }
+
+/* Modals */
+html[data-theme="dark"] .about-modal { background: #1a1a1a; }
+html[data-theme="dark"] .about-card { background: #242424; border-color: #333; }
+html[data-theme="dark"] .about-card-text h4 { color: #f0f0f0; }
+html[data-theme="dark"] .about-card-text p { color: #a0a0a0; }
+html[data-theme="dark"] .about-close { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65); }
+html[data-theme="dark"] .about-close:hover { background: rgba(255,255,255,0.15); }
+
+/* ── ATC Modal (Add to Cart quick-select popup) ───────────── */
+html[data-theme="dark"] .atc-modal { background: #1a1a1a; }
+html[data-theme="dark"] .atc-modal-name { color: #f0f0f0; }
+html[data-theme="dark"] .atc-qty-btn { background: #2a2a2a; border-color: #3d3d3d; color: #f0f0f0; }
+html[data-theme="dark"] .atc-qty-btn:hover { border-color: #f0f0f0; }
+html[data-theme="dark"] .atc-option { background: #2a2a2a; border-color: #3d3d3d; color: #a8a8a8; }
+html[data-theme="dark"] .atc-option.active { background: var(--red-light); border-color: var(--red); color: var(--red); }
+html[data-theme="dark"] .atc-close { background: #2a2a2a; color: #e0e0e0; }
+
+/* ── Toast ────────────────────────────────────────────────── */
+html[data-theme="dark"] .toast { background: #2a2a2a; color: #f0f0f0; }
+
+/* ── Cart Drawer ──────────────────────────────────────────── */
+html[data-theme="dark"] .cart-drawer { background: #1a1a1a; box-shadow: -8px 0 40px rgba(0,0,0,0.5); }
+html[data-theme="dark"] .cart-drawer-hd { border-bottom-color: #2a2a2a; }
+html[data-theme="dark"] .cart-drawer-x { background: #2a2a2a; color: #e0e0e0; }
+html[data-theme="dark"] .cart-drawer-x:hover { background: #3d3d3d; }
+html[data-theme="dark"] .cart-row { border-bottom-color: #2a2a2a; }
+html[data-theme="dark"] .ciq-btn { background: #2a2a2a; border-color: #3d3d3d; color: #f0f0f0; }
+html[data-theme="dark"] .ciq-btn:hover { border-color: #f0f0f0; }
+html[data-theme="dark"] .cart-drawer-ft { border-top-color: #2a2a2a; }
+
+/* ── Theme Toggle Button ──────────────────────────────────── */
+.theme-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  flex-shrink: 0;
+}
+.theme-btn:hover { background: var(--gray-50); color: var(--black); }
+.theme-btn .icon-sun { display: none; }
+.theme-btn .icon-moon { display: block; }
+html[data-theme="dark"] .theme-btn .icon-sun { display: block; }
+html[data-theme="dark"] .theme-btn .icon-moon { display: none; }

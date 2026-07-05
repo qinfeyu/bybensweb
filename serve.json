@@ -1,0 +1,13 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/supplements", "destination": "/supplements/home/index.html" },
+    { "source": "/supplements/home", "destination": "/supplements/home/index.html" },
+    { "source": "/supplements/checkout", "destination": "/supplements/checkout/index.html" },
+    { "source": "/supplements/products", "destination": "/supplements/products/index.html" },
+    { "source": "/supplements/product-detail", "destination": "/supplements/product-detail/index.html" },
+    { "source": "/supplements/mgmt9kx", "destination": "/supplements/mgmt9kx/index.html" },
+    { "source": "/supplements/panel4rz", "destination": "/supplements/panel4rz/index.html" },
+    { "source": "/supplements/privacy", "destination": "/supplements/privacy/index.html" }
+  ]
+}

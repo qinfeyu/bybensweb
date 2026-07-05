@@ -1,0 +1,53 @@
+{
+  "cleanUrls": true,
+  "redirects": [
+    { "source": "/", "destination": "/supplements", "permanent": true },
+    { "source": "/products", "destination": "/supplements/products", "permanent": true },
+    { "source": "/product-detail", "destination": "/supplements/product-detail", "permanent": true },
+    { "source": "/checkout", "destination": "/supplements/checkout", "permanent": true },
+    { "source": "/mgmt9kx", "destination": "/supplements/mgmt9kx", "permanent": false },
+    { "source": "/panel4rz", "destination": "/supplements/panel4rz", "permanent": false },
+    { "source": "/privacy", "destination": "/supplements/privacy", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/supplements", "destination": "/supplements/home" },
+    { "source": "/supplements/checkout", "destination": "/supplements/checkout" },
+    { "source": "/supplements/products", "destination": "/supplements/products" },
+    { "source": "/supplements/product-detail", "destination": "/supplements/product-detail" },
+    { "source": "/supplements/mgmt9kx", "destination": "/supplements/mgmt9kx" },
+    { "source": "/supplements/panel4rz", "destination": "/supplements/panel4rz" },
+    { "source": "/supplements/privacy", "destination": "/supplements/privacy" }
+  ],
+  "headers": [
+    {
+      "source": "/images/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/content.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/supplements/(.*)\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/supplements/(.*)\\.css",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*)\\.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ]
+}
