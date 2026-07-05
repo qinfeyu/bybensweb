@@ -1022,7 +1022,7 @@
       }
       .variant-row {
         display: grid;
-        grid-template-columns: 1fr 1fr 120px 36px;
+        grid-template-columns: 1fr 100px 120px 140px 36px;
         gap: 10px;
         align-items: end;
       }

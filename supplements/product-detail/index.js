@@ -524,6 +524,8 @@
         document.getElementById("promoSection").style.display = allowPromo
           ? ""
           : "none";
+
+        syncVariantImage();
       }
 
       /* ── Update just the price display (not summary) ── */
@@ -626,6 +628,30 @@
           .join("");
       }
 
+      function syncVariantImage() {
+        const p = selectedProduct;
+        if (!p || !p.variants || p.variants.length === 0) return;
+        const v = p.variants[selectedVariantIndex];
+        if (!v) return;
+        const imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
+        let targetImgIdx = 0; // Default to first image
+        if (v.imageIndex !== undefined && v.imageIndex !== null && v.imageIndex !== "") {
+          const parsedIdx = parseInt(v.imageIndex);
+          if (!isNaN(parsedIdx) && imgs[parsedIdx]) {
+            targetImgIdx = parsedIdx;
+          }
+        }
+        if (imgs[targetImgIdx]) {
+          const thumbs = document.querySelectorAll(".gallery-thumb");
+          if (thumbs.length > targetImgIdx) {
+            switchProductImg(imgs[targetImgIdx], thumbs[targetImgIdx]);
+          } else {
+            const mainImg = document.getElementById("productMainImg");
+            if (mainImg) mainImg.src = imgs[targetImgIdx];
+          }
+        }
+      }
+
       function selectVariant(el, idx) {
         selectedVariantIndex = idx;
         document
@@ -633,6 +659,7 @@
           .forEach((p) => p.classList.remove("active"));
         el.classList.add("active");
         renderFlavorPills(); // re-evaluate OOS flavors for this variant
+        syncVariantImage();
         // Clamp quantity to new variant stock
         const max = Math.min(5, getCurrentStock());
         let adjusted = false;

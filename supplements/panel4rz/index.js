@@ -678,6 +678,7 @@
         addBtn.className = "upload-box-add";
         addBtn.innerHTML = `<input type="file" accept="image/*" onchange="handleImageUpload(event)" /><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
         grid.appendChild(addBtn);
+        updateVariantImageDropdowns();
       }
 
       function removeImage(idx) {
@@ -1276,16 +1277,63 @@
         openProductModal(id);
       }
 
+      function getVariantImageOptions(selectedIdx) {
+        let html = '<option value="">Default (First)</option>';
+        currentImageUrls.forEach((url, index) => {
+          const isSelected = selectedIdx !== undefined && selectedIdx !== null && String(selectedIdx) === String(index);
+          html += `<option value="${index}" ${isSelected ? "selected" : ""}>Image ${index + 1}</option>`;
+        });
+        return html;
+      }
+
+      function updateVariantImageDropdowns() {
+        document.querySelectorAll(".variant-image-select").forEach(select => {
+          const curVal = select.value;
+          select.innerHTML = getVariantImageOptions(curVal);
+        });
+      }
+
       function addVariant(v = null) {
         const list = document.getElementById("variants-list");
         const div = document.createElement("div");
         div.className = "variant-row";
         if (v && v.flavorStock) div.dataset.flavorStock = JSON.stringify(v.flavorStock);
         if (v && v.stock !== undefined) div.dataset.varStock = String(v.stock);
-        div.innerHTML = `<div class="form-group"><label>Weight</label><input type="number" class="form-control" placeholder="e.g. 908" value="${v ? v.weight : ""}" oninput="refreshStockMatrix()" /></div><div class="form-group"><label>Unit</label><select class="form-control form-select" onchange="refreshStockMatrix()"><option ${v && v.unit === "g" ? "selected" : ""}>g</option><option ${v && v.unit === "kg" ? "selected" : ""}>kg</option><option ${v && v.unit === "caps" ? "selected" : ""}>caps</option><option ${v && v.unit === "ml" ? "selected" : ""}>ml</option><option ${v && v.unit === "L" ? "selected" : ""}>L</option><option ${v && v.unit === "pcs" ? "selected" : ""}>pcs</option></select></div><div class="form-group"><label>Price (DA)</label><input type="number" class="form-control" placeholder="0" value="${v ? v.price : ""}" /></div><button class="btn-remove-variant" onclick="this.closest('.variant-row').remove();refreshStockMatrix()">×</button>`;
+
+        const selectedImgIdx = v && v.imageIndex !== undefined && v.imageIndex !== null ? String(v.imageIndex) : "";
+
+        div.innerHTML = `
+          <div class="form-group">
+            <label>Weight</label>
+            <input type="number" class="form-control variant-weight-input" placeholder="e.g. 908" value="${v ? v.weight : ""}" oninput="refreshStockMatrix()" />
+          </div>
+          <div class="form-group">
+            <label>Unit</label>
+            <select class="form-control form-select variant-unit-select" onchange="refreshStockMatrix()">
+              <option ${v && v.unit === "g" ? "selected" : ""}>g</option>
+              <option ${v && v.unit === "kg" ? "selected" : ""}>kg</option>
+              <option ${v && v.unit === "caps" ? "selected" : ""}>caps</option>
+              <option ${v && v.unit === "ml" ? "selected" : ""}>ml</option>
+              <option ${v && v.unit === "L" ? "selected" : ""}>L</option>
+              <option ${v && v.unit === "pcs" ? "selected" : ""}>pcs</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Price (DA)</label>
+            <input type="number" class="form-control variant-price-input" placeholder="0" value="${v ? v.price : ""}" />
+          </div>
+          <div class="form-group">
+            <label>Image</label>
+            <select class="form-control form-select variant-image-select">
+              ${getVariantImageOptions(selectedImgIdx)}
+            </select>
+          </div>
+          <button class="btn-remove-variant" onclick="this.closest('.variant-row').remove();refreshStockMatrix()">×</button>
+        `;
         list.appendChild(div);
         refreshStockMatrix();
       }
+      window.addVariant = addVariant;
 
       function addFlavor(f = null) {
         const list = document.getElementById("flavors-list");
@@ -1508,8 +1556,22 @@
 
           variants = Array.from(document.querySelectorAll("#variants-list .variant-row"))
             .map((r, vi) => {
-              const ins = r.querySelectorAll("input,select");
-              const v = { weight: ins[0].value, unit: ins[1].value, price: parseFloat(ins[2].value) || 0 };
+              const weightInput = r.querySelector(".variant-weight-input");
+              const unitSelect = r.querySelector(".variant-unit-select");
+              const priceInput = r.querySelector(".variant-price-input");
+              const imgSelect = r.querySelector(".variant-image-select");
+
+              const v = {
+                weight: weightInput ? weightInput.value : "",
+                unit: unitSelect ? unitSelect.value : "g",
+                price: priceInput ? parseFloat(priceInput.value) || 0 : 0
+              };
+
+              const imgVal = imgSelect ? imgSelect.value : "";
+              if (imgVal !== "") {
+                v.imageIndex = parseInt(imgVal);
+              }
+
               if (showMatrix) {
                 v.flavorStock = {};
                 document.querySelectorAll(`#stock-matrix-body input[data-vi="${vi}"]`).forEach(inp => {
