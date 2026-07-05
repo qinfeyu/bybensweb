@@ -1075,7 +1075,7 @@
       }
       .flavor-row {
         display: grid;
-        grid-template-columns: 1fr 100px 36px;
+        grid-template-columns: 1fr 100px 140px 36px;
         gap: 10px;
         align-items: end;
       }
@@ -1607,7 +1607,7 @@
         }
         .form-row { grid-template-columns: 1fr; }
         .variant-row { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
-        .flavor-row { grid-template-columns: 1fr 80px 36px; }
+        .flavor-row { grid-template-columns: 1fr 80px 100px 36px; }
         .page { padding: 14px; }
         th, td { padding: 10px 12px; }
         .stats-grid { grid-template-columns: 1fr 1fr; }

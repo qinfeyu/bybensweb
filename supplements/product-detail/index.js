@@ -630,17 +630,37 @@
 
       function syncVariantImage() {
         const p = selectedProduct;
-        if (!p || !p.variants || p.variants.length === 0) return;
-        const v = p.variants[selectedVariantIndex];
-        if (!v) return;
+        if (!p) return;
         const imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
         let targetImgIdx = 0; // Default to first image
-        if (v.imageIndex !== undefined && v.imageIndex !== null && v.imageIndex !== "") {
-          const parsedIdx = parseInt(v.imageIndex);
-          if (!isNaN(parsedIdx) && imgs[parsedIdx]) {
-            targetImgIdx = parsedIdx;
+        let found = false;
+
+        // 1. Try to find if selected flavor has a custom imageIndex
+        if (selectedFlavor && Array.isArray(p.flavors)) {
+          const fObj = p.flavors.find(f => {
+            const name = typeof f === "object" ? f.name : f;
+            return String(name).trim().toLowerCase() === selectedFlavor.trim().toLowerCase();
+          });
+          if (fObj && typeof fObj === "object" && fObj.imageIndex !== undefined && fObj.imageIndex !== null && fObj.imageIndex !== "") {
+            const parsedIdx = parseInt(fObj.imageIndex);
+            if (!isNaN(parsedIdx) && imgs[parsedIdx]) {
+              targetImgIdx = parsedIdx;
+              found = true;
+            }
           }
         }
+
+        // 2. Fallback to variant imageIndex
+        if (!found && Array.isArray(p.variants) && p.variants[selectedVariantIndex]) {
+          const v = p.variants[selectedVariantIndex];
+          if (v && v.imageIndex !== undefined && v.imageIndex !== null && v.imageIndex !== "") {
+            const parsedIdx = parseInt(v.imageIndex);
+            if (!isNaN(parsedIdx) && imgs[parsedIdx]) {
+              targetImgIdx = parsedIdx;
+            }
+          }
+        }
+
         if (imgs[targetImgIdx]) {
           const thumbs = document.querySelectorAll(".gallery-thumb");
           if (thumbs.length > targetImgIdx) {
@@ -753,6 +773,7 @@
         if (notice) notice.style.display = "none";
 
         updateSummary();
+        syncVariantImage();
       }
 
       function changeQty(delta) {

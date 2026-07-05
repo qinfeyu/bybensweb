@@ -1291,6 +1291,10 @@
           const curVal = select.value;
           select.innerHTML = getVariantImageOptions(curVal);
         });
+        document.querySelectorAll(".flavor-image-select").forEach(select => {
+          const curVal = select.value;
+          select.innerHTML = getVariantImageOptions(curVal);
+        });
       }
 
       function addVariant(v = null) {
@@ -1339,10 +1343,30 @@
         const list = document.getElementById("flavors-list");
         const div = document.createElement("div");
         div.className = "flavor-row";
-        div.innerHTML = `<div class="form-group"><label>Flavor Name</label><input type="text" class="form-control flavor-name-input" placeholder="e.g. Chocolate" value="${f ? f.name : ""}" oninput="refreshStockMatrix()" /></div><div class="form-group flavor-qty-cell"><label>Qty (no variants)</label><input type="number" class="form-control flavor-qty-input" placeholder="0" value="${f && f.qty ? f.qty : ""}" min="0" oninput="refreshStockMatrix()" /></div><button class="btn-remove-variant" onclick="this.closest('.flavor-row').remove();refreshStockMatrix()">×</button>`;
+
+        const selectedImgIdx = f && f.imageIndex !== undefined && f.imageIndex !== null ? String(f.imageIndex) : "";
+
+        div.innerHTML = `
+          <div class="form-group">
+            <label>Flavor Name</label>
+            <input type="text" class="form-control flavor-name-input" placeholder="e.g. Chocolate" value="${f ? f.name : ""}" oninput="refreshStockMatrix()" />
+          </div>
+          <div class="form-group flavor-qty-cell">
+            <label>Qty (no variants)</label>
+            <input type="number" class="form-control flavor-qty-input" placeholder="0" value="${f && f.qty ? f.qty : ""}" min="0" oninput="refreshStockMatrix()" />
+          </div>
+          <div class="form-group">
+            <label>Image</label>
+            <select class="form-control form-select flavor-image-select">
+              ${getVariantImageOptions(selectedImgIdx)}
+            </select>
+          </div>
+          <button class="btn-remove-variant" onclick="this.closest('.flavor-row').remove();refreshStockMatrix()">×</button>
+        `;
         list.appendChild(div);
         refreshStockMatrix();
       }
+      window.addFlavor = addFlavor;
 
       /* ── Stock Matrix helpers ── */
       function refreshStockMatrix() {
@@ -1590,7 +1614,13 @@
             .map((r) => {
               const name = r.querySelector(".flavor-name-input")?.value.trim() || "";
               const qty  = parseInt(r.querySelector(".flavor-qty-input")?.value) || 0;
-              return { name, qty };
+              const imgSelect = r.querySelector(".flavor-image-select");
+              const f = { name, qty };
+              const imgVal = imgSelect ? imgSelect.value : "";
+              if (imgVal !== "") {
+                f.imageIndex = parseInt(imgVal);
+              }
+              return f;
             })
             .filter((f) => f.name);
 
