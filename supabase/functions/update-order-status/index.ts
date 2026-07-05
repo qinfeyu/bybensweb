@@ -37,6 +37,19 @@ async function adjustStock(items: any[], direction: number) {
     const { data: rows } = await sb.from("products").select("*").eq("id", item.productId).limit(1);
     if (!rows || rows.length === 0) continue;
     const prod = rows[0];
+
+    // Recursive stock adjustment for bundles
+    if (prod.bundle_items && Array.isArray(prod.bundle_items) && prod.bundle_items.length > 0) {
+      const nestedItems = prod.bundle_items.map((bItem: any) => ({
+        productId: bItem.productId,
+        qty: (Number(bItem.qty) || 1) * qty,
+        variant: bItem.variant || "",
+        flavor: bItem.flavor || "",
+      }));
+      await adjustStock(nestedItems, direction);
+      continue;
+    }
+
     const variants: any[] = prod.variants || [];
     const flavors: any[] = prod.flavors || [];
 

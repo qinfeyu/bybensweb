@@ -22,6 +22,7 @@
       let editingCatId = null;
       let editingSubCatId = null;
       let currentImageUrls = [];
+      let editingBundleItems = [];
       let categories = [],
         subCategories = [],
         products = [],
@@ -96,7 +97,7 @@
       // ROW MAPPERS (snake_case → camelCase)
       // ════════════════════════════════════════════
       function _remapProductRow(r) {
-        return { id: r.id, name: r.name, brand: r.brand, categoryIds: (r.category_ids || "").split(",").filter(Boolean), subCategoryIds: (r.sub_category_ids || "").split(",").filter(Boolean), description: r.description, imageUrl: r.image_url || [], variants: r.variants || [], flavors: r.flavors || [], stock: r.stock, discount: r.discount, allowPromo: r.allow_promo, promoCodeIds: (r.promo_code_ids || "").split(",").filter(Boolean), status: r.status, hidden: r.hidden || false, nutritionalFacts: r.nutritional_facts, benefits: r.benefits, createdAt: r.created_at };
+        return { id: r.id, name: r.name, brand: r.brand, categoryIds: (r.category_ids || "").split(",").filter(Boolean), subCategoryIds: (r.sub_category_ids || "").split(",").filter(Boolean), description: r.description, imageUrl: r.image_url || [], variants: r.variants || [], flavors: r.flavors || [], stock: r.stock, discount: r.discount, allowPromo: r.allow_promo, promoCodeIds: (r.promo_code_ids || "").split(",").filter(Boolean), status: r.status, hidden: r.hidden || false, nutritionalFacts: r.nutritional_facts, benefits: r.benefits, createdAt: r.created_at, bundleItems: r.bundle_items || [] };
       }
       function _remapCategoryRow(r) {
         return { id: r.id, name: r.name, description: r.description, createdAt: r.created_at };
@@ -115,7 +116,7 @@
       }
       // ROW BUILDERS (camelCase → snake_case)
       function _toProductRow(p) {
-        return { name: p.name, brand: p.brand || "", category_ids: (p.categoryIds || []).join(","), sub_category_ids: (p.subCategoryIds || []).join(","), description: p.description || "", image_url: p.imageUrl || [], variants: p.variants || [], flavors: p.flavors || [], stock: p.stock || 0, discount: p.discount || 0, allow_promo: p.allowPromo || false, promo_code_ids: (p.promoCodeIds || []).join(","), status: p.status || "active", hidden: p.hidden || false, nutritional_facts: p.nutritionalFacts || "", benefits: p.benefits || "" };
+        return { name: p.name, brand: p.brand || "", category_ids: (p.categoryIds || []).join(","), sub_category_ids: (p.subCategoryIds || []).join(","), description: p.description || "", image_url: p.imageUrl || [], variants: p.variants || [], flavors: p.flavors || [], stock: p.stock || 0, discount: p.discount || 0, allow_promo: p.allowPromo || false, promo_code_ids: (p.promoCodeIds || []).join(","), status: p.status || "active", hidden: p.hidden || false, nutritional_facts: p.nutritionalFacts || "", benefits: p.benefits || "", bundle_items: p.bundleItems || [] };
       }
       function _toPromoRow(p) {
         return { code: (p.code || "").toUpperCase(), type: p.type, value: p.value || 0, min_order: p.minOrder || 0, max_uses: p.maxUses || null, expiry: p.expiry || "", status: p.status || "active", apply_to_all: p.applyToAll || false };
@@ -862,6 +863,7 @@
       function openProductModal(id = null) {
         editingProductId = id;
         currentImageUrls = [];
+        editingBundleItems = [];
         document.getElementById("pm-title").textContent = id
           ? "Edit Product"
           : "Add Product";
@@ -912,9 +914,18 @@
             );
             document.getElementById("variants-list").innerHTML = "";
             document.getElementById("flavors-list").innerHTML = "";
-            (p.variants || []).forEach((v) => addVariant(v));
-            (p.flavors || []).forEach((f) => addFlavor(f));
-            refreshStockMatrix();
+
+            const isB = p.bundleItems && p.bundleItems.length > 0;
+            document.getElementById("pm-bundle-toggle").checked = isB;
+            editingBundleItems = isB ? [...p.bundleItems] : [];
+            toggleBundleSection();
+            renderBundleItems();
+
+            if (!isB) {
+              (p.variants || []).forEach((v) => addVariant(v));
+              (p.flavors || []).forEach((f) => addFlavor(f));
+              refreshStockMatrix();
+            }
           }
         } else {
           ["pm-name", "pm-brand", "pm-stock", "pm-discount"].forEach(
@@ -931,6 +942,11 @@
           document.getElementById("pm-stock-hint").style.display = "none";
           document.getElementById("pm-status").value = "active";
           document.getElementById("pm-promo-toggle").checked = true;
+          
+          document.getElementById("pm-bundle-toggle").checked = false;
+          editingBundleItems = [];
+          toggleBundleSection();
+
           buildCheckboxGroup(
             "pm-categories",
             categories,
@@ -952,6 +968,164 @@
         }
         togglePromoSection();
         openModal("product-modal");
+      }
+
+      window.toggleBundleSection = function() {
+        const isBundle = document.getElementById("pm-bundle-toggle").checked;
+        const bundleSection = document.getElementById("pm-bundle-section");
+        const variantsList = document.getElementById("variants-list");
+        const flavorsList = document.getElementById("flavors-list");
+        const addVariantBtn = document.querySelector('button[onclick="addVariant()"]');
+        const addFlavorBtn = document.querySelector('button[onclick="addFlavor()"]');
+        const vstockSection = document.getElementById("variant-stock-section");
+        const matrixSection = document.getElementById("stock-matrix-section");
+        const pmStock = document.getElementById("pm-stock");
+
+        if (isBundle) {
+          if (bundleSection) bundleSection.style.display = "";
+          if (variantsList) variantsList.style.display = "none";
+          if (flavorsList) flavorsList.style.display = "none";
+          if (addVariantBtn) addVariantBtn.style.display = "none";
+          if (addFlavorBtn) addFlavorBtn.style.display = "none";
+          if (vstockSection) vstockSection.style.display = "none";
+          if (matrixSection) matrixSection.style.display = "none";
+          if (pmStock) pmStock.disabled = true;
+          populateBundleProductsDropdown();
+          updateBundleCalculations();
+        } else {
+          if (bundleSection) bundleSection.style.display = "none";
+          if (variantsList) variantsList.style.display = "";
+          if (flavorsList) flavorsList.style.display = "";
+          if (addVariantBtn) addVariantBtn.style.display = "";
+          if (addFlavorBtn) addFlavorBtn.style.display = "";
+          if (pmStock) pmStock.disabled = false;
+          refreshStockMatrix();
+        }
+      };
+
+      window.populateBundleProductsDropdown = function() {
+        const select = document.getElementById("bundle-item-select");
+        if (!select) return;
+        const filtered = products.filter(p => !editingProductId || p.id !== editingProductId);
+        select.innerHTML = filtered.map(p => `<option value="${p.id}">${p.brand ? p.brand + ' - ' : ''}${p.name}</option>`).join("");
+        onBundleItemSelectChange();
+      };
+
+      window.onBundleItemSelectChange = function() {
+        const select = document.getElementById("bundle-item-select");
+        const varGroup = document.getElementById("bundle-variant-group");
+        const varSelect = document.getElementById("bundle-variant-select");
+        if (!select || !varGroup || !varSelect) return;
+
+        const productId = select.value;
+        const prod = products.find(p => p.id === productId);
+        if (prod && Array.isArray(prod.variants) && prod.variants.length > 0) {
+          varGroup.style.display = "";
+          varSelect.innerHTML = prod.variants.map(v => {
+            const label = v.weight ? `${v.weight}${v.unit || ""}`.trim() : `Default`;
+            return `<option value="${label}">${label} (${v.price} DA)</option>`;
+          }).join("");
+        } else {
+          varGroup.style.display = "none";
+          varSelect.innerHTML = "";
+        }
+      };
+
+      window.addBundleItem = function() {
+        const select = document.getElementById("bundle-item-select");
+        const qtyInp = document.getElementById("bundle-item-qty");
+        const varGroup = document.getElementById("bundle-variant-group");
+        const varSelect = document.getElementById("bundle-variant-select");
+        if (!select || !qtyInp || !varSelect) return;
+
+        const productId = select.value;
+        if (!productId) return;
+        const qty = parseInt(qtyInp.value) || 1;
+        const variant = varGroup.style.display !== "none" ? varSelect.value : "";
+
+        const selectedProd = products.find(p => p.id === productId);
+        if (!selectedProd) return;
+
+        const existingIndex = editingBundleItems.findIndex(x => x.productId === productId && x.variant === variant);
+        if (existingIndex >= 0) {
+          editingBundleItems[existingIndex].qty += qty;
+        } else {
+          editingBundleItems.push({
+            productId,
+            qty,
+            variant,
+            name: selectedProd.name,
+            brand: selectedProd.brand || ""
+          });
+        }
+
+        renderBundleItems();
+        updateBundleCalculations();
+      };
+
+      window.removeBundleItem = function(index) {
+        editingBundleItems.splice(index, 1);
+        renderBundleItems();
+        updateBundleCalculations();
+      };
+
+      function renderBundleItems() {
+        const list = document.getElementById("bundle-items-list");
+        if (!list) return;
+        if (editingBundleItems.length === 0) {
+          list.innerHTML = `<div style="color:var(--g400);font-size:13px;padding:4px 0">No items in this bundle yet.</div>`;
+          return;
+        }
+        list.innerHTML = editingBundleItems.map((item, index) => {
+          const variantText = item.variant ? ` (${item.variant})` : "";
+          return `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fff; border:1px solid var(--gray-100); border-radius:6px; font-size:13px; margin-bottom:4px;">
+              <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+                <strong>${item.brand ? item.brand + ' - ' : ''}${item.name}</strong>${variantText} <span style="color:var(--black);font-weight:600;">x${item.qty}</span>
+              </div>
+              <button type="button" class="btn-text-danger" onclick="removeBundleItem(${index})" style="background:none; border:none; color:var(--red); cursor:pointer; font-weight:600; padding:2px 8px; font-size:12px;">Remove</button>
+            </div>
+          `;
+        }).join("");
+      }
+
+      function updateBundleCalculations() {
+        let totalBasePrice = 0;
+        let totalStock = Infinity;
+
+        editingBundleItems.forEach(item => {
+          const prod = products.find(p => p.id === item.productId);
+          if (prod) {
+            let price = 0;
+            let stock = 0;
+            const vList = prod.variants || [];
+            if (item.variant && vList.length > 0) {
+              const v = vList.find(x => {
+                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+                return label === String(item.variant).trim().toLowerCase();
+              });
+              price = v ? Number(v.price) || 0 : Number(vList[0].price) || 0;
+              stock = v ? Number(v.stock) || 0 : 0;
+            } else {
+              price = vList.length > 0 ? Number(vList[0].price) || 0 : 0;
+              stock = Number(prod.stock) || 0;
+            }
+            totalBasePrice += price * item.qty;
+            totalStock = Math.min(totalStock, Math.floor(stock / item.qty));
+          }
+        });
+
+        if (totalStock === Infinity) totalStock = 0;
+
+        const stockHint = document.getElementById("pm-stock-hint");
+        if (stockHint) {
+          stockHint.textContent = `Auto-calculated stock: ${totalStock}`;
+          stockHint.style.display = "block";
+        }
+        const pmStock = document.getElementById("pm-stock");
+        if (pmStock) {
+          pmStock.value = totalStock;
+        }
       }
 
       function editProduct(id) {
@@ -1088,48 +1262,106 @@
           showToast("Product name required", "error");
           return;
         }
+
+        const isBundle = document.getElementById("pm-bundle-toggle").checked;
         const categoryIds = getCheckedValues("pm-categories");
         const subCategoryIds = getCheckedValues("pm-subcategories");
+
+        // Enforce bundles category for bundle products
+        const bundlesCat = categories.find(c => c.name.trim().toLowerCase() === "bundles (packs)");
+        if (isBundle) {
+          if (!bundlesCat) {
+            showToast("Please create a category named 'Bundles (Packs)' first before adding a bundle.", "error");
+            return;
+          }
+          if (editingBundleItems.length === 0) {
+            showToast("Please add at least one item to the bundle.", "error");
+            return;
+          }
+          if (!categoryIds.includes(bundlesCat.id)) {
+            categoryIds.push(bundlesCat.id);
+          }
+        }
+
         const promoCodeIds = document.getElementById("pm-promo-toggle").checked
           ? getCheckedValues("pm-promo-codes")
           : [];
-        const showMatrix = document.getElementById("stock-matrix-section").style.display !== "none";
-        const showVStock = document.getElementById("variant-stock-section").style.display !== "none";
 
-        const variants = Array.from(document.querySelectorAll("#variants-list .variant-row"))
-          .map((r, vi) => {
-            const ins = r.querySelectorAll("input,select");
-            const v = { weight: ins[0].value, unit: ins[1].value, price: parseFloat(ins[2].value) || 0 };
-            if (showMatrix) {
-              v.flavorStock = {};
-              document.querySelectorAll(`#stock-matrix-body input[data-vi="${vi}"]`).forEach(inp => {
-                v.flavorStock[inp.dataset.fn] = parseInt(inp.value) || 0;
-              });
-              v.stock = Object.values(v.flavorStock).reduce((s, q) => s + q, 0);
-            } else if (showVStock) {
-              const vstockInp = document.querySelector(`#variant-stock-list .vstock-input[data-vi="${vi}"]`);
-              v.stock = parseInt(vstockInp?.value) || 0;
+        let variants = [];
+        let flavors = [];
+        let globalStock = 0;
+        let bundleItems = [];
+
+        if (isBundle) {
+          // Calculate sum of base prices and min stock
+          let totalBasePrice = 0;
+          let totalStock = Infinity;
+          editingBundleItems.forEach(item => {
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+              let price = 0;
+              let stock = 0;
+              const vList = prod.variants || [];
+              if (item.variant && vList.length > 0) {
+                const v = vList.find(x => {
+                  const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+                  return label === String(item.variant).trim().toLowerCase();
+                });
+                price = v ? Number(v.price) || 0 : Number(vList[0].price) || 0;
+                stock = v ? Number(v.stock) || 0 : 0;
+              } else {
+                price = vList.length > 0 ? Number(vList[0].price) || 0 : 0;
+                stock = Number(prod.stock) || 0;
+              }
+              totalBasePrice += price * item.qty;
+              totalStock = Math.min(totalStock, Math.floor(stock / item.qty));
             }
-            return v;
-          })
-          .filter((v) => v.weight);
-
-        const flavors = Array.from(document.querySelectorAll("#flavors-list .flavor-row"))
-          .map((r) => {
-            const name = r.querySelector(".flavor-name-input")?.value.trim() || "";
-            const qty  = parseInt(r.querySelector(".flavor-qty-input")?.value) || 0;
-            return { name, qty };
-          })
-          .filter((f) => f.name);
-
-        // Compute global stock
-        let globalStock;
-        if (variants.length > 0) {
-          globalStock = variants.reduce((s, v) => s + (v.stock || 0), 0);
-        } else if (flavors.length > 0) {
-          globalStock = flavors.reduce((s, f) => s + f.qty, 0);
+          });
+          if (totalStock === Infinity) totalStock = 0;
+          
+          variants = [{ weight: "1", unit: "Bundle", price: totalBasePrice, stock: totalStock }];
+          flavors = [];
+          globalStock = totalStock;
+          bundleItems = editingBundleItems;
         } else {
-          globalStock = parseInt(document.getElementById("pm-stock").value) || 0;
+          // Standard product logic
+          const showMatrix = document.getElementById("stock-matrix-section").style.display !== "none";
+          const showVStock = document.getElementById("variant-stock-section").style.display !== "none";
+
+          variants = Array.from(document.querySelectorAll("#variants-list .variant-row"))
+            .map((r, vi) => {
+              const ins = r.querySelectorAll("input,select");
+              const v = { weight: ins[0].value, unit: ins[1].value, price: parseFloat(ins[2].value) || 0 };
+              if (showMatrix) {
+                v.flavorStock = {};
+                document.querySelectorAll(`#stock-matrix-body input[data-vi="${vi}"]`).forEach(inp => {
+                  v.flavorStock[inp.dataset.fn] = parseInt(inp.value) || 0;
+                });
+                v.stock = Object.values(v.flavorStock).reduce((s, q) => s + q, 0);
+              } else if (showVStock) {
+                const vstockInp = document.querySelector(`#variant-stock-list .vstock-input[data-vi="${vi}"]`);
+                v.stock = parseInt(vstockInp?.value) || 0;
+              }
+              return v;
+            })
+            .filter((v) => v.weight);
+
+          flavors = Array.from(document.querySelectorAll("#flavors-list .flavor-row"))
+            .map((r) => {
+              const name = r.querySelector(".flavor-name-input")?.value.trim() || "";
+              const qty  = parseInt(r.querySelector(".flavor-qty-input")?.value) || 0;
+              return { name, qty };
+            })
+            .filter((f) => f.name);
+
+          // Compute global stock
+          if (variants.length > 0) {
+            globalStock = variants.reduce((s, v) => s + (v.stock || 0), 0);
+          } else if (flavors.length > 0) {
+            globalStock = flavors.reduce((s, f) => s + f.qty, 0);
+          } else {
+            globalStock = parseInt(document.getElementById("pm-stock").value) || 0;
+          }
         }
 
         const payload = {
@@ -1148,6 +1380,7 @@
           allowPromo: document.getElementById("pm-promo-toggle").checked,
           promoCodeIds,
           status: document.getElementById("pm-status").value,
+          bundleItems,
         };
         document.getElementById("pm-save-btn").disabled = true;
         showLoading("Saving product…");

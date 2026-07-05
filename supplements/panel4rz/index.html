@@ -891,6 +891,47 @@
             <label>Sub-Categories</label>
             <div class="checkbox-group" id="pm-subcategories"></div>
           </div>
+          
+          <!-- BUNDLE TOGGLE -->
+          <div class="form-row full" style="margin-bottom: 16px">
+            <div class="form-group">
+              <label>Product Type</label>
+              <div class="toggle-row" style="margin-top: 4px; display:flex; justify-content:space-between; align-items:center; background:var(--gray-50); padding:10px 14px; border:1px solid var(--gray-100); border-radius:8px; cursor:pointer;" onclick="document.getElementById('pm-bundle-toggle').click();">
+                <div>
+                  <div class="toggle-label" style="font-weight:600; font-size:14px; color:var(--black)">This product is a Bundle</div>
+                  <div class="toggle-desc" style="font-size:12px; color:var(--g400); margin-top:2px;">Combine multiple products into a single package</div>
+                </div>
+                <label class="toggle-switch" onclick="event.stopPropagation()" style="position:relative; display:inline-block; width:36px; height:20px;">
+                  <input type="checkbox" id="pm-bundle-toggle" onchange="toggleBundleSection()" style="opacity:0; width:0; height:0;" />
+                  <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:20px;"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- BUNDLE ITEMS SECTION -->
+          <div id="pm-bundle-section" class="form-group" style="display:none; margin-bottom: 20px; border: 1px solid var(--gray-100); padding: 14px; border-radius: 8px; background: var(--gray-50)">
+            <label style="margin-bottom: 10px; font-weight: 600; font-size:13px; color:var(--gray-700)">Bundle Items</label>
+            <div style="display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap">
+              <div class="form-group" style="flex:2; min-width:180px; margin-bottom:0">
+                <label style="font-size:11px; margin-bottom:4px">Select Product</label>
+                <select id="bundle-item-select" class="form-control" onchange="onBundleItemSelectChange()" style="font-size:13px; height:38px;"></select>
+              </div>
+              <div class="form-group" style="flex:1.2; min-width:120px; margin-bottom:0; display:none" id="bundle-variant-group">
+                <label style="font-size:11px; margin-bottom:4px">Variant</label>
+                <select id="bundle-variant-select" class="form-control" style="font-size:13px; height:38px;"></select>
+              </div>
+              <div class="form-group" style="flex:0.6; min-width:60px; margin-bottom:0">
+                <label style="font-size:11px; margin-bottom:4px">Qty</label>
+                <input type="number" id="bundle-item-qty" class="form-control" value="1" min="1" style="font-size:13px; height:38px; text-align:center" />
+              </div>
+              <div style="display:flex; align-items:flex-end">
+                <button type="button" class="btn-primary" onclick="addBundleItem()" style="height:38px; padding:0 16px; font-size:13px;">Add</button>
+              </div>
+            </div>
+            <div id="bundle-items-list" style="display:flex; flex-direction:column; gap:8px"></div>
+          </div>
+
           <div class="form-row full">
             <div class="form-group">
               <label>Description</label>
