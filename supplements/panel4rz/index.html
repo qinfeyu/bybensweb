@@ -1047,27 +1047,63 @@
             </div>
 
             <!-- Database Backups Card -->
-            <div class="settings-card settings-card-dark" style="grid-column: 1 / -1">
-              <div class="settings-card-title" style="color:#93c5fd">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                </svg>
-                Database Backups
+            <div class="settings-card settings-card-dark backup-card" style="grid-column: 1 / -1; position:relative; overflow:hidden;">
+              <!-- decorative grid overlay -->
+              <div class="backup-grid-bg" aria-hidden="true"></div>
+
+              <!-- header -->
+              <div class="backup-header">
+                <div class="backup-icon-wrap">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="backup-title">Database Backups</div>
+                  <div class="backup-subtitle">Export & restore all system data as a portable JSON snapshot</div>
+                </div>
+                <div class="backup-badge">
+                  <span class="backup-dot"></span> Live Data
+                </div>
               </div>
-              <p class="settings-backup-desc">Export all system data (products, orders, customers, pre-orders, expenses, POS sales) to a local JSON file, or restore from a previous backup.</p>
+
+              <!-- what's included -->
+              <div class="backup-coverage">
+                <span class="backup-chip">📦 Products</span>
+                <span class="backup-chip">🛒 Orders</span>
+                <span class="backup-chip">👤 Customers</span>
+                <span class="backup-chip">📋 Pre-Orders</span>
+                <span class="backup-chip">💰 Expenses</span>
+                <span class="backup-chip">🖥️ POS Sales</span>
+                <span class="backup-chip">🏷️ Categories</span>
+              </div>
+
+              <!-- divider -->
+              <div class="backup-divider"></div>
+
+              <!-- action buttons -->
               <div class="settings-backup-actions">
-                <button class="btn-backup" id="btn-backup-export" onclick="exportDatabaseBackup()">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <button class="btn-backup btn-backup-export" id="btn-backup-export" onclick="exportDatabaseBackup()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Backup Data (JSON)
                 </button>
                 <button class="btn-backup btn-backup-restore" id="btn-backup-import" onclick="document.getElementById('backup-file-input').click()">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   Restore Data (JSON)
                 </button>
                 <input type="file" id="backup-file-input" accept=".json" style="display:none" onchange="restoreDatabaseBackup(event)" />
               </div>
+
+              <!-- progress bar -->
+              <div id="backup-progress-wrap" style="display:none; margin-top:16px;">
+                <div class="backup-progress-track">
+                  <div class="backup-progress-fill" id="backup-progress-bar"></div>
+                </div>
+              </div>
+
+              <!-- status message -->
               <div id="backup-status" class="settings-backup-status" style="display:none"></div>
             </div>
           </div>

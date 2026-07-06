@@ -4220,67 +4220,80 @@
       window.exportDatabaseBackup = async function() {
         const btn = document.getElementById("btn-backup-export");
         const statusEl = document.getElementById("backup-status");
+        const progressBar = document.getElementById("backup-progress-bar");
+        const progressWrap = document.getElementById("backup-progress-wrap");
 
         btn.disabled = true;
-        btn.textContent = "Exporting…";
+        btn.innerHTML = `<span class="backup-spinner"></span> Exporting…`;
+        statusEl.style.display = "none";
+        if (progressWrap) { progressWrap.style.display = "block"; progressBar.style.width = "0%"; }
+
+        const tables = [
+          { key: "categories",     query: sb.from("categories").select("*")      },
+          { key: "products",       query: sb.from("products").select("*")        },
+          { key: "customers",      query: sb.from("customers").select("*")       },
+          { key: "orders",         query: sb.from("orders").select("*")          },
+          { key: "preorders",      query: sb.from("preorders").select("*")       },
+          { key: "preorder_items", query: sb.from("preorder_items").select("*")  },
+          { key: "expenses",       query: sb.from("expenses").select("*")        },
+          { key: "pos_sales",      query: sb.from("pos_sales").select("*")       },
+        ];
 
         try {
-          const [
-            { data: productsData },
-            { data: ordersData },
-            { data: customersData },
-            { data: preordersData },
-            { data: preorderItemsData },
-            { data: expensesData },
-            { data: posData },
-            { data: categoriesData }
-          ] = await Promise.all([
-            supabase.from("products").select("*"),
-            supabase.from("orders").select("*"),
-            supabase.from("customers").select("*"),
-            supabase.from("preorders").select("*"),
-            supabase.from("preorder_items").select("*"),
-            supabase.from("expenses").select("*"),
-            supabase.from("pos_sales").select("*"),
-            supabase.from("categories").select("*")
-          ]);
+          const result = {};
+          for (let i = 0; i < tables.length; i++) {
+            const { key, query } = tables[i];
+            const { data, error } = await query;
+            if (error) throw new Error(`Table '${key}': ${error.message}`);
+            result[key] = data || [];
+            if (progressBar) progressBar.style.width = `${Math.round(((i + 1) / tables.length) * 100)}%`;
+          }
 
           const backup = {
             exported_at: new Date().toISOString(),
             version: "1.0",
-            tables: {
-              products: productsData || [],
-              orders: ordersData || [],
-              customers: customersData || [],
-              preorders: preordersData || [],
-              preorder_items: preorderItemsData || [],
-              expenses: expensesData || [],
-              pos_sales: posData || [],
-              categories: categoriesData || []
-            }
+            tables: result
           };
 
-          const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
+          const json = JSON.stringify(backup, null, 2);
           const dateStr = new Date().toISOString().slice(0, 10);
-          a.href = url;
-          a.download = `bybensweb-backup-${dateStr}.json`;
+          const fileName = `bybensweb-backup-${dateStr}.json`;
+
+          // Use data-URI — works in all browser contexts including sandboxed iframes
+          const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+          const a = document.createElement("a");
+          a.href = dataUri;
+          a.setAttribute("download", fileName);
+          a.style.display = "none";
           document.body.appendChild(a);
           a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          setTimeout(() => document.body.removeChild(a), 200);
 
-          const totalRows = Object.values(backup.tables).reduce((s, t) => s + t.length, 0);
-          statusEl.innerHTML = `<span style="color:#4ade80">✓ Backup downloaded — ${totalRows} rows across ${Object.keys(backup.tables).length} tables.</span>`;
+          const totalRows = Object.values(result).reduce((s, t) => s + t.length, 0);
+          statusEl.innerHTML = `
+            <div class="backup-status-success">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <div>
+                <div style="color:#4ade80;font-weight:700">Backup downloaded successfully</div>
+                <div style="color:#94a3b8;font-size:11px;margin-top:2px">${fileName} · ${totalRows} rows · ${tables.length} tables</div>
+              </div>
+            </div>`;
           statusEl.style.display = "block";
-          showToast("Backup exported successfully!");
+          showToast("✓ Backup exported!");
         } catch (err) {
-          statusEl.innerHTML = `<span style="color:#f87171">✕ Export failed: ${err.message}</span>`;
+          statusEl.innerHTML = `
+            <div class="backup-status-error">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              <div>
+                <div style="color:#f87171;font-weight:700">Export failed</div>
+                <div style="color:#94a3b8;font-size:11px;margin-top:2px">${err.message}</div>
+              </div>
+            </div>`;
           statusEl.style.display = "block";
         } finally {
           btn.disabled = false;
           btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Backup Data (JSON)`;
+          if (progressWrap) progressWrap.style.display = "none";
         }
       };
 
@@ -4290,43 +4303,64 @@
 
         const statusEl = document.getElementById("backup-status");
         const btn = document.getElementById("btn-backup-import");
+        const progressBar = document.getElementById("backup-progress-bar");
+        const progressWrap = document.getElementById("backup-progress-wrap");
 
-        if (!confirm("⚠️ Restoring will UPSERT all data from the backup file into the database. Existing rows with matching IDs will be overwritten. Continue?")) {
+        if (!confirm("⚠️ Restoring will UPSERT all rows from the backup into the database. Existing rows with matching IDs will be overwritten.\n\nContinue?")) {
           event.target.value = "";
           return;
         }
 
         btn.disabled = true;
-        btn.textContent = "Restoring…";
+        btn.innerHTML = `<span class="backup-spinner"></span> Restoring…`;
         statusEl.style.display = "none";
+        if (progressWrap) { progressWrap.style.display = "block"; progressBar.style.width = "0%"; }
 
         try {
           const text = await file.text();
           const backup = JSON.parse(text);
 
-          if (!backup.tables) throw new Error("Invalid backup file format — missing 'tables' key.");
+          if (!backup.tables) throw new Error("Invalid backup file — missing 'tables' key.");
 
           const tableOrder = ["categories", "products", "customers", "orders", "preorders", "preorder_items", "expenses", "pos_sales"];
           let totalUpserted = 0;
 
-          for (const tableName of tableOrder) {
+          for (let i = 0; i < tableOrder.length; i++) {
+            const tableName = tableOrder[i];
             const rows = backup.tables[tableName];
-            if (!rows || rows.length === 0) continue;
-            const { error } = await supabase.from(tableName).upsert(rows, { onConflict: "id" });
-            if (error) throw new Error(`Failed restoring '${tableName}': ${error.message}`);
+            if (!rows || rows.length === 0) { if (progressBar) progressBar.style.width = `${Math.round(((i + 1) / tableOrder.length) * 100)}%`; continue; }
+            const { error } = await sb.from(tableName).upsert(rows, { onConflict: "id" });
+            if (error) throw new Error(`Table '${tableName}': ${error.message}`);
             totalUpserted += rows.length;
+            if (progressBar) progressBar.style.width = `${Math.round(((i + 1) / tableOrder.length) * 100)}%`;
           }
 
-          statusEl.innerHTML = `<span style="color:#4ade80">✓ Restore complete — ${totalUpserted} rows upserted. Refreshing data…</span>`;
+          const backedAt = backup.exported_at ? new Date(backup.exported_at).toLocaleString() : "unknown date";
+          statusEl.innerHTML = `
+            <div class="backup-status-success">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <div>
+                <div style="color:#4ade80;font-weight:700">Restore complete</div>
+                <div style="color:#94a3b8;font-size:11px;margin-top:2px">${totalUpserted} rows upserted · backup from ${backedAt}</div>
+              </div>
+            </div>`;
           statusEl.style.display = "block";
-          showToast("Database restored successfully!");
+          showToast("✓ Database restored!");
           setTimeout(() => refreshBusinessPortalData(), 1500);
         } catch (err) {
-          statusEl.innerHTML = `<span style="color:#f87171">✕ Restore failed: ${err.message}</span>`;
+          statusEl.innerHTML = `
+            <div class="backup-status-error">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              <div>
+                <div style="color:#f87171;font-weight:700">Restore failed</div>
+                <div style="color:#94a3b8;font-size:11px;margin-top:2px">${err.message}</div>
+              </div>
+            </div>`;
           statusEl.style.display = "block";
         } finally {
           btn.disabled = false;
           btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Restore Data (JSON)`;
+          if (progressWrap) progressWrap.style.display = "none";
           event.target.value = "";
         }
       };
