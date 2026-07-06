@@ -54,12 +54,20 @@ CREATE TABLE IF NOT EXISTS public.pre_order_items (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.customers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
 -- Enable RLS (Row Level Security) if needed or grant access
 ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pre_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pre_order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
 -- Simple permissive policies for authenticated users
 CREATE POLICY "Allow authenticated users full access to expenses" ON public.expenses FOR ALL TO authenticated USING (true);
@@ -67,3 +75,4 @@ CREATE POLICY "Allow authenticated users full access to sales" ON public.sales F
 CREATE POLICY "Allow authenticated users full access to sale_items" ON public.sale_items FOR ALL TO authenticated USING (true);
 CREATE POLICY "Allow authenticated users full access to pre_orders" ON public.pre_orders FOR ALL TO authenticated USING (true);
 CREATE POLICY "Allow authenticated users full access to pre_order_items" ON public.pre_order_items FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow authenticated users full access to customers" ON public.customers FOR ALL TO authenticated USING (true);

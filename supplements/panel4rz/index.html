@@ -795,7 +795,12 @@
         <div class="page" id="page-customers">
           <div class="sec-header">
             <div class="sec-title">Customers Ledger</div>
-            <input type="text" id="cust-search" placeholder="Search customer..." oninput="renderCustomersList()" class="form-control" style="width:250px" />
+            <div style="display:flex;gap:10px">
+              <input type="text" id="cust-search" placeholder="Search customer..." oninput="renderCustomersList()" class="form-control" style="width:250px" />
+              <button class="btn-primary" onclick="openCustomerModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>New Customer
+              </button>
+            </div>
           </div>
           <div class="table-wrap">
             <table class="data-table">
@@ -1699,6 +1704,33 @@
           </div>
           <button class="btn-primary" style="width:100%;margin-top:15px;justify-content:center" onclick="savePreorder()">
             Save Pre-Order
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER MODAL -->
+    <div class="modal-overlay" id="customer-modal">
+      <div class="modal" style="max-width: 450px">
+        <div class="modal-header">
+          <div class="modal-title">New Customer Profile</div>
+          <button class="modal-close" onclick="closeModal('customer-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Customer Name *</label>
+            <input type="text" id="cust-modal-name" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label>Phone Number *</label>
+            <input type="text" id="cust-modal-phone" class="form-control" placeholder="e.g. +213xxxxxxxxx" required />
+          </div>
+          <button class="btn-primary" style="width:100%;margin-top:15px;justify-content:center" onclick="saveCustomer()">
+            Save Customer
           </button>
         </div>
       </div>

@@ -2894,15 +2894,17 @@
       let allPreorders = [];
       let allPreorderItems = [];
       let allExpenses = [];
+      let manualCustomers = [];
 
       async function refreshBusinessPortalData() {
         try {
-          const [salesRes, saleItemsRes, preRes, preItemsRes, expRes] = await Promise.all([
+          const [salesRes, saleItemsRes, preRes, preItemsRes, expRes, custRes] = await Promise.all([
             sb.from("sales").select("*").order("date", { ascending: false }),
             sb.from("sale_items").select("*"),
             sb.from("pre_orders").select("*").order("date", { ascending: false }),
             sb.from("pre_order_items").select("*"),
-            sb.from("expenses").select("*").order("date", { ascending: false })
+            sb.from("expenses").select("*").order("date", { ascending: false }),
+            sb.from("customers").select("*").order("name", { ascending: true }).catch(() => ({ data: [] }))
           ]);
 
           allSales = salesRes.data || [];
@@ -2910,6 +2912,7 @@
           allPreorders = preRes.data || [];
           allPreorderItems = preItemsRes.data || [];
           allExpenses = expRes.data || [];
+          manualCustomers = custRes ? custRes.data || [] : [];
 
           // Compute business metrics for dashboard KPIs
           computeBusinessDashboard();
@@ -3113,7 +3116,7 @@
           priceInput.value = 0;
         }
 
-        document.getElementById("pos-flavor-modal").classList.add("show");
+        document.getElementById("pos-flavor-modal").classList.add("open");
       };
 
       window.confirmAddCartItem = function() {
@@ -3429,7 +3432,7 @@
           }
         }
 
-        modal.classList.add("show");
+        modal.classList.add("open");
       };
 
       window.addPreorderItemRow = function(data = null) {
@@ -3666,6 +3669,19 @@
       function buildCustomersLedger() {
         const ledger = {};
 
+        // 0. Seed ledger with manual customers
+        manualCustomers.forEach(c => {
+          if (!c.phone) return;
+          const phone = c.phone.trim();
+          ledger[phone] = {
+            name: c.name.trim(),
+            phone,
+            ordersCount: 0,
+            totalSpent: 0,
+            history: []
+          };
+        });
+
         // 1. Process Online orders
         _dashOrders.forEach(o => {
           if (!o.phone) return;
@@ -3787,7 +3803,45 @@
           </table>
         `;
 
-        document.getElementById("cust-history-modal").classList.add("show");
+        document.getElementById("cust-history-modal").classList.add("open");
+      };
+
+      window.openCustomerModal = function() {
+        document.getElementById("cust-modal-name").value = "";
+        document.getElementById("cust-modal-phone").value = "";
+        openModal("customer-modal");
+      };
+
+      window.saveCustomer = async function() {
+        const name = document.getElementById("cust-modal-name").value.trim();
+        const phone = document.getElementById("cust-modal-phone").value.trim();
+
+        if (!name || !phone) {
+          showToast("Name and phone are required!", "error");
+          return;
+        }
+
+        showLoading("Saving customer...");
+        try {
+          const custId = String(Date.now());
+          const { error } = await sb.from("customers").insert({
+            id: custId,
+            name,
+            phone
+          });
+
+          if (error) {
+            if (error.code === "23505") throw new Error("Phone number already registered!");
+            throw error;
+          }
+
+          closeModal("customer-modal");
+          showToast("Customer saved successfully!");
+          await loadCustomers();
+        } catch (e) {
+          showToast("Failed to save: " + e.message, "error");
+        }
+        hideLoading();
       };
 
       // Trigger automatic business portal data reload when page initializes
