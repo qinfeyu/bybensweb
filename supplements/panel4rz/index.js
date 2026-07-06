@@ -2898,26 +2898,28 @@
 
       async function refreshBusinessPortalData() {
         try {
-          const [salesRes, saleItemsRes, preRes, preItemsRes, expRes, custRes] = await Promise.all([
-            sb.from("sales").select("*").order("date", { ascending: false }),
-            sb.from("sale_items").select("*"),
-            sb.from("pre_orders").select("*").order("date", { ascending: false }),
-            sb.from("pre_order_items").select("*"),
-            sb.from("expenses").select("*").order("date", { ascending: false }),
-            sb.from("customers").select("*").order("name", { ascending: true }).catch(() => ({ data: [] }))
+          const salesP = sb.from("sales").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const saleItemsP = sb.from("sale_items").select("*").then(r => r.data || []).catch(() => []);
+          const preP = sb.from("pre_orders").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const preItemsP = sb.from("pre_order_items").select("*").then(r => r.data || []).catch(() => []);
+          const expP = sb.from("expenses").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const custP = sb.from("customers").select("*").order("name", { ascending: true }).then(r => r.data || []).catch(() => []);
+
+          const [sales, saleItems, pre, preItems, exp, cust] = await Promise.all([
+            salesP, saleItemsP, preP, preItemsP, expP, custP
           ]);
 
-          allSales = salesRes.data || [];
-          allSaleItems = saleItemsRes.data || [];
-          allPreorders = preRes.data || [];
-          allPreorderItems = preItemsRes.data || [];
-          allExpenses = expRes.data || [];
-          manualCustomers = custRes ? custRes.data || [] : [];
+          allSales = sales;
+          allSaleItems = saleItems;
+          allPreorders = pre;
+          allPreorderItems = preItems;
+          allExpenses = exp;
+          manualCustomers = cust;
 
           // Compute business metrics for dashboard KPIs
           computeBusinessDashboard();
         } catch (e) {
-          console.warn("Failed to fetch business portal tables (they may not exist yet):", e);
+          console.warn("Failed to fetch business portal tables:", e);
         }
       }
 
@@ -3402,6 +3404,12 @@
         document.getElementById("preorder-id").value = id;
         preorderItemRows = [];
 
+        // Build list of unique customers for select box
+        const custSelect = document.getElementById("preorder-cust-select");
+        if (custSelect) {
+          custSelect.innerHTML = '<option value="">-- Select Existing Customer --</option>' + uniqueCustomers.map((c, i) => `<option value="${i}">${c.name} (${c.phone})</option>`).join("");
+        }
+
         if (!id) {
           title.textContent = "New Pre-Order";
           nameInp.value = "";
@@ -3580,6 +3588,8 @@
             }
           }
 
+          await checkAndFulfillPreorder(preId, status);
+
           closeModal("preorder-modal");
           showToast("Pre-order saved successfully!");
           await loadPreorders();
@@ -3609,6 +3619,7 @@
         try {
           const { error } = await sb.from("pre_orders").update({ status: nextStatus }).eq("id", id);
           if (error) throw error;
+          await checkAndFulfillPreorder(id, nextStatus);
           showToast(`Status updated to ${nextStatus}!`);
           await loadPreorders();
         } catch (e) {
@@ -3843,6 +3854,115 @@
         }
         hideLoading();
       };
+
+      window.fillPreorderCustomerInfo = function() {
+        const select = document.getElementById("preorder-cust-select");
+        const idx = parseInt(select.value);
+        if (isNaN(idx)) return;
+        const c = uniqueCustomers[idx];
+        if (c) {
+          document.getElementById("preorder-cust-name").value = c.name;
+          document.getElementById("preorder-cust-phone").value = c.phone;
+        }
+      };
+
+      async function checkAndFulfillPreorder(preId, nextStatus) {
+        if (nextStatus !== "fulfilled") return;
+
+        // Check if already fulfilled as a sale to prevent duplicates
+        const alreadyFulfilled = allSales.some(s => s.id === `pre-${preId}`);
+        if (alreadyFulfilled) {
+          console.log("Pre-order already recorded as a sale.");
+          return;
+        }
+
+        // Retrieve preorder details from Supabase if not loaded yet
+        let pre = allPreorders.find(x => x.id === preId);
+        if (!pre) {
+          const { data } = await sb.from("pre_orders").select("*").eq("id", preId).single();
+          pre = data;
+        }
+        if (!pre) return;
+
+        // Retrieve preorder items
+        let items = allPreorderItems.filter(x => x.pre_order_id === preId);
+        if (items.length === 0) {
+          const { data } = await sb.from("pre_order_items").select("*").eq("pre_order_id", preId);
+          items = data || [];
+        }
+        if (items.length === 0) return;
+
+        // 1. Create a sale entry in sales
+        const saleId = `pre-${preId}`;
+        let totalVal = 0;
+        const saleItemsToInsert = [];
+
+        for (const item of items) {
+          const prod = products.find(p => p.id === item.product_id);
+          let price = 0;
+          if (prod && prod.variants) {
+            const variantName = item.variant || "";
+            const v = prod.variants.find(x => {
+              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+              return label === variantName.toLowerCase();
+            });
+            price = v ? (Number(v.price) || 0) : 0;
+          }
+          totalVal += price * item.qty;
+          saleItemsToInsert.push({
+            id: `pre-item-${item.id}`,
+            sale_id: saleId,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            flavor: item.flavor || null,
+            variant: item.variant || null,
+            qty: item.qty,
+            price: price
+          });
+        }
+
+        // Insert sale
+        const { error: saleErr } = await sb.from("sales").insert({
+          id: saleId,
+          date: new Date().toISOString(),
+          total_amount: totalVal,
+          discount: 0,
+          customer_name: pre.customer_name,
+          customer_phone: pre.customer_phone,
+          operator: localStorage.getItem("bb_admin_name") || "Admin"
+        });
+        if (saleErr) throw saleErr;
+
+        // Insert sale items and decrement stock
+        for (const saleItem of saleItemsToInsert) {
+          const { error: itemErr } = await sb.from("sale_items").insert(saleItem);
+          if (itemErr) throw itemErr;
+
+          // Decrement stock in database
+          const prod = products.find(p => p.id === saleItem.product_id);
+          if (prod) {
+            const updatedVariants = JSON.parse(JSON.stringify(prod.variants));
+            const selectedV = updatedVariants.find(x => {
+              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+              return label === (saleItem.variant || "").toLowerCase();
+            });
+            if (selectedV) {
+              if (selectedV.flavorStock && saleItem.flavor && selectedV.flavorStock[saleItem.flavor] !== undefined) {
+                selectedV.flavorStock[saleItem.flavor] = Math.max(0, selectedV.flavorStock[saleItem.flavor] - saleItem.qty);
+                selectedV.stock = Object.values(selectedV.flavorStock).reduce((a, b) => a + b, 0);
+              } else if (selectedV.stock !== undefined) {
+                selectedV.stock = Math.max(0, selectedV.stock - saleItem.qty);
+              }
+            }
+            const totalStock = updatedVariants.reduce((a, b) => a + (Number(b.stock) || 0), 0);
+
+            await sb.from("products").update({
+              variants: updatedVariants,
+              stock: totalStock
+            }).eq("id", saleItem.product_id);
+          }
+        }
+      }
 
       // Trigger automatic business portal data reload when page initializes
       setTimeout(refreshBusinessPortalData, 1000);
