@@ -4229,14 +4229,17 @@
         if (progressWrap) { progressWrap.style.display = "block"; progressBar.style.width = "0%"; }
 
         const tables = [
-          { key: "categories",     query: sb.from("categories").select("*")      },
-          { key: "products",       query: sb.from("products").select("*")        },
-          { key: "customers",      query: sb.from("customers").select("*")       },
-          { key: "orders",         query: sb.from("orders").select("*")          },
-          { key: "preorders",      query: sb.from("preorders").select("*")       },
-          { key: "preorder_items", query: sb.from("preorder_items").select("*")  },
-          { key: "expenses",       query: sb.from("expenses").select("*")        },
-          { key: "pos_sales",      query: sb.from("pos_sales").select("*")       },
+          { key: "categories",       query: sb.from("categories").select("*")        },
+          { key: "sub_categories",   query: sb.from("sub_categories").select("*")    },
+          { key: "products",         query: sb.from("products").select("*")          },
+          { key: "customers",        query: sb.from("customers").select("*")         },
+          { key: "deleted_customers",query: sb.from("deleted_customers").select("*") },
+          { key: "orders",           query: sb.from("orders").select("*")            },
+          { key: "pre_orders",       query: sb.from("pre_orders").select("*")        },
+          { key: "pre_order_items",  query: sb.from("pre_order_items").select("*")   },
+          { key: "sales",            query: sb.from("sales").select("*")             },
+          { key: "sale_items",       query: sb.from("sale_items").select("*")        },
+          { key: "expenses",         query: sb.from("expenses").select("*")          },
         ];
 
         try {
@@ -4322,7 +4325,7 @@
 
           if (!backup.tables) throw new Error("Invalid backup file — missing 'tables' key.");
 
-          const tableOrder = ["categories", "products", "customers", "orders", "preorders", "preorder_items", "expenses", "pos_sales"];
+          const tableOrder = ["categories", "sub_categories", "products", "customers", "deleted_customers", "orders", "pre_orders", "pre_order_items", "sales", "sale_items", "expenses"];
           let totalUpserted = 0;
 
           for (let i = 0; i < tableOrder.length; i++) {
