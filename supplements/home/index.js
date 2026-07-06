@@ -772,8 +772,9 @@ window.addEventListener(
 function scrollCarousel(gridId, direction) {
   const grid = document.getElementById(gridId);
   if (!grid) return;
-  const cardWidth = grid.querySelector(".product-card")?.offsetWidth || 300;
-  grid.scrollBy({ left: direction * cardWidth, behavior: "smooth" });
+  const card = grid.querySelector(".product-card") || grid.querySelector(".category-btn-card");
+  const scrollWidth = card ? card.offsetWidth + 12 : 150;
+  grid.scrollBy({ left: direction * scrollWidth, behavior: "smooth" });
 }
 window.scrollCarousel = scrollCarousel;
 

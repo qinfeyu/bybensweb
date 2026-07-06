@@ -542,8 +542,16 @@
       <section class="visual-categories-section">
         <div class="container">
           <h2 class="section-title text-center" style="text-align:center; margin-bottom: 32px; font-weight: 700; letter-spacing: 0.5px;">SHOP BY CATEGORY</h2>
-          <div class="categories-circle-grid" id="visualCategoriesGrid">
-            <!-- Filled by JS -->
+          <div class="carousel-wrapper">
+            <button class="carousel-arrow prev-arrow" onclick="scrollCarousel('visualCategoriesGrid', -1)" aria-label="Previous category">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <div class="categories-circle-grid" id="visualCategoriesGrid">
+              <!-- Filled by JS -->
+            </div>
+            <button class="carousel-arrow next-arrow" onclick="scrollCarousel('visualCategoriesGrid', 1)" aria-label="Next category">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
           </div>
         </div>
       </section>
