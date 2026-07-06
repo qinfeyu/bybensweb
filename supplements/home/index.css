@@ -2039,87 +2039,47 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
 }
 .categories-circle-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
   justify-content: center;
-  align-items: center;
 }
-.category-circle-card {
+.category-btn-card {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--red);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-radius: 8px;
+  transition: all var(--transition);
   text-decoration: none;
-  color: var(--black);
-  transition: all var(--transition);
-  text-align: center;
-}
-.category-circle-img {
-  width: 110px;
-  height: 110px;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 2px solid var(--gray-100);
-  background: var(--white);
   box-shadow: var(--shadow-sm);
-  transition: all var(--transition);
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
-.category-circle-img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.category-btn-card:hover {
+  background: var(--red-hover);
+  box-shadow: var(--shadow-red);
+  transform: translateY(-2px);
+}
+.category-btn-card svg {
   transition: transform var(--transition);
 }
-.category-circle-name {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  text-transform: uppercase;
-  color: var(--gray-800);
-  transition: color var(--transition);
-}
-
-/* Hover effects */
-.category-circle-card:hover .category-circle-img {
-  border-color: var(--red);
-  box-shadow: 0 4px 12px rgba(173, 0, 0, 0.15);
-  transform: translateY(-4px);
-}
-.category-circle-card:hover .category-circle-img img {
-  transform: scale(1.1);
-}
-.category-circle-card:hover .category-circle-name {
-  color: var(--red);
+.category-btn-card:hover svg {
+  transform: translateX(4px);
 }
 
 /* Mobile responsive fixes */
 @media (max-width: 768px) {
   .categories-circle-grid {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    gap: 16px;
-    padding: 4px 16px 16px;
-    justify-content: flex-start;
-    -webkit-overflow-scrolling: touch;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 0 16px;
   }
-  .categories-circle-grid::-webkit-scrollbar {
-    display: none;
-  }
-  .category-circle-card {
-    flex-shrink: 0;
-    scroll-snap-align: start;
-    width: 90px;
-  }
-  .category-circle-img {
-    width: 80px;
-    height: 80px;
-    border-radius: 12px;
-  }
-  .category-circle-name {
-    font-size: 11px;
+  .category-btn-card {
+    padding: 14px 20px;
   }
 }

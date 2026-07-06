@@ -769,16 +769,6 @@ window.addEventListener(
 /* ─────────────────────────────────────────────────────────────
    PRODUCTS — loaded from Supabase
 ───────────────────────────────────────────────────────────── */
-function getCategoryVisualImage(name) {
-  const n = String(name).toLowerCase();
-  if (n.includes("protein")) return "/images/categories/protein.jpg";
-  if (n.includes("creatine") || n.includes("amino")) return "/images/categories/amino.jpg";
-  if (n.includes("pre") || n.includes("workout") || n.includes("booster")) return "/images/categories/preworkout.jpg";
-  if (n.includes("snack") || n.includes("healthy") || n.includes("nut")) return "/images/categories/snacks.jpg";
-  if (n.includes("bundle") || n.includes("pack")) return "/images/categories/bundles.jpg";
-  return "/images/categories/protein.jpg"; // default fallback
-}
-
 async function loadInitialData() {
   try {
     const res = await getInitialData();
@@ -820,17 +810,16 @@ async function loadInitialData() {
     const categories = res.categories || [];
     const subCategories = res.subCategories || [];
 
-    // ── Visual Category Circle Cards ──
+    // ── Visual Category Button Cards ──
     const visualCategoriesGrid = document.getElementById("visualCategoriesGrid");
     if (visualCategoriesGrid) {
       visualCategoriesGrid.innerHTML = categories.map(cat => {
-        const img = getCategoryVisualImage(cat.name);
         return `
-          <a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="category-circle-card">
-            <div class="category-circle-img">
-              <img src="${img}" alt="${cat.name}" loading="lazy" />
-            </div>
-            <span class="category-circle-name">${cat.name}</span>
+          <a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="category-btn-card">
+            <span>${cat.name}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="m9 18 6-6-6-6" />
+            </svg>
           </a>
         `;
       }).join("");
