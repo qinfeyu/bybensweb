@@ -3389,8 +3389,11 @@
       let preorderItemRows = [];
 
       window.loadPreorders = async function() {
+        showLoading("Refreshing pre-orders...");
         await refreshBusinessPortalData();
         renderPreordersList();
+        hideLoading();
+        showToast("Pre-orders list refreshed!");
       };
 
       window.openPreorderModal = function(id = "") {
@@ -3688,6 +3691,7 @@
           ledger[phone] = {
             name: c.name.trim(),
             phone,
+            group: c.group_type || 'public',
             ordersCount: 0,
             totalSpent: 0,
             history: []
@@ -3704,6 +3708,7 @@
             ledger[phone] = {
               name,
               phone,
+              group: 'public',
               ordersCount: 0,
               totalSpent: 0,
               history: []
@@ -3730,6 +3735,7 @@
             ledger[phone] = {
               name,
               phone,
+              group: 'public',
               ordersCount: 0,
               totalSpent: 0,
               history: []
@@ -3761,7 +3767,7 @@
         }
 
         if (filtered.length === 0) {
-          body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--g400);padding:24px">No customer ledger records found</td></tr>`;
+          body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--g400);padding:24px">No customer ledger records found</td></tr>`;
           return;
         }
 
@@ -3769,10 +3775,12 @@
           <tr>
             <td><strong>${c.name}</strong></td>
             <td>${c.phone}</td>
+            <td><span class="badge badge-${c.group === 'private' ? 'waiting' : 'active'}">${cap(c.group)}</span></td>
             <td>${c.ordersCount}</td>
             <td style="font-weight:700;color:var(--green)">${c.totalSpent.toLocaleString()} DA</td>
             <td>
               <button class="act-btn act-view" onclick="viewCustomerHistory('${i}')">View Purchase Logs</button>
+              <button class="act-btn act-delete" style="margin-left:5px" onclick="deleteCustomerProfile('${c.phone}')">Delete</button>
             </td>
           </tr>
         `).join("");
@@ -3827,6 +3835,7 @@
       window.saveCustomer = async function() {
         const name = document.getElementById("cust-modal-name").value.trim();
         const phone = document.getElementById("cust-modal-phone").value.trim();
+        const group = document.getElementById("cust-modal-group").value;
 
         if (!name || !phone) {
           showToast("Name and phone are required!", "error");
@@ -3839,7 +3848,8 @@
           const { error } = await sb.from("customers").insert({
             id: custId,
             name,
-            phone
+            phone,
+            group_type: group
           });
 
           if (error) {
@@ -3964,6 +3974,26 @@
           }
         }
       }
+
+      window.deleteCustomerProfile = async function(phone) {
+        const manualCust = manualCustomers.find(c => c.phone.trim() === phone.trim());
+        if (!manualCust) {
+          showToast("Cannot delete: This customer profile is generated automatically from orders or sales history.", "error");
+          return;
+        }
+        if (!confirm(`Are you sure you want to delete customer "${manualCust.name}"?`)) return;
+
+        showLoading("Deleting customer...");
+        try {
+          const { error } = await sb.from("customers").delete().eq("id", manualCust.id);
+          if (error) throw error;
+          showToast("Customer profile deleted successfully!");
+          await loadCustomers();
+        } catch (e) {
+          showToast("Failed to delete: " + e.message, "error");
+        }
+        hideLoading();
+      };
 
       // Trigger automatic business portal data reload when page initializes
       setTimeout(refreshBusinessPortalData, 1000);

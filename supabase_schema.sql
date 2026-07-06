@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     phone TEXT NOT NULL UNIQUE,
+    group_type TEXT DEFAULT 'public',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
