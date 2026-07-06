@@ -817,9 +817,6 @@ async function loadInitialData() {
         return `
           <a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="category-btn-card">
             <span>${cat.name}</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="m9 18 6-6-6-6" />
-            </svg>
           </a>
         `;
       }).join("");
