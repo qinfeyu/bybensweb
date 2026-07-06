@@ -2895,6 +2895,7 @@
       let allPreorderItems = [];
       let allExpenses = [];
       let manualCustomers = [];
+      let deletedCustomerPhones = [];
 
       async function refreshBusinessPortalData() {
         try {
@@ -2904,9 +2905,10 @@
           const preItemsP = sb.from("pre_order_items").select("*").then(r => r.data || []).catch(() => []);
           const expP = sb.from("expenses").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
           const custP = sb.from("customers").select("*").order("name", { ascending: true }).then(r => r.data || []).catch(() => []);
+          const delCustP = sb.from("deleted_customers").select("*").then(r => r.data || []).catch(() => []);
 
-          const [sales, saleItems, pre, preItems, exp, cust] = await Promise.all([
-            salesP, saleItemsP, preP, preItemsP, expP, custP
+          const [sales, saleItems, pre, preItems, exp, cust, delCust] = await Promise.all([
+            salesP, saleItemsP, preP, preItemsP, expP, custP, delCustP
           ]);
 
           allSales = sales;
@@ -2915,6 +2917,7 @@
           allPreorderItems = preItems;
           allExpenses = exp;
           manualCustomers = cust;
+          deletedCustomerPhones = delCust.map(x => String(x.phone || "").trim());
 
           // Compute business metrics for dashboard KPIs
           buildCustomersLedger();
@@ -3030,6 +3033,11 @@
         const catSelect = document.getElementById("pos-cat-filter");
         if (catSelect) {
           catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+        }
+        // Populate POS customers select dropdown
+        const posCustSelect = document.getElementById("pos-cust-select");
+        if (posCustSelect) {
+          posCustSelect.innerHTML = '<option value="">-- Select Existing Customer --</option>' + uniqueCustomers.map((c, i) => `<option value="${i}">${c.name} (${c.phone})</option>`).join("");
         }
         renderPOSProductsList();
         renderPOSCart();
@@ -3688,6 +3696,7 @@
         manualCustomers.forEach(c => {
           if (!c.phone) return;
           const phone = c.phone.trim();
+          if (deletedCustomerPhones.includes(phone)) return;
           ledger[phone] = {
             name: c.name.trim(),
             phone,
@@ -3702,6 +3711,7 @@
         _dashOrders.forEach(o => {
           if (!o.phone) return;
           const phone = o.phone.trim();
+          if (deletedCustomerPhones.includes(phone)) return;
           const name = `${o.firstName} ${o.lastName}`.trim() || "Customer";
 
           if (!ledger[phone]) {
@@ -3729,6 +3739,7 @@
         allSales.forEach(s => {
           if (!s.customer_phone) return;
           const phone = s.customer_phone.trim();
+          if (deletedCustomerPhones.includes(phone)) return;
           const name = s.customer_name ? s.customer_name.trim() : "Walk-in Customer";
 
           if (!ledger[phone]) {
@@ -3755,12 +3766,24 @@
         uniqueCustomers = Object.values(ledger);
       }
 
+      let activeCustomerTab = 'public';
+
+      window.toggleCustomerTab = function(group) {
+        activeCustomerTab = group;
+        document.querySelectorAll("#page-customers .tab-bar .tab-btn").forEach(btn => btn.classList.remove("active"));
+        if (group === 'public') document.getElementById("cust-tab-public").classList.add("active");
+        if (group === 'private') document.getElementById("cust-tab-private").classList.add("active");
+        renderCustomersList();
+      };
+
       window.renderCustomersList = function() {
         const body = document.getElementById("customers-table-body");
         if (!body) return;
 
         const q = (document.getElementById("cust-search")?.value || "").toLowerCase().trim();
-        let filtered = uniqueCustomers;
+        
+        // Filter by tab group
+        let filtered = uniqueCustomers.filter(c => c.group === activeCustomerTab);
 
         if (q) {
           filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q));
@@ -3771,19 +3794,23 @@
           return;
         }
 
-        body.innerHTML = filtered.map((c, i) => `
-          <tr>
-            <td><strong>${c.name}</strong></td>
-            <td>${c.phone}</td>
-            <td><span class="badge badge-${c.group === 'private' ? 'waiting' : 'active'}">${cap(c.group)}</span></td>
-            <td>${c.ordersCount}</td>
-            <td style="font-weight:700;color:var(--green)">${c.totalSpent.toLocaleString()} DA</td>
-            <td>
-              <button class="act-btn act-view" onclick="viewCustomerHistory('${i}')">View Purchase Logs</button>
-              <button class="act-btn act-delete" style="margin-left:5px" onclick="deleteCustomerProfile('${c.phone}')">Delete</button>
-            </td>
-          </tr>
-        `).join("");
+        // Search original index to support viewCustomerHistory logs correctly
+        body.innerHTML = filtered.map(c => {
+          const originalIndex = uniqueCustomers.indexOf(c);
+          return `
+            <tr>
+              <td><strong>${c.name}</strong></td>
+              <td>${c.phone}</td>
+              <td><span class="badge badge-${c.group === 'private' ? 'waiting' : 'active'}">${cap(c.group)}</span></td>
+              <td>${c.ordersCount}</td>
+              <td style="font-weight:700;color:var(--green)">${c.totalSpent.toLocaleString()} DA</td>
+              <td>
+                <button class="act-btn act-view" onclick="viewCustomerHistory('${originalIndex}')">View Purchase Logs</button>
+                <button class="act-btn act-delete" style="margin-left:5px" onclick="deleteCustomerProfile('${c.phone}')">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
       };
 
       window.viewCustomerHistory = function(index) {
@@ -3976,23 +4003,54 @@
       }
 
       window.deleteCustomerProfile = async function(phone) {
-        const manualCust = manualCustomers.find(c => c.phone.trim() === phone.trim());
-        if (!manualCust) {
-          showToast("Cannot delete: This customer profile is generated automatically from orders or sales history.", "error");
-          return;
-        }
-        if (!confirm(`Are you sure you want to delete customer "${manualCust.name}"?`)) return;
+        if (!confirm(`Are you sure you want to delete customer with phone "${phone}"?`)) return;
 
         showLoading("Deleting customer...");
         try {
-          const { error } = await sb.from("customers").delete().eq("id", manualCust.id);
-          if (error) throw error;
-          showToast("Customer profile deleted successfully!");
+          // 1. If it's a manually created customer, delete it from customers table
+          const manualCust = manualCustomers.find(c => c.phone.trim() === phone.trim());
+          if (manualCust) {
+            await sb.from("customers").delete().eq("id", manualCust.id);
+          }
+
+          // 2. Add it to deleted_customers table so it gets filtered out of order/POS imports
+          const delId = String(Date.now());
+          const { error: delErr } = await sb.from("deleted_customers").insert({
+            id: delId,
+            phone: phone.trim()
+          });
+          if (delErr) throw delErr;
+
+          showToast("Customer deleted successfully!");
           await loadCustomers();
         } catch (e) {
           showToast("Failed to delete: " + e.message, "error");
         }
         hideLoading();
+      };
+
+      window.fillPOSCustomerInfo = function() {
+        const select = document.getElementById("pos-cust-select");
+        const idx = parseInt(select.value);
+        if (isNaN(idx)) return;
+        const c = uniqueCustomers[idx];
+        if (c) {
+          document.getElementById("pos-cust-name").value = c.name;
+          document.getElementById("pos-cust-phone").value = c.phone;
+        }
+      };
+
+      window.toggleDashboardTab = function(tab) {
+        document.querySelectorAll("#page-dashboard .tab-bar .tab-btn").forEach(btn => btn.classList.remove("active"));
+        if (tab === 'orders') {
+          document.getElementById("dash-tab-orders").classList.add("active");
+          document.getElementById("dash-sec-orders").style.display = "block";
+          document.getElementById("dash-sec-stock").style.display = "none";
+        } else {
+          document.getElementById("dash-tab-stock").classList.add("active");
+          document.getElementById("dash-sec-orders").style.display = "none";
+          document.getElementById("dash-sec-stock").style.display = "block";
+        }
       };
 
       // Trigger automatic business portal data reload when page initializes

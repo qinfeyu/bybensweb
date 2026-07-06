@@ -241,115 +241,153 @@
 
         <!-- DASHBOARD -->
         <div class="page active" id="page-dashboard">
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-icon orange">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                </svg>
+          <!-- DASHBOARD TABS -->
+          <div class="tab-bar" style="margin-bottom:15px;display:flex;gap:10px;border-bottom:1px solid var(--g200);padding-bottom:10px">
+            <button class="tab-btn active" id="dash-tab-orders" onclick="toggleDashboardTab('orders')">Orders Overview</button>
+            <button class="tab-btn" id="dash-tab-stock" onclick="toggleDashboardTab('stock')">Stock & Financials</button>
+          </div>
+
+          <!-- ORDERS SUBSECTION -->
+          <div id="dash-sec-orders">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-products">0</div>
+                  <div class="stat-label">Products</div>
+                </div>
               </div>
-              <div>
-                <div class="stat-num" id="stat-products">0</div>
-                <div class="stat-label">Products</div>
+              <div class="stat-card">
+                <div class="stat-icon red">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                    <rect x="9" y="3" width="6" height="4" rx="1"/>
+                    <path d="M9 12h6M9 16h4"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-orders">0</div>
+                  <div class="stat-label">Total Orders</div>
+                </div>
               </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon red">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                  <rect x="9" y="3" width="6" height="4" rx="1"/>
-                  <path d="M9 12h6M9 16h4"/>
-                </svg>
+              <div class="stat-card">
+                <div class="stat-icon blue">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-week-orders">0</div>
+                  <div class="stat-label">Orders This Week</div>
+                  <div class="stat-trend neutral" id="stat-week-trend"></div>
+                </div>
               </div>
-              <div>
-                <div class="stat-num" id="stat-orders">0</div>
-                <div class="stat-label">Total Orders</div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon blue">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </div>
-              <div>
-                <div class="stat-num" id="stat-week-orders">0</div>
-                <div class="stat-label">Orders This Week</div>
-                <div class="stat-trend neutral" id="stat-week-trend"></div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon green">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-              </div>
-              <div>
-                <div class="stat-num" id="stat-revenue-week">0</div>
-                <div class="stat-label">Revenue This Week (DA)</div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon purple">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-                </svg>
-              </div>
-              <div>
-                <div class="stat-num" id="stat-revenue-total">0</div>
-                <div class="stat-label">Total Revenue (DA)</div>
+              <div class="stat-card">
+                <div class="stat-icon orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-pending">0</div>
+                  <div class="stat-label">Pending Orders</div>
+                </div>
               </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-icon orange">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
+
+            <div class="dash-panels">
+              <!-- Top Products -->
+              <div class="dash-panel">
+                <div class="dash-panel-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  <div class="dash-panel-title">Top Products Sold</div>
+                  <span class="dash-panel-subtitle" id="top-products-period">All time</span>
+                </div>
+                <div class="dash-panel-body" id="top-products-list">
+                  <div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">No order data yet</div>
+                </div>
               </div>
-              <div>
-                <div class="stat-num" id="stat-pending">0</div>
-                <div class="stat-label">Pending Orders</div>
+
+              <!-- Recent Orders -->
+              <div class="dash-panel">
+                <div class="dash-panel-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <div class="dash-panel-title">Recent Orders</div>
+                  <button class="act-btn act-view" style="font-size:11px;padding:3px 10px" onclick="showPage('orders', document.querySelector('.sb-link[onclick*=orders]'))">View All</button>
+                </div>
+                <div class="dash-panel-body" id="recent-orders-list">
+                  <div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">No orders yet</div>
+                </div>
+              </div>
+
+              <!-- Orders Status Overview -->
+              <div class="dash-panel" style="grid-column: 1 / -1">
+                <div class="dash-panel-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+                  <div class="dash-panel-title">Orders Status Overview</div>
+                </div>
+                <div class="status-ov-bar-track" style="margin:12px 20px 6px">
+                  <div class="status-ov-bar-segments" id="status-ov-bar">
+                    <div class="ov-seg ov-seg-waiting" style="width:100%"></div>
+                  </div>
+                </div>
+                <div class="status-overview" id="status-ov-legend"></div>
               </div>
             </div>
           </div>
 
-          <div class="dash-panels">
-            <!-- Top Products -->
-            <div class="dash-panel">
-              <div class="dash-panel-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                <div class="dash-panel-title">Top Products Sold</div>
-                <span class="dash-panel-subtitle" id="top-products-period">All time</span>
-              </div>
-              <div class="dash-panel-body" id="top-products-list">
-                <div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">No order data yet</div>
-              </div>
-            </div>
-
-            <!-- Recent Orders -->
-            <div class="dash-panel">
-              <div class="dash-panel-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <div class="dash-panel-title">Recent Orders</div>
-                <button class="act-btn act-view" style="font-size:11px;padding:3px 10px" onclick="showPage('orders', document.querySelector('.sb-link[onclick*=orders]'))">View All</button>
-              </div>
-              <div class="dash-panel-body" id="recent-orders-list">
-                <div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">No orders yet</div>
-              </div>
-            </div>
-
-            <!-- Orders Status Overview -->
-            <div class="dash-panel" style="grid-column: 1 / -1">
-              <div class="dash-panel-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
-                <div class="dash-panel-title">Orders Status Overview</div>
-              </div>
-              <div class="status-ov-bar-track" style="margin:12px 20px 6px">
-                <div class="status-ov-bar-segments" id="status-ov-bar">
-                  <div class="ov-seg ov-seg-waiting" style="width:100%"></div>
+          <!-- STOCK & FINANCIALS SUBSECTION -->
+          <div id="dash-sec-stock" style="display:none">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon green">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-revenue-total">0 DA</div>
+                  <div class="stat-label">Total Revenue</div>
                 </div>
               </div>
-              <div class="status-overview" id="status-ov-legend"></div>
+              <div class="stat-card">
+                <div class="stat-icon green">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-revenue-week">0 DA</div>
+                  <div class="stat-label">Revenue This Week</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon purple">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-total-expenses">0 DA</div>
+                  <div class="stat-label">Operating Expenses</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon green">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-net-profit">0 DA</div>
+                  <div class="stat-label">Net Profit Margin</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -666,6 +704,12 @@
               </div>
               <div class="pos-customer-details">
                 <div class="form-group">
+                  <label>Select Existing Customer (Optional)</label>
+                  <select id="pos-cust-select" class="form-control" onchange="fillPOSCustomerInfo()">
+                    <option value="">-- Select Existing Customer --</option>
+                  </select>
+                </div>
+                <div class="form-group">
                   <label>Customer Name</label>
                   <input type="text" id="pos-cust-name" class="form-control" placeholder="Optional" />
                 </div>
@@ -806,6 +850,11 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>New Customer
               </button>
             </div>
+          </div>
+          <!-- CUSTOMER LEDGER TABS -->
+          <div class="tab-bar" style="margin-bottom:15px;display:flex;gap:10px;border-bottom:1px solid var(--g200);padding-bottom:10px">
+            <button class="tab-btn active" id="cust-tab-public" onclick="toggleCustomerTab('public')">Public Group</button>
+            <button class="tab-btn" id="cust-tab-private" onclick="toggleCustomerTab('private')">Private Group</button>
           </div>
           <div class="table-wrap">
             <table class="data-table">
