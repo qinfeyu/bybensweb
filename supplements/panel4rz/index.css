@@ -2344,3 +2344,89 @@
       }
       .act-btn:active { transform: translateY(0); }
 
+      /* ─── SETTINGS: DATABASE BACKUP CARD ────────────── */
+      .settings-card-dark {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        color: #e2e8f0;
+        box-shadow:
+          0 4px 24px rgba(0,0,0,0.3),
+          inset 0 1px 0 rgba(255,255,255,0.05);
+      }
+
+      .settings-card-dark .settings-card-title {
+        color: #93c5fd;
+        border-bottom-color: rgba(148, 163, 184, 0.12);
+      }
+
+      .settings-backup-desc {
+        font-size: 13px;
+        color: #94a3b8;
+        line-height: 1.6;
+        margin: 0 0 20px;
+      }
+
+      .settings-backup-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .btn-backup {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: var(--font-b);
+        cursor: pointer;
+        transition:
+          background 0.2s cubic-bezier(0.4,0,0.2,1),
+          transform 0.12s,
+          box-shadow 0.2s;
+        border: 1.5px solid rgba(148, 163, 184, 0.2);
+        background: rgba(255,255,255,0.06);
+        color: #e2e8f0;
+        letter-spacing: 0.01em;
+      }
+
+      .btn-backup:hover {
+        background: rgba(255,255,255,0.12);
+        border-color: rgba(148, 163, 184, 0.35);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      }
+
+      .btn-backup:active {
+        transform: translateY(0);
+      }
+
+      .btn-backup:disabled {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      .btn-backup-restore {
+        border-color: rgba(96, 165, 250, 0.3);
+        background: rgba(96, 165, 250, 0.08);
+        color: #93c5fd;
+      }
+
+      .btn-backup-restore:hover {
+        background: rgba(96, 165, 250, 0.16);
+        border-color: rgba(96, 165, 250, 0.5);
+      }
+
+      .settings-backup-status {
+        margin-top: 14px;
+        padding: 10px 14px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        font-family: var(--font-b);
+      }
+

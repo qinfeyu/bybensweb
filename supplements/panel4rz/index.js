@@ -4216,3 +4216,118 @@
       // Trigger automatic business portal data reload when page initializes
       setTimeout(refreshBusinessPortalData, 1000);
 
+      /* ─── DATABASE BACKUP & RESTORE ─────────────────── */
+      window.exportDatabaseBackup = async function() {
+        const btn = document.getElementById("btn-backup-export");
+        const statusEl = document.getElementById("backup-status");
+
+        btn.disabled = true;
+        btn.textContent = "Exporting…";
+
+        try {
+          const [
+            { data: productsData },
+            { data: ordersData },
+            { data: customersData },
+            { data: preordersData },
+            { data: preorderItemsData },
+            { data: expensesData },
+            { data: posData },
+            { data: categoriesData }
+          ] = await Promise.all([
+            supabase.from("products").select("*"),
+            supabase.from("orders").select("*"),
+            supabase.from("customers").select("*"),
+            supabase.from("preorders").select("*"),
+            supabase.from("preorder_items").select("*"),
+            supabase.from("expenses").select("*"),
+            supabase.from("pos_sales").select("*"),
+            supabase.from("categories").select("*")
+          ]);
+
+          const backup = {
+            exported_at: new Date().toISOString(),
+            version: "1.0",
+            tables: {
+              products: productsData || [],
+              orders: ordersData || [],
+              customers: customersData || [],
+              preorders: preordersData || [],
+              preorder_items: preorderItemsData || [],
+              expenses: expensesData || [],
+              pos_sales: posData || [],
+              categories: categoriesData || []
+            }
+          };
+
+          const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          const dateStr = new Date().toISOString().slice(0, 10);
+          a.href = url;
+          a.download = `bybensweb-backup-${dateStr}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          const totalRows = Object.values(backup.tables).reduce((s, t) => s + t.length, 0);
+          statusEl.innerHTML = `<span style="color:#4ade80">✓ Backup downloaded — ${totalRows} rows across ${Object.keys(backup.tables).length} tables.</span>`;
+          statusEl.style.display = "block";
+          showToast("Backup exported successfully!");
+        } catch (err) {
+          statusEl.innerHTML = `<span style="color:#f87171">✕ Export failed: ${err.message}</span>`;
+          statusEl.style.display = "block";
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Backup Data (JSON)`;
+        }
+      };
+
+      window.restoreDatabaseBackup = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const statusEl = document.getElementById("backup-status");
+        const btn = document.getElementById("btn-backup-import");
+
+        if (!confirm("⚠️ Restoring will UPSERT all data from the backup file into the database. Existing rows with matching IDs will be overwritten. Continue?")) {
+          event.target.value = "";
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Restoring…";
+        statusEl.style.display = "none";
+
+        try {
+          const text = await file.text();
+          const backup = JSON.parse(text);
+
+          if (!backup.tables) throw new Error("Invalid backup file format — missing 'tables' key.");
+
+          const tableOrder = ["categories", "products", "customers", "orders", "preorders", "preorder_items", "expenses", "pos_sales"];
+          let totalUpserted = 0;
+
+          for (const tableName of tableOrder) {
+            const rows = backup.tables[tableName];
+            if (!rows || rows.length === 0) continue;
+            const { error } = await supabase.from(tableName).upsert(rows, { onConflict: "id" });
+            if (error) throw new Error(`Failed restoring '${tableName}': ${error.message}`);
+            totalUpserted += rows.length;
+          }
+
+          statusEl.innerHTML = `<span style="color:#4ade80">✓ Restore complete — ${totalUpserted} rows upserted. Refreshing data…</span>`;
+          statusEl.style.display = "block";
+          showToast("Database restored successfully!");
+          setTimeout(() => refreshBusinessPortalData(), 1500);
+        } catch (err) {
+          statusEl.innerHTML = `<span style="color:#f87171">✕ Restore failed: ${err.message}</span>`;
+          statusEl.style.display = "block";
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Restore Data (JSON)`;
+          event.target.value = "";
+        }
+      };
+
