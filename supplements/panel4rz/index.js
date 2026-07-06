@@ -3037,11 +3037,19 @@
         renderLowStockAlerts();
       }
 
+      let lowStockViewAll = false;
+
+      window.toggleLowStockViewAll = function() {
+        lowStockViewAll = !lowStockViewAll;
+        renderLowStockAlerts();
+      };
+
       function renderLowStockAlerts() {
         const listEl = document.getElementById("low-stock-alerts-list");
+        const btn = document.getElementById("low-stock-view-all-btn");
         if (!listEl) return;
 
-        const lowStockThreshold = 5;
+        const lowStockThreshold = 2;
         const alerts = [];
 
         products.forEach(p => {
@@ -3082,13 +3090,26 @@
 
         if (alerts.length === 0) {
           listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">All products are well stocked!</div>`;
+          if (btn) btn.style.display = "none";
           return;
         }
 
         // Sort alerts by lowest stock level first
         alerts.sort((a, b) => a.stock - b.stock);
 
-        listEl.innerHTML = alerts.map(a => `
+        // Control Visibility toggle button
+        if (btn) {
+          if (alerts.length > 3) {
+            btn.style.display = "inline-block";
+            btn.textContent = lowStockViewAll ? "Show Less" : "View All";
+          } else {
+            btn.style.display = "none";
+          }
+        }
+
+        const visibleAlerts = lowStockViewAll ? alerts : alerts.slice(0, 3);
+
+        listEl.innerHTML = visibleAlerts.map(a => `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--g100);font-size:13px">
             <div>
               <strong>${a.brand ? a.brand + ' - ' : ''}${a.name}</strong>
@@ -3112,10 +3133,10 @@
         if (catSelect) {
           catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
         }
-        // Populate POS customers select dropdown
-        const posCustSelect = document.getElementById("pos-cust-select");
-        if (posCustSelect) {
-          posCustSelect.innerHTML = '<option value="">-- Select Existing Customer --</option>' + uniqueCustomers.map((c, i) => `<option value="${i}">${c.name} (${c.phone})</option>`).join("");
+        // Populate POS customers datalist for dynamic search
+        const posCustDatalist = document.getElementById("pos-cust-list");
+        if (posCustDatalist) {
+          posCustDatalist.innerHTML = uniqueCustomers.map(c => `<option value="${c.name} (${c.phone})"></option>`).join("");
         }
         renderPOSProductsList();
         renderPOSCart();
@@ -3494,15 +3515,14 @@
         document.getElementById("preorder-id").value = id;
         preorderItemRows = [];
 
-        // Build list of unique customers for select box (ONLY PRIVATE GROUP)
-        const custSelect = document.getElementById("preorder-cust-select");
-        if (custSelect) {
+        // Build preorder customers datalist (ONLY PRIVATE GROUP)
+        const custDatalist = document.getElementById("preorder-cust-list");
+        const custSearchInput = document.getElementById("preorder-cust-search");
+        if (custDatalist) {
           const privateCusts = uniqueCustomers.filter(c => c.group === 'private');
-          custSelect.innerHTML = '<option value="">-- Select Existing Customer --</option>' + privateCusts.map(c => {
-            const originalIndex = uniqueCustomers.indexOf(c);
-            return `<option value="${originalIndex}">${c.name} (${c.phone})</option>`;
-          }).join("");
+          custDatalist.innerHTML = privateCusts.map(c => `<option value="${c.name} (${c.phone})"></option>`).join("");
         }
+        if (custSearchInput) custSearchInput.value = "";
 
         if (!id) {
           title.textContent = "New Pre-Order";
@@ -3547,32 +3567,35 @@
         div.id = `preorder-row-${rowId}`;
         div.style.display = "flex";
         div.style.gap = "8px";
-        div.style.alignItems = "center";
+        div.style.alignItems = "flex-start";
+        div.style.flexWrap = "wrap";
 
-        // Create product options list
+        // Build datalist options from active products
         const activeProds = products.filter(p => p.status === "active");
-        const prodOptions = activeProds.map(p => `<option value="${p.id}" ${data && data.productId === p.id ? 'selected' : ''}>${p.name}</option>`).join("");
+        const datalistOptions = activeProds.map(p => `<option value="${p.name}" data-id="${p.id}"></option>`).join("");
+
+        // Pre-fill name if editing
+        const selectedProd = data ? activeProds.find(p => p.id === data.productId) : null;
+        const prefilledName = selectedProd ? selectedProd.name : "";
 
         div.innerHTML = `
-          <div style="display:flex;flex-direction:column;flex:2;gap:4px">
-            <input type="text" placeholder="Search product..." oninput="filterPreorderProductSelect(this.value, '${rowId}')" class="form-control" style="font-size:11px;padding:4px 8px" />
-            <select class="form-control pre-prod-select" onchange="updatePreorderRowOptions('${rowId}')">
-              <option value="">Select Product...</option>
-              ${prodOptions}
-            </select>
+          <div style="display:flex;flex-direction:column;flex:2;gap:4px;min-width:140px">
+            <input type="text" class="form-control pre-prod-search" list="prod-datalist-${rowId}" placeholder="Search product…" value="${prefilledName}" oninput="resolvePreorderProductByName(this.value, '${rowId}')" style="font-size:12px" />
+            <datalist id="prod-datalist-${rowId}">${datalistOptions}</datalist>
+            <input type="hidden" class="pre-prod-id" value="${data ? data.productId : ''}" />
           </div>
-          <select class="form-control pre-flavor-select" style="flex:1">
-            <option value="">Flavor...</option>
+          <select class="form-control pre-flavor-select" style="flex:1;min-width:90px">
+            <option value="">Flavor…</option>
           </select>
-          <select class="form-control pre-var-select" style="flex:1">
-            <option value="">Variant...</option>
+          <select class="form-control pre-var-select" style="flex:1;min-width:90px">
+            <option value="">Variant…</option>
           </select>
           <input type="number" class="form-control pre-qty-input" style="width:60px" value="${data ? data.qty : '1'}" min="1" />
-          <button class="btn-text-danger" style="color:var(--red);font-weight:bold" onclick="this.closest('.preorder-item-row').remove()">×</button>
+          <button class="btn-text-danger" style="color:var(--red);font-weight:bold;padding:6px" onclick="this.closest('.preorder-item-row').remove()">×</button>
         `;
 
         container.appendChild(div);
-        
+
         if (data) {
           updatePreorderRowOptions(rowId, data.flavor, data.variant);
         }
@@ -3582,7 +3605,7 @@
         const row = document.getElementById(`preorder-row-${rowId}`);
         if (!row) return;
 
-        const prodId = row.querySelector(".pre-prod-select").value;
+        const prodId = row.querySelector(".pre-prod-id").value;
         const flavorSelect = row.querySelector(".pre-flavor-select");
         const varSelect = row.querySelector(".pre-var-select");
 
@@ -3663,7 +3686,7 @@
 
           // Insert pre-order items
           for (const row of itemRows) {
-            const prodId = row.querySelector(".pre-prod-select").value;
+            const prodId = row.querySelector(".pre-prod-id").value;
             const flavor = row.querySelector(".pre-flavor-select").value;
             const variant = row.querySelector(".pre-var-select").value;
             const qty = parseInt(row.querySelector(".pre-qty-input").value) || 1;
@@ -3978,11 +4001,11 @@
         hideLoading();
       };
 
-      window.fillPreorderCustomerInfo = function() {
-        const select = document.getElementById("preorder-cust-select");
-        const idx = parseInt(select.value);
-        if (isNaN(idx)) return;
-        const c = uniqueCustomers[idx];
+      window.fillPreorderCustomerInfo = function() {}; // kept for legacy compatibility
+
+      window.fillPreorderCustomerInfoDynamic = function(val) {
+        const privateCusts = uniqueCustomers.filter(c => c.group === 'private');
+        const c = privateCusts.find(x => `${x.name} (${x.phone})` === val || x.phone === val || x.name === val);
         if (c) {
           document.getElementById("preorder-cust-name").value = c.name;
           document.getElementById("preorder-cust-phone").value = c.phone;
@@ -4087,6 +4110,23 @@
         }
       }
 
+      window.resolvePreorderProductByName = function(val, rowId) {
+        const row = document.getElementById(`preorder-row-${rowId}`);
+        if (!row) return;
+
+        const hiddenInput = row.querySelector(".pre-prod-id");
+        if (!hiddenInput) return;
+
+        const activeProds = products.filter(p => p.status === "active");
+        const matched = activeProds.find(p => p.name === val);
+        if (matched) {
+          hiddenInput.value = matched.id;
+          updatePreorderRowOptions(rowId);
+        } else {
+          hiddenInput.value = "";
+        }
+      };
+
       window.deleteCustomerProfile = async function(phone) {
         if (!confirm(`Are you sure you want to delete customer with phone "${phone}"?`)) return;
 
@@ -4130,11 +4170,10 @@
         hideLoading();
       };
 
-      window.fillPOSCustomerInfo = function() {
-        const select = document.getElementById("pos-cust-select");
-        const idx = parseInt(select.value);
-        if (isNaN(idx)) return;
-        const c = uniqueCustomers[idx];
+      window.fillPOSCustomerInfo = function() {}; // kept for legacy compatibility
+
+      window.fillPOSCustomerInfoDynamic = function(val) {
+        const c = uniqueCustomers.find(x => `${x.name} (${x.phone})` === val || x.phone === val || x.name === val);
         if (c) {
           document.getElementById("pos-cust-name").value = c.name;
           document.getElementById("pos-cust-phone").value = c.phone;
@@ -4172,20 +4211,7 @@
         }).join("");
       };
 
-      window.filterPreorderProductSelect = function(query, rowId) {
-        const row = document.getElementById(`preorder-row-${rowId}`);
-        if (!row) return;
-
-        const select = row.querySelector(".pre-prod-select");
-        if (!select) return;
-
-        const q = query.toLowerCase().trim();
-        const activeProds = products.filter(p => p.status === "active");
-        const filtered = activeProds.filter(p => p.name.toLowerCase().includes(q) || (p.brand && p.brand.toLowerCase().includes(q)));
-
-        select.innerHTML = '<option value="">Select Product...</option>' + filtered.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
-        updatePreorderRowOptions(rowId);
-      };
+      // filterPreorderProductSelect is now handled via resolvePreorderProductByName + datalist
 
       // Trigger automatic business portal data reload when page initializes
       setTimeout(refreshBusinessPortalData, 1000);

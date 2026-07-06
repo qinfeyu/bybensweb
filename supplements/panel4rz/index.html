@@ -393,7 +393,8 @@
             <div class="dash-panel" style="margin-top:20px;grid-column: 1 / -1">
               <div class="dash-panel-header" style="border-left: 4px solid var(--red)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <div class="dash-panel-title" style="color:var(--red);font-weight:700">Low Stock Alerts (<= 5 units)</div>
+                <div class="dash-panel-title" style="color:var(--red);font-weight:700">Low Stock Alerts (<= 2 units)</div>
+                <button class="act-btn act-view" id="low-stock-view-all-btn" style="font-size:11px;padding:3px 10px;margin-left:auto;display:none" onclick="toggleLowStockViewAll()">View All</button>
               </div>
               <div class="dash-panel-body" id="low-stock-alerts-list">
                 <!-- Rendered by JS -->
@@ -715,12 +716,8 @@
               <div class="pos-customer-details">
                 <div class="form-group">
                   <label>Select Existing Customer (Optional)</label>
-                  <div style="display:flex;gap:5px">
-                    <input type="text" placeholder="Search..." oninput="filterCustomerSelect(this.value, 'pos-cust-select')" class="form-control" style="flex:1;font-size:12px;padding:5px 8px" />
-                    <select id="pos-cust-select" class="form-control" style="flex:1.5" onchange="fillPOSCustomerInfo()">
-                      <option value="">-- Select Existing Customer --</option>
-                    </select>
-                  </div>
+                  <input type="text" id="pos-cust-search" class="form-control" list="pos-cust-list" placeholder="Type name or phone to search..." oninput="fillPOSCustomerInfoDynamic(this.value)" />
+                  <datalist id="pos-cust-list"></datalist>
                 </div>
                 <div class="form-group">
                   <label>Customer Name</label>
@@ -1741,12 +1738,8 @@
           <input type="hidden" id="preorder-id" />
           <div class="form-group">
             <label>Select Existing Customer (Optional - Private Group Only)</label>
-            <div style="display:flex;gap:5px">
-              <input type="text" placeholder="Search..." oninput="filterCustomerSelect(this.value, 'preorder-cust-select', 'private')" class="form-control" style="flex:1;font-size:12px;padding:5px 8px" />
-              <select id="preorder-cust-select" class="form-control" style="flex:1.5" onchange="fillPreorderCustomerInfo()">
-                <option value="">-- Select Existing Customer --</option>
-              </select>
-            </div>
+            <input type="text" id="preorder-cust-search" class="form-control" list="preorder-cust-list" placeholder="Type name or phone to search..." oninput="fillPreorderCustomerInfoDynamic(this.value)" />
+            <datalist id="preorder-cust-list"></datalist>
           </div>
           <div class="form-group">
             <label>Customer Name *</label>
