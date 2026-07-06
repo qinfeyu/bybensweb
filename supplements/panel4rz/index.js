@@ -3878,7 +3878,7 @@
 
       window.toggleCustomerTab = function(group) {
         activeCustomerTab = group;
-        document.querySelectorAll("#page-customers .tab-bar .tab-btn").forEach(btn => btn.classList.remove("active"));
+        document.querySelectorAll("#page-customers .cust-tab-bar .cust-tab-btn").forEach(btn => btn.classList.remove("active"));
         if (group === 'public') document.getElementById("cust-tab-public").classList.add("active");
         if (group === 'private') document.getElementById("cust-tab-private").classList.add("active");
         renderCustomersList();

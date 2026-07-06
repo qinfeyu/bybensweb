@@ -2211,3 +2211,136 @@
         border-radius: 20px;
       }
 
+      /* ─── STOCK SECTION TWO-COLUMN LAYOUT ───────────── */
+      .stock-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 1024px) { .stock-layout { grid-template-columns: 1fr; } }
+
+      .stock-left { display: flex; flex-direction: column; gap: 16px; }
+      .stock-right { display: flex; flex-direction: column; }
+
+      .stats-grid-2col {
+        grid-template-columns: 1fr 1fr !important;
+      }
+
+      .low-stock-panel { height: 100%; }
+
+      /* ─── PREMIUM TAB BAR ─────────────────────────────── */
+      .tab-bar {
+        display: flex;
+        gap: 4px;
+        background: var(--g50);
+        border: 1px solid var(--g100);
+        border-radius: 12px;
+        padding: 5px;
+        width: fit-content;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+      }
+
+      .tab-btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 20px;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: var(--font-b);
+        color: var(--g400);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition:
+          color 0.22s cubic-bezier(0.4,0,0.2,1),
+          background 0.22s cubic-bezier(0.4,0,0.2,1),
+          box-shadow 0.22s cubic-bezier(0.4,0,0.2,1);
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
+
+      .tab-btn svg { opacity: 0.5; transition: opacity 0.2s; }
+      .tab-btn:hover {
+        color: var(--black);
+        background: rgba(255,255,255,0.6);
+      }
+      .tab-btn:hover svg { opacity: 0.7; }
+
+      .tab-btn.active {
+        color: var(--black);
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.04);
+      }
+      .tab-btn.active svg { opacity: 1; }
+
+      .tab-btn.active::after {
+        content: "";
+        position: absolute;
+        bottom: 5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 22px;
+        height: 2.5px;
+        border-radius: 2px;
+        background: var(--red);
+        opacity: 0.85;
+      }
+
+      /* ─── CUSTOMER LEDGER TABS ──────────────────────── */
+      .cust-tab-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--g100);
+        margin-bottom: 18px;
+      }
+      .cust-tab-btn {
+        padding: 9px 22px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--g400);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+        transition: color 0.18s, border-color 0.18s;
+        font-family: var(--font-b);
+        letter-spacing: 0.02em;
+      }
+      .cust-tab-btn:hover { color: var(--black); }
+      .cust-tab-btn.active {
+        color: var(--red);
+        border-bottom-color: var(--red);
+      }
+
+      /* ─── BUTTON POLISH ──────────────────────────────── */
+      .btn-primary {
+        position: relative;
+        overflow: hidden;
+      }
+      .btn-primary::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+        pointer-events: none;
+      }
+
+      .act-btn {
+        transition:
+          background 0.18s cubic-bezier(0.4,0,0.2,1),
+          color 0.18s,
+          transform 0.12s,
+          box-shadow 0.18s !important;
+        border-radius: 7px !important;
+      }
+      .act-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+      }
+      .act-btn:active { transform: translateY(0); }
+

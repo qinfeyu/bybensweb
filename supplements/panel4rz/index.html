@@ -242,9 +242,15 @@
         <!-- DASHBOARD -->
         <div class="page active" id="page-dashboard">
           <!-- DASHBOARD TABS -->
-          <div class="tab-bar" style="margin-bottom:15px;display:flex;gap:10px;border-bottom:1px solid var(--g200);padding-bottom:10px">
-            <button class="tab-btn active" id="dash-tab-orders" onclick="toggleDashboardTab('orders')">Orders Overview</button>
-            <button class="tab-btn" id="dash-tab-stock" onclick="toggleDashboardTab('stock')">Stock & Financials</button>
+          <div class="tab-bar" style="margin-bottom:20px">
+            <button class="tab-btn active" id="dash-tab-orders" onclick="toggleDashboardTab('orders')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              Orders Overview
+            </button>
+            <button class="tab-btn" id="dash-tab-stock" onclick="toggleDashboardTab('stock')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Stock &amp; Financials
+            </button>
           </div>
 
           <!-- ORDERS SUBSECTION -->
@@ -342,62 +348,68 @@
 
           <!-- STOCK & FINANCIALS SUBSECTION -->
           <div id="dash-sec-stock" style="display:none">
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-icon green">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                  </svg>
-                </div>
-                <div>
-                  <div class="stat-num" id="stat-revenue-total">0 DA</div>
-                  <div class="stat-label">Total Revenue</div>
+            <div class="stock-layout">
+              <!-- Left: KPI Stats -->
+              <div class="stock-left">
+                <div class="stats-grid stats-grid-2col">
+                  <div class="stat-card">
+                    <div class="stat-icon green">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-revenue-total">0 DA</div>
+                      <div class="stat-label">Total Revenue</div>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon green">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-revenue-week">0 DA</div>
+                      <div class="stat-label">Revenue This Week</div>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon" style="background:var(--orange-l);color:var(--orange)">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-total-expenses">0 DA</div>
+                      <div class="stat-label">Operating Expenses</div>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon purple">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-net-profit">0 DA</div>
+                      <div class="stat-label">Net Profit Margin</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-icon green">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                  </svg>
+              <!-- Right: Low Stock Alerts -->
+              <div class="stock-right">
+                <div class="dash-panel low-stock-panel">
+                  <div class="dash-panel-header" style="background:linear-gradient(135deg,#fff1f1,#fff);border-left:4px solid var(--red)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <div class="dash-panel-title" style="color:var(--red)">Low Stock Alerts <span style="font-size:11px;font-weight:500;color:#ef4444;opacity:0.7">≤ 2 units</span></div>
+                    <button class="act-btn act-delete" id="low-stock-view-all-btn" style="margin-left:auto;display:none;font-size:10px;padding:2px 9px" onclick="toggleLowStockViewAll()">View All</button>
+                  </div>
+                  <div class="dash-panel-body" id="low-stock-alerts-list">
+                    <!-- Rendered by JS -->
+                  </div>
                 </div>
-                <div>
-                  <div class="stat-num" id="stat-revenue-week">0 DA</div>
-                  <div class="stat-label">Revenue This Week</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon purple">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01"/>
-                  </svg>
-                </div>
-                <div>
-                  <div class="stat-num" id="stat-total-expenses">0 DA</div>
-                  <div class="stat-label">Operating Expenses</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon green">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                  </svg>
-                </div>
-                <div>
-                  <div class="stat-num" id="stat-net-profit">0 DA</div>
-                  <div class="stat-label">Net Profit Margin</div>
-                </div>
-              </div>
-            </div>
-            <!-- Low Stock Alerts Panel -->
-            <div class="dash-panel" style="margin-top:20px;grid-column: 1 / -1">
-              <div class="dash-panel-header" style="border-left: 4px solid var(--red)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <div class="dash-panel-title" style="color:var(--red);font-weight:700">Low Stock Alerts (<= 2 units)</div>
-                <button class="act-btn act-view" id="low-stock-view-all-btn" style="font-size:11px;padding:3px 10px;margin-left:auto;display:none" onclick="toggleLowStockViewAll()">View All</button>
-              </div>
-              <div class="dash-panel-body" id="low-stock-alerts-list">
-                <!-- Rendered by JS -->
               </div>
             </div>
           </div>
@@ -862,9 +874,13 @@
             </div>
           </div>
           <!-- CUSTOMER LEDGER TABS -->
-          <div class="tab-bar" style="margin-bottom:15px;display:flex;gap:10px;border-bottom:1px solid var(--g200);padding-bottom:10px">
-            <button class="tab-btn active" id="cust-tab-public" onclick="toggleCustomerTab('public')">Public Group</button>
-            <button class="tab-btn" id="cust-tab-private" onclick="toggleCustomerTab('private')">Private Group</button>
+          <div class="cust-tab-bar">
+            <button class="cust-tab-btn active" id="cust-tab-public" onclick="toggleCustomerTab('public')">
+              🌐&nbsp; Public Group
+            </button>
+            <button class="cust-tab-btn" id="cust-tab-private" onclick="toggleCustomerTab('private')">
+              🔒&nbsp; Private Group
+            </button>
           </div>
           <div class="table-wrap">
             <table class="data-table">
