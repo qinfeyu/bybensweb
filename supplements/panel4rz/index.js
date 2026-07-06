@@ -3034,6 +3034,75 @@
             document.getElementById("stat-net-profit").style.color = "var(--green)";
           }
         }
+        renderLowStockAlerts();
+      }
+
+      function renderLowStockAlerts() {
+        const listEl = document.getElementById("low-stock-alerts-list");
+        if (!listEl) return;
+
+        const lowStockThreshold = 5;
+        const alerts = [];
+
+        products.forEach(p => {
+          if (p.status !== "active") return;
+
+          // Check variants stock
+          (p.variants || []).forEach((v, vi) => {
+            const variantLabel = v.weight ? `${v.weight}${v.unit || ""}`.trim() : `V${vi+1}`;
+
+            // Check flavor stocks if matrix exists
+            if (v.flavorStock && Object.keys(v.flavorStock).length > 0) {
+              Object.entries(v.flavorStock).forEach(([flavor, stock]) => {
+                if (stock <= lowStockThreshold) {
+                  alerts.push({
+                    name: p.name,
+                    brand: p.brand || "",
+                    variant: variantLabel,
+                    flavor: flavor,
+                    stock: stock
+                  });
+                }
+              });
+            } else {
+              // Otherwise check variant overall stock
+              const stock = v.stock !== undefined ? v.stock : (p.stock || 0);
+              if (stock <= lowStockThreshold) {
+                alerts.push({
+                  name: p.name,
+                  brand: p.brand || "",
+                  variant: variantLabel,
+                  flavor: "",
+                  stock: stock
+                });
+              }
+            }
+          });
+        });
+
+        if (alerts.length === 0) {
+          listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">All products are well stocked!</div>`;
+          return;
+        }
+
+        // Sort alerts by lowest stock level first
+        alerts.sort((a, b) => a.stock - b.stock);
+
+        listEl.innerHTML = alerts.map(a => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--g100);font-size:13px">
+            <div>
+              <strong>${a.brand ? a.brand + ' - ' : ''}${a.name}</strong>
+              <div style="font-size:11px;color:var(--g500);margin-top:2px">
+                Variant: <code>${a.variant}</code> ${a.flavor ? ' | Flavor: <code>' + a.flavor + '</code>' : ''}
+              </div>
+            </div>
+            <div>
+              <span class="badge" style="background:${a.stock === 0 ? 'var(--red)' : 'var(--orange)'};color:#fff;font-weight:bold;font-size:11px;padding:3px 8px;border-radius:4px">
+                Stock: ${a.stock} unit${a.stock !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
+        `).join("");
       }
 
       // ─── POS SYSTEM ───
@@ -3425,10 +3494,14 @@
         document.getElementById("preorder-id").value = id;
         preorderItemRows = [];
 
-        // Build list of unique customers for select box
+        // Build list of unique customers for select box (ONLY PRIVATE GROUP)
         const custSelect = document.getElementById("preorder-cust-select");
         if (custSelect) {
-          custSelect.innerHTML = '<option value="">-- Select Existing Customer --</option>' + uniqueCustomers.map((c, i) => `<option value="${i}">${c.name} (${c.phone})</option>`).join("");
+          const privateCusts = uniqueCustomers.filter(c => c.group === 'private');
+          custSelect.innerHTML = '<option value="">-- Select Existing Customer --</option>' + privateCusts.map(c => {
+            const originalIndex = uniqueCustomers.indexOf(c);
+            return `<option value="${originalIndex}">${c.name} (${c.phone})</option>`;
+          }).join("");
         }
 
         if (!id) {
@@ -3481,10 +3554,13 @@
         const prodOptions = activeProds.map(p => `<option value="${p.id}" ${data && data.productId === p.id ? 'selected' : ''}>${p.name}</option>`).join("");
 
         div.innerHTML = `
-          <select class="form-control pre-prod-select" style="flex:2" onchange="updatePreorderRowOptions('${rowId}')">
-            <option value="">Select Product...</option>
-            ${prodOptions}
-          </select>
+          <div style="display:flex;flex-direction:column;flex:2;gap:4px">
+            <input type="text" placeholder="Search product..." oninput="filterPreorderProductSelect(this.value, '${rowId}')" class="form-control" style="font-size:11px;padding:4px 8px" />
+            <select class="form-control pre-prod-select" onchange="updatePreorderRowOptions('${rowId}')">
+              <option value="">Select Product...</option>
+              ${prodOptions}
+            </select>
+          </div>
           <select class="form-control pre-flavor-select" style="flex:1">
             <option value="">Flavor...</option>
           </select>
@@ -4076,6 +4152,39 @@
           document.getElementById("dash-sec-orders").style.display = "none";
           document.getElementById("dash-sec-stock").style.display = "block";
         }
+      };
+
+      window.filterCustomerSelect = function(query, selectId, groupFilter = '') {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        const q = query.toLowerCase().trim();
+        let pool = uniqueCustomers;
+        if (groupFilter) {
+          pool = pool.filter(c => c.group === groupFilter);
+        }
+
+        const filtered = pool.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q));
+
+        select.innerHTML = '<option value="">-- Select Existing Customer --</option>' + filtered.map(c => {
+          const originalIndex = uniqueCustomers.indexOf(c);
+          return `<option value="${originalIndex}">${c.name} (${c.phone})</option>`;
+        }).join("");
+      };
+
+      window.filterPreorderProductSelect = function(query, rowId) {
+        const row = document.getElementById(`preorder-row-${rowId}`);
+        if (!row) return;
+
+        const select = row.querySelector(".pre-prod-select");
+        if (!select) return;
+
+        const q = query.toLowerCase().trim();
+        const activeProds = products.filter(p => p.status === "active");
+        const filtered = activeProds.filter(p => p.name.toLowerCase().includes(q) || (p.brand && p.brand.toLowerCase().includes(q)));
+
+        select.innerHTML = '<option value="">Select Product...</option>' + filtered.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+        updatePreorderRowOptions(rowId);
       };
 
       // Trigger automatic business portal data reload when page initializes
