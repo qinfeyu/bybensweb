@@ -2917,6 +2917,7 @@
           manualCustomers = cust;
 
           // Compute business metrics for dashboard KPIs
+          buildCustomersLedger();
           computeBusinessDashboard();
         } catch (e) {
           console.warn("Failed to fetch business portal tables:", e);
