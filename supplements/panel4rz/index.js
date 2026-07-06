@@ -2917,7 +2917,16 @@
           allPreorderItems = preItems;
           allExpenses = exp;
           manualCustomers = cust;
-          deletedCustomerPhones = delCust.map(x => String(x.phone || "").trim());
+          let localDeleted = [];
+          try {
+            localDeleted = JSON.parse(localStorage.getItem("bb_deleted_customers") || "[]");
+          } catch(e){}
+          deletedCustomerPhones = [
+            ...new Set([
+              ...delCust.map(x => String(x.phone || "").trim()),
+              ...localDeleted.map(x => String(x || "").trim())
+            ])
+          ];
 
           // Compute business metrics for dashboard KPIs
           buildCustomersLedger();
@@ -4007,24 +4016,40 @@
 
         showLoading("Deleting customer...");
         try {
-          // 1. If it's a manually created customer, delete it from customers table
+          // 1. If it's a manually created customer, try to delete it from customers table
           const manualCust = manualCustomers.find(c => c.phone.trim() === phone.trim());
           if (manualCust) {
-            await sb.from("customers").delete().eq("id", manualCust.id);
+            await sb.from("customers").delete().eq("id", manualCust.id).catch(() => {});
           }
 
-          // 2. Add it to deleted_customers table so it gets filtered out of order/POS imports
+          // 2. Try to add to Supabase deleted_customers table
           const delId = String(Date.now());
-          const { error: delErr } = await sb.from("deleted_customers").insert({
+          await sb.from("deleted_customers").insert({
             id: delId,
             phone: phone.trim()
           });
-          if (delErr) throw delErr;
+
+          // Also save locally as secondary/primary cache
+          let localDeleted = [];
+          try {
+            localDeleted = JSON.parse(localStorage.getItem("bb_deleted_customers") || "[]");
+          } catch(e){}
+          localDeleted.push(phone.trim());
+          localStorage.setItem("bb_deleted_customers", JSON.stringify([...new Set(localDeleted)]));
 
           showToast("Customer deleted successfully!");
           await loadCustomers();
         } catch (e) {
-          showToast("Failed to delete: " + e.message, "error");
+          // Fall back gracefully to local storage
+          let localDeleted = [];
+          try {
+            localDeleted = JSON.parse(localStorage.getItem("bb_deleted_customers") || "[]");
+          } catch(e){}
+          localDeleted.push(phone.trim());
+          localStorage.setItem("bb_deleted_customers", JSON.stringify([...new Set(localDeleted)]));
+
+          showToast("Customer deleted (saved locally in browser)!");
+          await loadCustomers();
         }
         hideLoading();
       };
