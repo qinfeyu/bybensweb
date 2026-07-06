@@ -62,6 +62,21 @@ CREATE TABLE IF NOT EXISTS public.customers (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.inventory_items (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL, -- 'supplement' or 'snack'
+    brand TEXT NOT NULL,
+    name TEXT NOT NULL,
+    variant_spec TEXT,
+    size TEXT,
+    price_eur NUMERIC NOT NULL DEFAULT 0,
+    rate NUMERIC NOT NULL DEFAULT 250,
+    delivery_dzd NUMERIC NOT NULL DEFAULT 0,
+    retail_dzd NUMERIC NOT NULL DEFAULT 0,
+    stock INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
 -- Disable RLS to prevent permission errors
 ALTER TABLE public.expenses DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales DISABLE ROW LEVEL SECURITY;
@@ -69,3 +84,5 @@ ALTER TABLE public.sale_items DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pre_orders DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pre_order_items DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_items DISABLE ROW LEVEL SECURITY;
+

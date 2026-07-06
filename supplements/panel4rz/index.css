@@ -2586,3 +2586,43 @@
         to { transform: rotate(360deg); }
       }
 
+      /* ─── INVENTORY SEGMENT STYLING ─── */
+      .inv-quick-add-row input.form-control {
+        border: 1px solid var(--g200);
+        background: #fff;
+        border-radius: 6px;
+        padding: 5px 8px;
+        height: 32px;
+        color: var(--black);
+        font-family: var(--font-b);
+        width: 100%;
+      }
+      .inv-quick-add-row input.form-control:focus {
+        border-color: var(--red);
+        box-shadow: 0 0 0 2px var(--red-light);
+        outline: none;
+      }
+
+      .spreadsheet-input {
+        border: 1.5px solid transparent;
+        background: transparent;
+        padding: 4px 8px;
+        border-radius: 6px;
+        width: 100%;
+        font-size: 13px;
+        color: var(--black);
+        font-family: var(--font-b);
+        transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+      }
+      .spreadsheet-input:hover {
+        border-color: var(--g200);
+        background: #fff;
+      }
+      .spreadsheet-input:focus {
+        border-color: var(--red);
+        background: #fff;
+        outline: none;
+        box-shadow: 0 0 0 2px var(--red-light);
+      }
+
+

@@ -643,6 +643,7 @@
         preorders: "Pre-Orders",
         expenses: "Expenses Logger",
         customers: "Customers Ledger",
+        inventory: "Inventory Manager"
       };
       function showPage(name, el) {
         document
@@ -661,6 +662,7 @@
         if (name === "preorders") loadPreorders();
         if (name === "expenses") loadExpenses();
         if (name === "customers") loadCustomers();
+        if (name === "inventory") loadInventoryPage();
         if (window.innerWidth < 768) closeSidebar();
       }
       function doLogout() {
@@ -1370,6 +1372,13 @@
             <input type="number" class="form-control variant-cost-input" placeholder="0" value="${v && v.cost !== undefined ? v.cost : ""}" />
           </div>
           <div class="form-group">
+            <label>Link SKU (Optional)</label>
+            <select class="form-control form-select variant-sku-select" onchange="onVariantSkuChange(this)">
+              <option value="">-- No SKU --</option>
+              ${getInventorySkuOptions(v ? v.sku : "")}
+            </select>
+          </div>
+          <div class="form-group">
             <label>Image</label>
             <div class="row-image-control">
               <select class="form-control form-select variant-image-select">
@@ -1473,15 +1482,32 @@
 
           let body = "";
           varMeta.forEach(({ vi, label, fs }) => {
+            const row = variantRows[vi];
+            const skuSelect = row ? row.querySelector(".variant-sku-select") : null;
+            const sku = skuSelect ? skuSelect.value : "";
+            let isReadOnly = false;
+            let invStock = 0;
+            if (sku) {
+              const inv = inventoryItems.find(x => x.id === sku);
+              invStock = inv ? inv.stock : 0;
+              isReadOnly = true;
+            }
+
             body += `<tr><td>${label}</td>`;
             let rowTotal = 0;
             flavors.forEach(fn => {
               const key = `${vi}_${fn}`;
-              const val = matrixVals[key] !== undefined ? matrixVals[key] : (fs[fn] !== undefined ? Number(fs[fn]) : 0);
+              let val = 0;
+              if (isReadOnly) {
+                // If linked to single SKU but we have flavors, let first cell hold inventory stock and others 0
+                val = flavors.indexOf(fn) === 0 ? invStock : 0;
+              } else {
+                val = matrixVals[key] !== undefined ? matrixVals[key] : (fs[fn] !== undefined ? Number(fs[fn]) : 0);
+              }
               rowTotal += val;
-              body += `<td><input type="number" class="form-control matrix-cell" min="0" value="${val}" data-vi="${vi}" data-fn="${fn}" oninput="updateMatrixTotals()"></td>`;
+              body += `<td><input type="number" class="form-control matrix-cell" min="0" value="${val}" data-vi="${vi}" data-fn="${fn}" ${isReadOnly ? "readonly disabled style='background:var(--g50); opacity:0.75; cursor:not-allowed;'" : "oninput='updateMatrixTotals()'"} /></td>`;
             });
-            body += `<td class="matrix-total" id="mrt-${vi}">${rowTotal}</td></tr>`;
+            body += `<td class="matrix-total" id="mrt-${vi}">${isReadOnly ? invStock : rowTotal}</td></tr>`;
           });
           document.getElementById("stock-matrix-body").innerHTML = body;
           updateMatrixTotals();
@@ -1495,8 +1521,25 @@
             const ins = row.querySelectorAll("input,select");
             const w = ins[0]?.value || ""; const u = ins[1]?.value || "";
             const label = w ? `${w}${u}` : `V${vi+1}`;
-            const stock = vstockVals[String(vi)] !== undefined ? vstockVals[String(vi)] : (parseInt(row.dataset.varStock) || 0);
-            return `<div class="vstock-row"><span class="vstock-label">${label}</span><input type="number" class="form-control vstock-input" data-vi="${vi}" value="${stock}" min="0" placeholder="0" oninput="refreshStockTotal()"></div>`;
+            
+            const skuSelect = row.querySelector(".variant-sku-select");
+            const sku = skuSelect ? skuSelect.value : "";
+            let stock = 0;
+            let isReadOnly = false;
+            if (sku) {
+              const inv = inventoryItems.find(x => x.id === sku);
+              stock = inv ? inv.stock : 0;
+              isReadOnly = true;
+            } else {
+              stock = vstockVals[String(vi)] !== undefined ? vstockVals[String(vi)] : (parseInt(row.dataset.varStock) || 0);
+            }
+
+            return `
+              <div class="vstock-row" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <span class="vstock-label" style="min-width:60px;">${label}</span>
+                <input type="number" class="form-control vstock-input" data-vi="${vi}" value="${stock}" min="0" placeholder="0" ${isReadOnly ? "readonly disabled style='background:var(--g50); opacity:0.75; cursor:not-allowed;'" : "oninput='refreshStockTotal()'"} />
+                ${isReadOnly ? `<span style="font-size:11.5px; color:var(--green); font-weight:600; font-family:var(--font-b);">✓ Linked to SKU [${sku}]</span>` : ""}
+              </div>`;
           }).join("");
           refreshStockTotal();
 
@@ -1512,8 +1555,18 @@
 
       function updateMatrixTotals() {
         let grand = 0;
+        const variantRows = Array.from(document.querySelectorAll("#variants-list .variant-row"));
         document.querySelectorAll("#stock-matrix-body tr").forEach((row, vi) => {
-          const sum = Array.from(row.querySelectorAll("input")).reduce((s, i) => s + (parseInt(i.value) || 0), 0);
+          const vRow = variantRows[vi];
+          const skuSelect = vRow ? vRow.querySelector(".variant-sku-select") : null;
+          const sku = skuSelect ? skuSelect.value : "";
+          let sum = 0;
+          if (sku) {
+            const inv = inventoryItems.find(x => x.id === sku);
+            sum = inv ? inv.stock : 0;
+          } else {
+            sum = Array.from(row.querySelectorAll("input")).reduce((s, i) => s + (parseInt(i.value) || 0), 0);
+          }
           const cell = document.getElementById(`mrt-${vi}`);
           if (cell) cell.textContent = sum;
           grand += sum;
@@ -1522,8 +1575,20 @@
       }
 
       function refreshStockTotal() {
-        const total = Array.from(document.querySelectorAll("#variant-stock-list .vstock-input"))
-          .reduce((s, i) => s + (parseInt(i.value) || 0), 0);
+        let total = 0;
+        const variantRows = Array.from(document.querySelectorAll("#variants-list .variant-row"));
+        document.querySelectorAll("#variant-stock-list .vstock-input").forEach((inp) => {
+          const vi = parseInt(inp.dataset.vi);
+          const vRow = variantRows[vi];
+          const skuSelect = vRow ? vRow.querySelector(".variant-sku-select") : null;
+          const sku = skuSelect ? skuSelect.value : "";
+          if (sku) {
+            const inv = inventoryItems.find(x => x.id === sku);
+            total += inv ? inv.stock : 0;
+          } else {
+            total += parseInt(inp.value) || 0;
+          }
+        });
         document.getElementById("pm-stock").value = total;
       }
 
@@ -1641,11 +1706,15 @@
               const imgSelect = r.querySelector(".variant-image-select");
 
               const costInput = r.querySelector(".variant-cost-input");
+              const skuSelect = r.querySelector(".variant-sku-select");
+              const sku = skuSelect ? skuSelect.value : "";
+
               const v = {
                 weight: weightInput ? weightInput.value : "",
                 unit: unitSelect ? unitSelect.value : "g",
                 price: priceInput ? parseFloat(priceInput.value) || 0 : 0,
-                cost: costInput ? parseFloat(costInput.value) || 0 : 0
+                cost: costInput ? parseFloat(costInput.value) || 0 : 0,
+                sku: sku
               };
 
               const imgVal = imgSelect ? imgSelect.value : "";
@@ -2896,6 +2965,9 @@
       let allExpenses = [];
       let manualCustomers = [];
       let deletedCustomerPhones = [];
+      let inventoryItems = [];
+      let activeInventoryTab = "supplement";
+      let inventorySpreadsheetMode = false;
 
       async function refreshBusinessPortalData() {
         try {
@@ -2906,9 +2978,10 @@
           const expP = sb.from("expenses").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
           const custP = sb.from("customers").select("*").order("name", { ascending: true }).then(r => r.data || []).catch(() => []);
           const delCustP = sb.from("deleted_customers").select("*").then(r => r.data || []).catch(() => []);
+          const invP = sb.from("inventory_items").select("*").order("created_at", { ascending: false }).then(r => r.data || []).catch(() => []);
 
-          const [sales, saleItems, pre, preItems, exp, cust, delCust] = await Promise.all([
-            salesP, saleItemsP, preP, preItemsP, expP, custP, delCustP
+          const [sales, saleItems, pre, preItems, exp, cust, delCust, inv] = await Promise.all([
+            salesP, saleItemsP, preP, preItemsP, expP, custP, delCustP, invP
           ]);
 
           allSales = sales;
@@ -2917,6 +2990,20 @@
           allPreorderItems = preItems;
           allExpenses = exp;
           manualCustomers = cust;
+          
+          // Load inventory items with localStorage fallback
+          let localInv = [];
+          try {
+            localInv = JSON.parse(localStorage.getItem("bb_inventory_items") || "[]");
+          } catch(e){}
+          const mergedInv = {};
+          localInv.forEach(item => { if (item.id) mergedInv[item.id] = item; });
+          inv.forEach(item => { if (item.id) mergedInv[item.id] = item; });
+          inventoryItems = Object.values(mergedInv);
+          
+          // Sync any variant stocks linked to these items
+          syncAllLinkedProductsStock();
+
           let localDeleted = [];
           try {
             localDeleted = JSON.parse(localStorage.getItem("bb_deleted_customers") || "[]");
@@ -3377,6 +3464,18 @@
                   selectedV.stock = Object.values(selectedV.flavorStock).reduce((a, b) => a + b, 0);
                 } else if (selectedV.stock !== undefined) {
                   selectedV.stock = Math.max(0, selectedV.stock - item.qty);
+                }
+
+                if (selectedV.sku) {
+                  try {
+                    const invItem = inventoryItems.find(x => x.id === selectedV.sku);
+                    if (invItem) {
+                      const newStock = Math.max(0, invItem.stock - item.qty);
+                      invItem.stock = newStock;
+                      await sb.from("inventory_items").update({ stock: newStock }).eq("id", selectedV.sku);
+                      selectedV.stock = newStock;
+                    }
+                  } catch(e) { console.warn("Failed to deduct inventory stock:", e); }
                 }
               }
               const totalStock = updatedVariants.reduce((a, b) => a + (Number(b.stock) || 0), 0);
@@ -4099,6 +4198,18 @@
               } else if (selectedV.stock !== undefined) {
                 selectedV.stock = Math.max(0, selectedV.stock - saleItem.qty);
               }
+
+              if (selectedV.sku) {
+                try {
+                  const invItem = inventoryItems.find(x => x.id === selectedV.sku);
+                  if (invItem) {
+                    const newStock = Math.max(0, invItem.stock - saleItem.qty);
+                    invItem.stock = newStock;
+                    await sb.from("inventory_items").update({ stock: newStock }).eq("id", selectedV.sku);
+                    selectedV.stock = newStock;
+                  }
+                } catch(e) { console.warn("Failed to deduct inventory stock:", e); }
+              }
             }
             const totalStock = updatedVariants.reduce((a, b) => a + (Number(b.stock) || 0), 0);
 
@@ -4366,4 +4477,513 @@
           event.target.value = "";
         }
       };
+
+      /* ─── INVENTORY SEGMENT & DYNAMIC STOCK SYNCHRONIZATION ─── */
+
+      window.syncAllLinkedProductsStock = async function() {
+        let changedAny = false;
+        
+        for (const p of products) {
+          if (p.bundleItems && p.bundleItems.length > 0) continue; // skip bundles
+          let pChanged = false;
+          
+          if (Array.isArray(p.variants)) {
+            for (const v of p.variants) {
+              if (v.sku) {
+                const inv = inventoryItems.find(x => x.id === v.sku);
+                if (inv && Number(v.stock) !== Number(inv.stock)) {
+                  v.stock = Number(inv.stock);
+                  pChanged = true;
+                  changedAny = true;
+                }
+              }
+            }
+          }
+          
+          if (pChanged) {
+            p.stock = (p.variants || []).reduce((s, v) => s + (Number(v.stock) || 0), 0);
+            try {
+              // Update standard products table row in Supabase
+              await sb.from("products").update({
+                variants: p.variants,
+                stock: p.stock
+              }).eq("id", p.id);
+            } catch(e) {
+              console.warn("Failed to sync stock to database for product " + p.id, e);
+            }
+          }
+        }
+        
+        if (changedAny) {
+          renderProducts(document.getElementById("prod-search")?.value || "");
+          updateDashboard();
+        }
+      };
+
+      window.getInventorySkuOptions = function(selectedSku = "") {
+        return inventoryItems.map(item => {
+          const specLabel = [item.variant_spec, item.size].filter(Boolean).join(" - ");
+          const label = `[${item.id}] ${item.brand} - ${item.name} ${specLabel ? '(' + specLabel + ')' : ''} (Stock: ${item.stock})`;
+          return `<option value="${item.id}" ${item.id === selectedSku ? "selected" : ""}>${label}</option>`;
+        }).join("");
+      };
+
+      window.onVariantSkuChange = function(selectEl) {
+        const row = selectEl.closest(".variant-row");
+        if (!row) return;
+        const sku = selectEl.value;
+        if (sku) {
+          const inv = inventoryItems.find(x => x.id === sku);
+          if (inv) {
+            row.dataset.varStock = String(inv.stock);
+          }
+        }
+        refreshStockMatrix();
+      };
+
+      window.loadInventoryPage = function() {
+        // Compute next SKU number
+        const prefix = activeInventoryTab === "supplement" ? "SUP-" : "SNA-";
+        const prefixLower = prefix.toLowerCase();
+        
+        let maxNum = 8800; // starting number is 8801
+        inventoryItems.forEach(item => {
+          if (item.id && item.id.toLowerCase().startsWith(prefixLower)) {
+            const numPart = parseInt(item.id.slice(4));
+            if (!isNaN(numPart) && numPart > maxNum) {
+              maxNum = numPart;
+            }
+          }
+        });
+        
+        const nextSku = prefix + (maxNum + 1);
+        const skuInp = document.getElementById("add-inv-sku");
+        if (skuInp) skuInp.value = nextSku;
+        
+        // Reset inputs
+        ["add-inv-brand", "add-inv-name", "add-inv-variant", "add-inv-size", "add-inv-delivery", "add-inv-retail", "add-inv-qty"].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = (id === "add-inv-delivery" || id === "add-inv-qty") ? "0" : "";
+        });
+        const pInp = document.getElementById("add-inv-price");
+        if (pInp) pInp.value = "0.00";
+        const rInp = document.getElementById("add-inv-rate");
+        if (rInp) rInp.value = "250";
+        
+        const landedEl = document.getElementById("add-inv-landed-label");
+        if (landedEl) landedEl.textContent = "0 DZD";
+        const marginEl = document.getElementById("add-inv-margin-label");
+        if (marginEl) marginEl.textContent = "0 DZD";
+        
+        // Populate brand options
+        const filteredTabItems = inventoryItems.filter(item => item.type === activeInventoryTab);
+        const uniqueBrands = [...new Set(filteredTabItems.map(item => item.brand).filter(Boolean))].sort();
+        const brandFilter = document.getElementById("inv-brand-filter");
+        if (brandFilter) {
+          const currentVal = brandFilter.value;
+          brandFilter.innerHTML = `<option value="">All Brands</option>` + uniqueBrands.map(b => `<option value="${b}">${b}</option>`).join("");
+          if (uniqueBrands.includes(currentVal)) {
+            brandFilter.value = currentVal;
+          }
+        }
+        
+        renderInventoryList();
+      };
+
+      window.toggleInventoryTab = function(type) {
+        activeInventoryTab = type;
+        document.querySelectorAll("#page-inventory .cust-tab-btn").forEach(btn => {
+          btn.classList.toggle("active", btn.id === `inv-tab-${type}`);
+        });
+        const searchInp = document.getElementById("inv-search");
+        if (searchInp) {
+          searchInp.placeholder = `Search ${type === 'supplement' ? 'supplements' : 'snacks'}...`;
+        }
+        loadInventoryPage();
+      };
+
+      window.recalcQuickAddLanded = function() {
+        const eur = parseFloat(document.getElementById("add-inv-price")?.value) || 0;
+        const rate = parseFloat(document.getElementById("add-inv-rate")?.value) || 0;
+        const delDzd = parseFloat(document.getElementById("add-inv-delivery")?.value) || 0;
+        const retail = parseFloat(document.getElementById("add-inv-retail")?.value) || 0;
+        
+        const landed = (eur * rate) + delDzd;
+        const margin = retail - landed;
+        
+        const landedLabel = document.getElementById("add-inv-landed-label");
+        if (landedLabel) landedLabel.textContent = `${Math.round(landed).toLocaleString()} DZD`;
+        
+        const marginLabel = document.getElementById("add-inv-margin-label");
+        if (marginLabel) {
+          marginLabel.textContent = `${Math.round(margin).toLocaleString()} DZD`;
+          marginLabel.style.color = margin >= 0 ? "var(--green)" : "var(--red)";
+        }
+      };
+
+      window.renderInventoryList = function() {
+        const tbody = document.getElementById("inventory-table-body");
+        if (!tbody) return;
+        
+        const search = (document.getElementById("inv-search")?.value || "").toLowerCase().trim();
+        const brand = document.getElementById("inv-brand-filter")?.value || "";
+        const stockFilter = document.getElementById("inv-stock-filter")?.value || "all";
+        
+        const filtered = inventoryItems.filter(item => {
+          if (item.type !== activeInventoryTab) return false;
+          
+          if (search) {
+            const matchesText = (item.id || "").toLowerCase().includes(search) ||
+                                (item.name || "").toLowerCase().includes(search) ||
+                                (item.brand || "").toLowerCase().includes(search) ||
+                                (item.variant_spec || "").toLowerCase().includes(search);
+            if (!matchesText) return false;
+          }
+          
+          if (brand && item.brand !== brand) return false;
+          
+          if (stockFilter === "low") {
+            if (Number(item.stock) <= 0 || Number(item.stock) > 2) return false;
+          } else if (stockFilter === "out") {
+            if (Number(item.stock) > 0) return false;
+          }
+          
+          return true;
+        });
+        
+        // Sort items by SKU code ascending
+        filtered.sort((a, b) => (a.id || "").localeCompare(b.id || ""));
+        
+        if (!filtered.length) {
+          tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state" style="padding:40px;"><p>No products found. Add your first product using the Quick Add row below.</p></div></td></tr>`;
+          return;
+        }
+        
+        tbody.innerHTML = filtered.map(item => {
+          const landed = (Number(item.price_eur) * Number(item.rate)) + Number(item.delivery_dzd);
+          const margin = Number(item.retail_dzd) - landed;
+          const marginColor = margin >= 0 ? "var(--green)" : "var(--red)";
+          
+          if (inventorySpreadsheetMode) {
+            return `
+              <tr style="vertical-align: middle;">
+                <td><strong style="color:var(--black); font-size:12px;">${item.id}</strong></td>
+                <td><input type="text" value="${item.brand || ''}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'brand')" /></td>
+                <td><input type="text" value="${item.name || ''}" class="spreadsheet-input" style="font-weight: 500;" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'name')" /></td>
+                <td><input type="text" value="${item.variant_spec || ''}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'variant_spec')" /></td>
+                <td><input type="text" value="${item.size || ''}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'size')" /></td>
+                <td>
+                  <div style="display:flex; align-items:center; gap:2px;">
+                    <span>€</span>
+                    <input type="number" step="0.01" value="${item.price_eur}" class="spreadsheet-input" style="padding: 2px;" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'price_eur')" />
+                  </div>
+                </td>
+                <td><input type="number" value="${item.rate}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'rate')" /></td>
+                <td><input type="number" value="${item.delivery_dzd}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'delivery_dzd')" /></td>
+                <td><span style="font-weight:600; color:var(--g600); font-size:12px;">${Math.round(landed).toLocaleString()} DZD</span></td>
+                <td><input type="number" value="${item.retail_dzd}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'retail_dzd')" /></td>
+                <td><span style="font-weight:600; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DZD</span></td>
+                <td><input type="number" value="${item.stock}" class="spreadsheet-input" style="font-weight: 700; color: var(--black);" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'stock')" /></td>
+                <td style="text-align:center;">
+                  <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px;">Delete</button>
+                </td>
+              </tr>`;
+          } else {
+            return `
+              <tr style="vertical-align: middle;">
+                <td><strong style="color:var(--black); font-size:12px;">${item.id}</strong></td>
+                <td>${item.brand || '-'}</td>
+                <td style="font-weight: 500;">${item.name}</td>
+                <td>${item.variant_spec || '-'}</td>
+                <td>${item.size || '-'}</td>
+                <td>€ ${Number(item.price_eur).toFixed(2)}</td>
+                <td>${item.rate}</td>
+                <td>${Number(item.delivery_dzd).toLocaleString()} DA</td>
+                <td><span style="font-weight:600; color:var(--g600); font-size:12px;">${Math.round(landed).toLocaleString()} DA</span></td>
+                <td>${Number(item.retail_dzd).toLocaleString()} DA</td>
+                <td><span style="font-weight:600; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span></td>
+                <td><strong style="color:var(--black); font-size:13px;">${item.stock}</strong></td>
+                <td style="text-align:center;">
+                  <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px;">Delete</button>
+                </td>
+              </tr>`;
+          }
+        }).join("");
+      };
+
+      window.addInventoryItem = async function() {
+        const id = document.getElementById("add-inv-sku")?.value.trim();
+        const brand = document.getElementById("add-inv-brand")?.value.trim();
+        const name = document.getElementById("add-inv-name")?.value.trim();
+        const variant = document.getElementById("add-inv-variant")?.value.trim();
+        const size = document.getElementById("add-inv-size")?.value.trim();
+        const eur = parseFloat(document.getElementById("add-inv-price")?.value) || 0;
+        const rate = parseFloat(document.getElementById("add-inv-rate")?.value) || 0;
+        const delDzd = parseFloat(document.getElementById("add-inv-delivery")?.value) || 0;
+        const retail = parseFloat(document.getElementById("add-inv-retail")?.value) || 0;
+        const qty = parseInt(document.getElementById("add-inv-qty")?.value) || 0;
+        
+        if (!brand || !name) {
+          showToast("Brand and Product Name required", "error");
+          return;
+        }
+        
+        const payload = {
+          id,
+          type: activeInventoryTab,
+          brand,
+          name,
+          variant_spec: variant || null,
+          size: size || null,
+          price_eur: eur,
+          rate,
+          delivery_dzd: delDzd,
+          retail_dzd: retail,
+          stock: qty
+        };
+        
+        showLoading("Adding inventory item…");
+        
+        try {
+          const { error } = await sb.from("inventory_items").insert(payload);
+          if (error) throw error;
+        } catch(e) {
+          console.warn("Failed to insert to Supabase, fallback to localStorage:", e);
+        }
+        
+        // Local Cache mutate
+        const idx = inventoryItems.findIndex(x => x.id === id);
+        if (idx >= 0) inventoryItems[idx] = payload;
+        else inventoryItems.push(payload);
+        localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+        
+        showToast("Inventory item added successfully!");
+        
+        // Sync any product variants that are linked to this SKU
+        await syncAllLinkedProductsStock();
+        
+        hideLoading();
+        loadInventoryPage();
+      };
+
+      window.deleteInventoryItem = async function(id) {
+        if (!confirm(`Are you sure you want to delete item [${id}]?`)) return;
+        
+        showLoading("Deleting item…");
+        
+        try {
+          const { error } = await sb.from("inventory_items").delete().eq("id", id);
+          if (error) throw error;
+        } catch(e) {
+          console.warn("Failed to delete from Supabase, fallback to localStorage:", e);
+        }
+        
+        // Local Cache mutate
+        inventoryItems = inventoryItems.filter(x => x.id !== id);
+        localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+        
+        showToast("Item deleted!");
+        
+        // Sync any product variants that are linked to this SKU
+        await syncAllLinkedProductsStock();
+        
+        hideLoading();
+        loadInventoryPage();
+      };
+
+      window.toggleInventorySpreadsheetMode = function() {
+        inventorySpreadsheetMode = !inventorySpreadsheetMode;
+        const btn = document.getElementById("btn-inv-spreadsheet");
+        if (btn) {
+          btn.classList.toggle("active", inventorySpreadsheetMode);
+          btn.style.background = inventorySpreadsheetMode ? "var(--red-light)" : "";
+          btn.style.borderColor = inventorySpreadsheetMode ? "var(--red)" : "";
+          btn.style.color = inventorySpreadsheetMode ? "var(--red)" : "";
+        }
+        renderInventoryList();
+      };
+
+      window.updateInventorySpreadsheetItem = async function(el, itemId, field) {
+        const item = inventoryItems.find(x => x.id === itemId);
+        if (!item) return;
+        
+        let val = el.value;
+        if (field === "price_eur" || field === "rate" || field === "delivery_dzd" || field === "retail_dzd") {
+          val = parseFloat(val) || 0;
+        } else if (field === "stock") {
+          val = parseInt(val) || 0;
+        }
+        
+        item[field] = val;
+        
+        // Update Supabase
+        try {
+          await sb.from("inventory_items").upsert(item);
+        } catch(e) {
+          console.warn("Failed to upsert to Supabase in spreadsheet mode, fallback to localStorage:", e);
+        }
+        
+        localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+        
+        // Recalculate row display (landed cost, margin) dynamically without a full list re-render for performance
+        const row = el.closest("tr");
+        if (row) {
+          const landed = (Number(item.price_eur) * Number(item.rate)) + Number(item.delivery_dzd);
+          const margin = Number(item.retail_dzd) - landed;
+          const marginColor = margin >= 0 ? "var(--green)" : "var(--red)";
+          
+          const landedLabel = row.querySelector("td:nth-child(9) span");
+          if (landedLabel) landedLabel.textContent = `${Math.round(landed).toLocaleString()} DZD`;
+          
+          const marginLabel = row.querySelector("td:nth-child(11) span");
+          if (marginLabel) {
+            marginLabel.textContent = `${Math.round(margin).toLocaleString()} DZD`;
+            marginLabel.style.color = marginColor;
+          }
+        }
+        
+        if (field === "stock") {
+          await syncAllLinkedProductsStock();
+        }
+      };
+
+      window.exportInventoryCSV = function() {
+        const items = inventoryItems.filter(item => item.type === activeInventoryTab);
+        if (!items.length) {
+          showToast("No data to export", "error");
+          return;
+        }
+        
+        const headers = ["SKU", "Brand", "Product Name", "Variant Spec", "Size", "Price EUR", "Rate", "Delivery DZD", "Retail DZD", "Stock"];
+        let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        
+        items.forEach(item => {
+          const row = [
+            item.id || "",
+            `"${(item.brand || "").replace(/"/g, '""')}"`,
+            `"${(item.name || "").replace(/"/g, '""')}"`,
+            `"${(item.variant_spec || "").replace(/"/g, '""')}"`,
+            `"${(item.size || "").replace(/"/g, '""')}"`,
+            item.price_eur || 0,
+            item.rate || 250,
+            item.delivery_dzd || 0,
+            item.retail_dzd || 0,
+            item.stock || 0
+          ];
+          csvContent += row.join(",") + "\n";
+        });
+        
+        const encodedUri = encodeURI(csvContent);
+        const a = document.createElement("a");
+        const dateStr = new Date().toISOString().slice(0,10);
+        a.href = encodedUri;
+        a.download = `bybens-inventory-${activeInventoryTab}-${dateStr}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast("✓ CSV Exported!");
+      };
+
+      window.importInventoryCSV = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          const text = e.target.result;
+          const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+          if (lines.length < 2) {
+            showToast("CSV file is empty or invalid", "error");
+            return;
+          }
+          
+          showLoading("Importing CSV items…");
+          const upserts = [];
+          
+          // Simple CSV line parser that respects quotes
+          const parseCSVLine = (line) => {
+            const result = [];
+            let current = "";
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = "";
+              } else {
+                current += char;
+              }
+            }
+            result.push(current.trim());
+            return result;
+          };
+          
+          for (let i = 1; i < lines.length; i++) {
+            const cols = parseCSVLine(lines[i]);
+            if (cols.length < 3) continue;
+            
+            const id = cols[0];
+            const brand = cols[1];
+            const name = cols[2];
+            const variant_spec = cols[3] || null;
+            const size = cols[4] || null;
+            const price_eur = parseFloat(cols[5]) || 0;
+            const rate = parseFloat(cols[6]) || 250;
+            const delivery_dzd = parseFloat(cols[7]) || 0;
+            const retail_dzd = parseFloat(cols[8]) || 0;
+            const stock = parseInt(cols[9]) || 0;
+            
+            if (!id || !name) continue;
+            
+            upserts.push({
+              id,
+              type: activeInventoryTab,
+              brand,
+              name,
+              variant_spec,
+              size,
+              price_eur,
+              rate,
+              delivery_dzd,
+              retail_dzd,
+              stock
+            });
+          }
+          
+          if (upserts.length === 0) {
+            showToast("No valid rows found in CSV", "error");
+            hideLoading();
+            return;
+          }
+          
+          try {
+            const { error } = await sb.from("inventory_items").upsert(upserts, { onConflict: "id" });
+            if (error) throw error;
+          } catch(err) {
+            console.warn("Failed to upsert CSV to Supabase, fallback to localStorage:", err);
+          }
+          
+          // Update local cache
+          upserts.forEach(item => {
+            const idx = inventoryItems.findIndex(x => x.id === item.id);
+            if (idx >= 0) inventoryItems[idx] = item;
+            else inventoryItems.push(item);
+          });
+          localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+          
+          showToast(`✓ Imported ${upserts.length} items successfully!`);
+          
+          // Sync any product variants linked to these items
+          await syncAllLinkedProductsStock();
+          
+          hideLoading();
+          loadInventoryPage();
+        };
+        
+        reader.readAsText(file);
+        event.target.value = "";
+      };
+
 
