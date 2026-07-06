@@ -2345,23 +2345,9 @@
       .act-btn:active { transform: translateY(0); }
 
       /* ─── SETTINGS: DATABASE BACKUP CARD ────────────── */
-      .settings-card-dark {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border: 1px solid rgba(148, 163, 184, 0.15);
-        color: #e2e8f0;
-        box-shadow:
-          0 4px 24px rgba(0,0,0,0.3),
-          inset 0 1px 0 rgba(255,255,255,0.05);
-      }
-
-      .settings-card-dark .settings-card-title {
-        color: #93c5fd;
-        border-bottom-color: rgba(148, 163, 184, 0.12);
-      }
-
       .settings-backup-desc {
         font-size: 13px;
-        color: #94a3b8;
+        color: var(--g600);
         line-height: 1.6;
         margin: 0 0 20px;
       }
@@ -2384,19 +2370,21 @@
         cursor: pointer;
         transition:
           background 0.2s cubic-bezier(0.4,0,0.2,1),
+          border-color 0.2s,
           transform 0.12s,
-          box-shadow 0.2s;
-        border: 1.5px solid rgba(148, 163, 184, 0.2);
-        background: rgba(255,255,255,0.06);
-        color: #e2e8f0;
+          box-shadow 0.2s,
+          color 0.2s;
+        border: 1.5px solid var(--g200);
+        background: #fff;
+        color: var(--black);
         letter-spacing: 0.01em;
       }
 
       .btn-backup:hover {
-        background: rgba(255,255,255,0.12);
-        border-color: rgba(148, 163, 184, 0.35);
+        background: var(--g50);
+        border-color: var(--g400);
         transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        box-shadow: var(--sh-sm);
       }
 
       .btn-backup:active {
@@ -2409,35 +2397,38 @@
       }
 
       .btn-backup-restore {
-        border-color: rgba(96, 165, 250, 0.3);
-        background: rgba(96, 165, 250, 0.08);
-        color: #93c5fd;
+        border-color: var(--red);
+        background: var(--red-light);
+        color: var(--red);
       }
 
       .btn-backup-restore:hover {
-        background: rgba(96, 165, 250, 0.16);
-        border-color: rgba(96, 165, 250, 0.5);
+        background: var(--red);
+        color: #fff;
+        border-color: var(--red);
+        box-shadow: var(--sh-red);
       }
 
       .settings-backup-status {
         margin-top: 14px;
         padding: 10px 14px;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
+        background: var(--g50);
+        border: 1px solid var(--g100);
         border-radius: 8px;
         font-size: 13px;
         font-weight: 500;
         font-family: var(--font-b);
+        color: var(--black);
       }
 
-      /* ─── BACKUP CARD RICH AESTHETICS ───────────────── */
+      /* ─── BACKUP CARD RICH AESTHETICS (LIGHT THEME) ─── */
 
       /* Animated dot-grid background */
       .backup-grid-bg {
         position: absolute;
         inset: 0;
         background-image:
-          radial-gradient(circle, rgba(148,163,184,0.12) 1px, transparent 1px);
+          radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px);
         background-size: 28px 28px;
         pointer-events: none;
         z-index: 0;
@@ -2448,7 +2439,7 @@
         content: "";
         position: absolute;
         inset: 0;
-        background: radial-gradient(ellipse at 50% 0%, rgba(15,23,42,0) 30%, rgba(15,23,42,0.7) 100%);
+        background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0.9) 100%);
         pointer-events: none;
         z-index: 1;
       }
@@ -2467,25 +2458,25 @@
         width: 48px;
         height: 48px;
         border-radius: 14px;
-        background: rgba(147,197,253,0.1);
-        border: 1px solid rgba(147,197,253,0.2);
+        background: var(--red-light);
+        border: 1px solid rgba(173,0,0,0.2);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 0 20px rgba(147,197,253,0.15);
+        box-shadow: 0 4px 12px rgba(173,0,0,0.06);
       }
 
       .backup-title {
         font-family: var(--font-d);
         font-size: 20px;
         letter-spacing: 1px;
-        color: #e2e8f0;
+        color: var(--black);
       }
 
       .backup-subtitle {
         font-size: 12px;
-        color: #64748b;
+        color: var(--g600);
         margin-top: 2px;
       }
 
@@ -2499,9 +2490,9 @@
         border-radius: 20px;
         font-size: 11px;
         font-weight: 700;
-        color: #4ade80;
-        background: rgba(74,222,128,0.08);
-        border: 1px solid rgba(74,222,128,0.2);
+        color: var(--green);
+        background: var(--green-l);
+        border: 1px solid rgba(22,163,74,0.2);
         letter-spacing: 0.05em;
         text-transform: uppercase;
         flex-shrink: 0;
@@ -2511,8 +2502,8 @@
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background: #4ade80;
-        box-shadow: 0 0 6px #4ade80;
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green);
         animation: pulse-dot 2s ease-in-out infinite;
       }
 
@@ -2534,53 +2525,29 @@
         border-radius: 20px;
         font-size: 11px;
         font-weight: 600;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        color: #94a3b8;
+        background: var(--g50);
+        border: 1px solid var(--g100);
+        color: var(--g600);
         letter-spacing: 0.02em;
-        transition: background 0.2s, border-color 0.2s;
+        transition: background 0.2s, border-color 0.2s, color 0.2s;
       }
 
       .backup-chip:hover {
-        background: rgba(255,255,255,0.1);
-        border-color: rgba(147,197,253,0.3);
-        color: #e2e8f0;
+        background: var(--g100);
+        border-color: var(--g400);
+        color: var(--black);
       }
 
       .backup-divider {
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(148,163,184,0.2), transparent);
+        background: linear-gradient(90deg, transparent, var(--g100), transparent);
         margin-bottom: 20px;
-      }
-
-      /* Export button — white glow */
-      .btn-backup-export {
-        background: rgba(255,255,255,0.08) !important;
-        border-color: rgba(255,255,255,0.18) !important;
-        color: #f1f5f9 !important;
-      }
-      .btn-backup-export:hover {
-        background: rgba(255,255,255,0.15) !important;
-        border-color: rgba(255,255,255,0.35) !important;
-        box-shadow: 0 0 20px rgba(255,255,255,0.08), 0 4px 16px rgba(0,0,0,0.3) !important;
-      }
-
-      /* Restore button — blue glow */
-      .btn-backup-restore {
-        background: rgba(96,165,250,0.1) !important;
-        border-color: rgba(96,165,250,0.3) !important;
-        color: #93c5fd !important;
-      }
-      .btn-backup-restore:hover {
-        background: rgba(96,165,250,0.2) !important;
-        border-color: rgba(96,165,250,0.5) !important;
-        box-shadow: 0 0 20px rgba(96,165,250,0.2), 0 4px 16px rgba(0,0,0,0.3) !important;
       }
 
       /* Progress bar */
       .backup-progress-track {
         height: 4px;
-        background: rgba(255,255,255,0.08);
+        background: var(--g100);
         border-radius: 4px;
         overflow: hidden;
       }
@@ -2588,8 +2555,8 @@
       .backup-progress-fill {
         height: 100%;
         border-radius: 4px;
-        background: linear-gradient(90deg, #3b82f6, #93c5fd);
-        box-shadow: 0 0 8px rgba(147,197,253,0.5);
+        background: linear-gradient(90deg, var(--red), var(--red-h));
+        box-shadow: 0 0 8px var(--red-light);
         transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
         width: 0%;
       }
@@ -2607,8 +2574,8 @@
         display: inline-block;
         width: 13px;
         height: 13px;
-        border: 2px solid rgba(255,255,255,0.3);
-        border-top-color: #fff;
+        border: 2px solid rgba(0,0,0,0.15);
+        border-top-color: currentColor;
         border-radius: 50%;
         animation: spin-backup 0.7s linear infinite;
         vertical-align: middle;
