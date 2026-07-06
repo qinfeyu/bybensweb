@@ -538,58 +538,74 @@
         </div>
       </section>
 
-      <!-- PRODUCT GRID -->
-      <section class="section-pad" id="products">
+      <!-- VISUAL CATEGORIES -->
+      <section class="visual-categories-section">
+        <div class="container">
+          <h2 class="section-title text-center" style="text-align:center; margin-bottom: 32px; font-weight: 700; letter-spacing: 0.5px;">SHOP BY CATEGORY</h2>
+          <div class="categories-circle-grid" id="visualCategoriesGrid">
+            <!-- Filled by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- BEST SELLERS -->
+      <section class="section-pad" id="best-sellers-section">
         <div class="container">
           <div class="section-header">
             <div>
-              <p class="section-label" data-i18n="products.label">
-                Featured Products
-              </p>
-              <h2 class="section-title" data-i18n="products.title">
-                BEST SELLERS
-              </h2>
+              <p class="section-label" data-i18n="products.label">Featured Products</p>
+              <h2 class="section-title" data-i18n="products.title">BEST SELLERS</h2>
             </div>
-            <a
-              href="/supplements/products"
-              class="view-all-link"
-              data-i18n="products.viewall"
-            >
+            <a href="/supplements/products" class="view-all-link" data-i18n="products.viewall">
               View All
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6" /></svg>
             </a>
           </div>
-
-          <div class="product-grid" id="productGrid">
-            <!-- Products will be rendered by JS -->
+          <div class="product-grid" id="bestSellersGrid">
+            <!-- Populated by JS -->
           </div>
+        </div>
+      </section>
 
-          <div class="view-all-block">
-            <a
-              href="/supplements/products"
-              class="btn-view-all"
-              data-i18n="products.viewall.btn"
-            >
+      <!-- NEW ARRIVALS -->
+      <section class="section-pad" id="new-arrivals-section" style="background: var(--gray-50);">
+        <div class="container">
+          <div class="section-header">
+            <div>
+              <p class="section-label">Latest Additions</p>
+              <h2 class="section-title">NEW ARRIVALS</h2>
+            </div>
+            <a href="/supplements/products" class="view-all-link">
+              View All
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6" /></svg>
+            </a>
+          </div>
+          <div class="product-grid" id="newArrivalsGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- BUNDLES & PACKS -->
+      <section class="section-pad" id="bundles-section">
+        <div class="container">
+          <div class="section-header">
+            <div>
+              <p class="section-label">All-In-One Solution</p>
+              <h2 class="section-title">BUNDLES &amp; PACKS</h2>
+            </div>
+            <a href="/supplements/products?cat=bundles" class="view-all-link" id="bundlesViewAllLink">
+              View All
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6" /></svg>
+            </a>
+          </div>
+          <div class="product-grid" id="bundlesGrid">
+            <!-- Populated by JS -->
+          </div>
+          <div class="view-all-block" style="margin-top: 40px;">
+            <a href="/supplements/products" class="btn-view-all" data-i18n="products.viewall.btn">
               View All Products
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg>
             </a>
           </div>
         </div>

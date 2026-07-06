@@ -2032,3 +2032,93 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
 .cart-total-num{font-size:22px;font-weight:800;color:var(--black);font-family:var(--font-display);}
 .cart-checkout{width:100%;padding:15px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s;}
 .cart-checkout:hover{background:var(--red-hover);}
+
+/* ── VISUAL CATEGORIES SECTION ── */
+.visual-categories-section {
+  padding: 40px 0 20px;
+}
+.categories-circle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+}
+.category-circle-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: var(--black);
+  transition: all var(--transition);
+  text-align: center;
+}
+.category-circle-img {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--gray-100);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.category-circle-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition);
+}
+.category-circle-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  color: var(--gray-800);
+  transition: color var(--transition);
+}
+
+/* Hover effects */
+.category-circle-card:hover .category-circle-img {
+  border-color: var(--red);
+  box-shadow: 0 4px 12px rgba(173, 0, 0, 0.15);
+  transform: translateY(-4px);
+}
+.category-circle-card:hover .category-circle-img img {
+  transform: scale(1.1);
+}
+.category-circle-card:hover .category-circle-name {
+  color: var(--red);
+}
+
+/* Mobile responsive fixes */
+@media (max-width: 768px) {
+  .categories-circle-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 16px;
+    padding: 4px 16px 16px;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+  }
+  .categories-circle-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .category-circle-card {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    width: 90px;
+  }
+  .category-circle-img {
+    width: 80px;
+    height: 80px;
+  }
+  .category-circle-name {
+    font-size: 11px;
+  }
+}

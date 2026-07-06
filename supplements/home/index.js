@@ -489,16 +489,17 @@ function renderStars(rating) {
   return stars;
 }
 
-function renderProducts(lang) {
-  const grid = document.getElementById("productGrid");
+function renderProductListToContainer(containerId, productList, lang) {
+  const grid = document.getElementById(containerId);
+  if (!grid) return;
   const t = i18n[lang];
 
-  if (products.length === 0) {
-    grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--g400);padding:2rem;">No products available.</p>`;
+  if (!productList || productList.length === 0) {
+    grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--gray-400);padding:2rem;">No products available in this section.</p>`;
     return;
   }
 
-  grid.innerHTML = products.slice(0, 12)
+  grid.innerHTML = productList
     .map((p) => {
       // Pricing
       const baseVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
@@ -551,6 +552,24 @@ function renderProducts(lang) {
 </article>`;
     })
     .join("");
+}
+
+function renderProducts(lang) {
+  // 1. Best Sellers: up to 8 items
+  const bestSellers = products.slice(0, 8);
+  renderProductListToContainer("bestSellersGrid", bestSellers, lang);
+
+  // 2. New Arrivals: sort products desc by createdAt or take latest items, up to 8 items
+  const newArrivals = [...products]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 8);
+  renderProductListToContainer("newArrivalsGrid", newArrivals, lang);
+
+  // 3. Bundles & Packs: items that have a bundleItems array, up to 8 items
+  const bundles = products
+    .filter((p) => Array.isArray(p.bundleItems) && p.bundleItems.length > 0)
+    .slice(0, 8);
+  renderProductListToContainer("bundlesGrid", bundles, lang);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -750,14 +769,24 @@ window.addEventListener(
 /* ─────────────────────────────────────────────────────────────
    PRODUCTS — loaded from Supabase
 ───────────────────────────────────────────────────────────── */
+function getCategoryVisualImage(name) {
+  const n = String(name).toLowerCase();
+  if (n.includes("protein")) return "/images/categories/protein.jpg";
+  if (n.includes("creatine") || n.includes("amino")) return "/images/categories/amino.jpg";
+  if (n.includes("pre") || n.includes("workout") || n.includes("booster")) return "/images/categories/preworkout.jpg";
+  if (n.includes("snack") || n.includes("healthy") || n.includes("nut")) return "/images/categories/snacks.jpg";
+  if (n.includes("bundle") || n.includes("pack")) return "/images/categories/bundles.jpg";
+  return "/images/categories/protein.jpg"; // default fallback
+}
+
 async function loadInitialData() {
   try {
     const res = await getInitialData();
     if (!res || !res.success) throw new Error("getInitialData failed");
 
-    // ── Products ──
+    // ── Products (include out of stock active products) ──
     products = res.products
-      .filter((p) => p.status === "active" && Number(p.stock) > 0);
+      .filter((p) => p.status === "active");
     renderProducts(currentLang);
 
     // ── Bundle banner ──
@@ -790,6 +819,22 @@ async function loadInitialData() {
     // ── Categories ──
     const categories = res.categories || [];
     const subCategories = res.subCategories || [];
+
+    // ── Visual Category Circle Cards ──
+    const visualCategoriesGrid = document.getElementById("visualCategoriesGrid");
+    if (visualCategoriesGrid) {
+      visualCategoriesGrid.innerHTML = categories.map(cat => {
+        const img = getCategoryVisualImage(cat.name);
+        return `
+          <a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="category-circle-card">
+            <div class="category-circle-img">
+              <img src="${img}" alt="${cat.name}" loading="lazy" />
+            </div>
+            <span class="category-circle-name">${cat.name}</span>
+          </a>
+        `;
+      }).join("");
+    }
 
     const chevron = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>`;
 
