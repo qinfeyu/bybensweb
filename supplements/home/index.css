@@ -2075,13 +2075,60 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
   transform: translateY(-3px) scale(1.02);
 }
 
+/* ── CAROUSEL ARROWS & SCROLL SNAPPING ── */
+.carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.carousel-arrow {
+  display: none; /* Hidden on desktop by default */
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--black);
+  border: 1px solid var(--gray-200);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+  padding: 0;
+}
+.carousel-arrow:hover {
+  background: var(--white);
+  color: var(--red);
+  box-shadow: var(--shadow-md);
+}
+.carousel-arrow svg {
+  display: block;
+}
+.prev-arrow {
+  left: 4px;
+}
+.next-arrow {
+  right: 4px;
+}
+
 /* Mobile responsive fixes */
 @media (max-width: 768px) {
+  .visual-categories-section .container {
+    padding: 0; /* Bleed category container edge-to-edge! */
+  }
+  .visual-categories-section .section-title {
+    padding: 0 24px; /* Keep title aligned with screen margins */
+  }
   .categories-circle-grid {
     justify-content: flex-start;
     scroll-snap-type: x mandatory;
     gap: 12px;
-    padding: 8px 16px 16px;
+    padding: 8px 24px 16px; /* First item is aligned, scrolling goes edge-to-edge */
   }
   .category-btn-card {
     scroll-snap-align: start;
@@ -2090,5 +2137,29 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     border-radius: 18px;
     font-size: 12px;
     padding: 12px;
+  }
+
+  /* ── PHONE DISPLAY ONE-PRODUCT SLIDESHOW ── */
+  .carousel-arrow {
+    display: flex; /* Show navigation arrows on mobile/phone */
+  }
+  .carousel-wrapper .product-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+    width: 100%;
+  }
+  .carousel-wrapper .product-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .carousel-wrapper .product-card {
+    width: 100%;
+    flex-shrink: 0;
+    scroll-snap-align: center;
+    box-sizing: border-box;
+    padding: 0 24px; /* Keep cards aligned with container padding and leave space for arrows */
   }
 }

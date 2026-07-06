@@ -769,6 +769,14 @@ window.addEventListener(
 /* ─────────────────────────────────────────────────────────────
    PRODUCTS — loaded from Supabase
 ───────────────────────────────────────────────────────────── */
+function scrollCarousel(gridId, direction) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const cardWidth = grid.querySelector(".product-card")?.offsetWidth || 300;
+  grid.scrollBy({ left: direction * cardWidth, behavior: "smooth" });
+}
+window.scrollCarousel = scrollCarousel;
+
 async function loadInitialData() {
   try {
     const res = await getInitialData();
