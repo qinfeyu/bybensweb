@@ -983,35 +983,7 @@
                 Update Password
               </button>
             </div>
-            <div class="settings-card" style="grid-column: 1 / -1">
-              <div class="settings-card-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                  <circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>Manage Users
-              </div>
-              <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
-                <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
-                  <label>Email</label>
-                  <input type="email" class="form-control" id="new-user-email" placeholder="admin@example.com"/>
-                </div>
-                <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
-                  <label>Password</label>
-                  <input type="password" class="form-control" id="new-user-pass" placeholder="Min 6 characters"/>
-                </div>
-                <div style="display:flex;align-items:flex-end">
-                  <button class="btn-primary" onclick="createAdminUser()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Create User
-                  </button>
-                </div>
-              </div>
-              <div id="users-list" style="display:flex;flex-direction:column;gap:8px">
-                <div style="color:var(--g400);font-size:13px">Loading users…</div>
-              </div>
-            </div>
+            <!-- Promotional Banner (Marquee) -->
             <div class="settings-card">
               <div class="settings-card-title">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1047,7 +1019,7 @@
             </div>
 
             <!-- Database Backups Card -->
-            <div class="settings-card settings-card-dark backup-card" style="grid-column: 1 / -1; position:relative; overflow:hidden;">
+            <div class="settings-card settings-card-dark backup-card" style="position:relative; overflow:hidden;">
               <!-- decorative grid overlay -->
               <div class="backup-grid-bg" aria-hidden="true"></div>
 
@@ -1106,6 +1078,37 @@
 
               <!-- status message -->
               <div id="backup-status" class="settings-backup-status" style="display:none"></div>
+            </div>
+
+            <!-- Manage Users Card (Full width at bottom) -->
+            <div class="settings-card" style="grid-column: 1 / -1">
+              <div class="settings-card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>Manage Users
+              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+                <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+                  <label>Email</label>
+                  <input type="email" class="form-control" id="new-user-email" placeholder="admin@example.com"/>
+                </div>
+                <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+                  <label>Password</label>
+                  <input type="password" class="form-control" id="new-user-pass" placeholder="Min 6 characters"/>
+                </div>
+                <div style="display:flex;align-items:flex-end">
+                  <button class="btn-primary" onclick="createAdminUser()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Create User
+                  </button>
+                </div>
+              </div>
+              <div id="users-list" style="display:flex;flex-direction:column;gap:8px">
+                <div style="color:var(--g400);font-size:13px">Loading users…</div>
+              </div>
             </div>
           </div>
         </div>
