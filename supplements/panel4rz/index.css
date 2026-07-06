@@ -1022,7 +1022,7 @@
       }
       .variant-row {
         display: grid;
-        grid-template-columns: 1fr 100px 120px 140px 36px;
+        grid-template-columns: 1fr 100px 120px 120px 140px 36px;
         gap: 10px;
         align-items: end;
       }
@@ -2021,3 +2021,193 @@
       .ov-seg-confirmed { background: var(--green); }
       .ov-seg-delivered { background: var(--blue); }
       .ov-seg-canceled { background: #dc2626; }
+
+      /* ─── POS LAYOUT ────────────────────────── */
+      .pos-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 20px;
+        align-items: start;
+        margin-top: 15px;
+      }
+      @media (max-width: 960px) {
+        .pos-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .pos-catalog {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 15px;
+      }
+      .pos-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid var(--g100);
+        padding: 12px;
+        cursor: pointer;
+        transition: all var(--tr);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 140px;
+        box-shadow: var(--sh-sm);
+      }
+      .pos-card:hover {
+        border-color: var(--red);
+        transform: translateY(-2px);
+        box-shadow: var(--sh-md);
+      }
+      .pos-card-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--black);
+        margin-bottom: 6px;
+        line-height: 1.3;
+      }
+      .pos-card-price {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--red);
+      }
+      .pos-card-stock {
+        font-size: 11px;
+        color: var(--g600);
+        margin-top: 6px;
+      }
+      .pos-cart-panel {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid var(--g100);
+        padding: 18px;
+        box-shadow: var(--sh-sm);
+        position: sticky;
+        top: 80px;
+      }
+      .pos-cart-header {
+        font-family: var(--font-d);
+        font-size: 18px;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--g100);
+        padding-bottom: 8px;
+      }
+      .pos-cart-items {
+        max-height: 240px;
+        overflow-y: auto;
+        margin-bottom: 15px;
+        border-bottom: 1px solid var(--g100);
+      }
+      .pos-cart-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        font-size: 13px;
+        border-bottom: 1px dashed var(--g50);
+      }
+      .pos-cart-item:last-child {
+        border-bottom: none;
+      }
+      .pos-item-desc {
+        flex: 1;
+        padding-right: 10px;
+      }
+      .pos-item-sub {
+        font-size: 11px;
+        color: var(--g400);
+        margin-top: 2px;
+      }
+      .pos-item-meta {
+        text-align: right;
+      }
+      .pos-item-qty {
+        font-weight: 700;
+      }
+      .pos-item-del {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        padding: 4px;
+        margin-left: 8px;
+      }
+      .pos-cart-summary {
+        margin-top: 15px;
+        background: var(--g50);
+        padding: 12px;
+        border-radius: 8px;
+      }
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+      .summary-row:last-child {
+        margin-bottom: 0;
+      }
+      .summary-row.total {
+        font-weight: 700;
+        font-size: 15px;
+        border-top: 1px solid var(--g200);
+        padding-top: 6px;
+        margin-top: 6px;
+      }
+      .pos-customer-details {
+        margin-bottom: 15px;
+      }
+
+      /* ─── EXPENSES LAYOUT ────────────────────── */
+      .expenses-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 20px;
+        align-items: start;
+        margin-top: 15px;
+      }
+      @media (max-width: 960px) {
+        .expenses-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .expense-form-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid var(--g100);
+        padding: 18px;
+        box-shadow: var(--sh-sm);
+      }
+      .expense-form-card h3 {
+        font-family: var(--font-d);
+        font-size: 18px;
+        letter-spacing: 0.5px;
+        margin-bottom: 15px;
+      }
+      .expense-list-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid var(--g100);
+        padding: 18px;
+        box-shadow: var(--sh-sm);
+      }
+      .expense-list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+      .expense-list-header h3 {
+        font-family: var(--font-d);
+        font-size: 18px;
+        letter-spacing: 0.5px;
+      }
+      .total-spent-badge {
+        font-size: 13px;
+        font-weight: 700;
+        background: #fee2e2;
+        color: #ef4444;
+        padding: 6px 12px;
+        border-radius: 20px;
+      }
+

@@ -610,6 +610,7 @@
               <span style="color:var(--g400)">(${total > 0 ? (counts[s]/total*100).toFixed(0) : 0}%)</span>
             </div>`).join("");
         }
+        if (typeof computeBusinessDashboard === "function") computeBusinessDashboard();
       }
 
       // ════════════════════════════════════════════
@@ -638,6 +639,10 @@
         bundle: "Bundle",
         orders: "Orders",
         settings: "Settings",
+        pos: "POS Checkout",
+        preorders: "Pre-Orders",
+        expenses: "Expenses Logger",
+        customers: "Customers Ledger",
       };
       function showPage(name, el) {
         document
@@ -652,6 +657,10 @@
           pageNames[name] || name;
         if (name === "orders") clearOrdersBadge();
         if (name === "settings") loadAdminUsers();
+        if (name === "pos") loadPOS();
+        if (name === "preorders") loadPreorders();
+        if (name === "expenses") loadExpenses();
+        if (name === "customers") loadCustomers();
         if (window.innerWidth < 768) closeSidebar();
       }
       function doLogout() {
@@ -1352,9 +1361,13 @@
               <option ${v && v.unit === "pcs" ? "selected" : ""}>pcs</option>
             </select>
           </div>
-          <div class="form-group">
+           <div class="form-group">
             <label>Price (DA)</label>
             <input type="number" class="form-control variant-price-input" placeholder="0" value="${v ? v.price : ""}" />
+          </div>
+          <div class="form-group">
+            <label>Cost (DA)</label>
+            <input type="number" class="form-control variant-cost-input" placeholder="0" value="${v && v.cost !== undefined ? v.cost : ""}" />
           </div>
           <div class="form-group">
             <label>Image</label>
@@ -1627,10 +1640,12 @@
               const priceInput = r.querySelector(".variant-price-input");
               const imgSelect = r.querySelector(".variant-image-select");
 
+              const costInput = r.querySelector(".variant-cost-input");
               const v = {
                 weight: weightInput ? weightInput.value : "",
                 unit: unitSelect ? unitSelect.value : "g",
-                price: priceInput ? parseFloat(priceInput.value) || 0 : 0
+                price: priceInput ? parseFloat(priceInput.value) || 0 : 0,
+                cost: costInput ? parseFloat(costInput.value) || 0 : 0
               };
 
               const imgVal = imgSelect ? imgSelect.value : "";
@@ -2869,3 +2884,912 @@
         }
         hideLoading();
       }
+
+      // ════════════════════════════════════════════
+      // BUSINESS PORTAL (POS, PREORDERS, EXPENSES, CUSTOMERS)
+      // ════════════════════════════════════════════
+      let posCart = [];
+      let allSales = [];
+      let allSaleItems = [];
+      let allPreorders = [];
+      let allPreorderItems = [];
+      let allExpenses = [];
+
+      async function refreshBusinessPortalData() {
+        try {
+          const [salesRes, saleItemsRes, preRes, preItemsRes, expRes] = await Promise.all([
+            sb.from("sales").select("*").order("date", { ascending: false }),
+            sb.from("sale_items").select("*"),
+            sb.from("pre_orders").select("*").order("date", { ascending: false }),
+            sb.from("pre_order_items").select("*"),
+            sb.from("expenses").select("*").order("date", { ascending: false })
+          ]);
+
+          allSales = salesRes.data || [];
+          allSaleItems = saleItemsRes.data || [];
+          allPreorders = preRes.data || [];
+          allPreorderItems = preItemsRes.data || [];
+          allExpenses = expRes.data || [];
+
+          // Compute business metrics for dashboard KPIs
+          computeBusinessDashboard();
+        } catch (e) {
+          console.warn("Failed to fetch business portal tables (they may not exist yet):", e);
+        }
+      }
+
+      function computeBusinessDashboard() {
+        // Compute expenses total
+        const totalExp = allExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        const expBadge = document.getElementById("total-expenses-badge");
+        if (expBadge) expBadge.textContent = `Total: ${totalExp.toLocaleString()} DA`;
+
+        // Let's add extra KPI elements dynamically to page-dashboard stats-grid if they are missing
+        const statsGrid = document.querySelector("#page-dashboard .stats-grid");
+        if (statsGrid && !document.getElementById("stat-net-profit")) {
+          // Add Net Profit & Operating Expenses KPI cards to the main dashboard dynamically!
+          const expCard = document.createElement("div");
+          expCard.className = "stat-card";
+          expCard.innerHTML = `
+            <div class="stat-icon purple">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01"/>
+              </svg>
+            </div>
+            <div>
+              <div class="stat-num" id="stat-total-expenses">0 DA</div>
+              <div class="stat-label">Operating Expenses</div>
+            </div>
+          `;
+          statsGrid.appendChild(expCard);
+
+          const netCard = document.createElement("div");
+          netCard.className = "stat-card";
+          netCard.innerHTML = `
+            <div class="stat-icon green">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div>
+              <div class="stat-num" id="stat-net-profit">0 DA</div>
+              <div class="stat-label">Net Profit Margin</div>
+            </div>
+          `;
+          statsGrid.appendChild(netCard);
+        }
+
+        // Calculate metrics
+        // Revenue = Total orders value + Total POS checkout value
+        const totalSalesRevenue = allSales.reduce((s, sl) => s + (Number(sl.total_amount) || 0), 0);
+        const totalOrdersRevenue = _dashOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+        const combinedRevenue = totalSalesRevenue + totalOrdersRevenue;
+
+        // Cost of goods sold:
+        // For orders: we can map order item quantities to variant costs.
+        // For POS sales: we map sale item quantities to product variant costs recorded at checkout.
+        let totalCOGS = 0;
+        
+        // Sum up COGS from sales
+        allSaleItems.forEach(item => {
+          const prod = products.find(p => p.id === item.product_id);
+          if (prod) {
+            // Find cost in variant
+            const variantName = item.variant || "";
+            const v = prod.variants.find(x => {
+              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+              return label === variantName.toLowerCase();
+            });
+            const itemCost = v ? (Number(v.cost) || 0) : 0;
+            totalCOGS += itemCost * (item.qty || 0);
+          }
+        });
+
+        // Sum up COGS from online orders
+        _dashOrders.forEach(o => {
+          (o.items || []).forEach(item => {
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+              const variantName = item.variantName || "";
+              const v = prod.variants.find(x => {
+                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+                return label === variantName.toLowerCase();
+              });
+              const itemCost = v ? (Number(v.cost) || 0) : 0;
+              totalCOGS += itemCost * (item.qty || 0);
+            }
+          });
+        });
+
+        const netProfit = combinedRevenue - totalCOGS - totalExp;
+
+        document.getElementById("stat-revenue-total").textContent = fmtRevenue(combinedRevenue);
+        if (document.getElementById("stat-total-expenses")) {
+          document.getElementById("stat-total-expenses").textContent = totalExp.toLocaleString() + " DA";
+        }
+        if (document.getElementById("stat-net-profit")) {
+          document.getElementById("stat-net-profit").textContent = netProfit.toLocaleString() + " DA";
+          if (netProfit < 0) {
+            document.getElementById("stat-net-profit").style.color = "var(--red)";
+          } else {
+            document.getElementById("stat-net-profit").style.color = "var(--green)";
+          }
+        }
+      }
+
+      // ─── POS SYSTEM ───
+      window.loadPOS = function() {
+        // Populate category dropdown
+        const catSelect = document.getElementById("pos-cat-filter");
+        if (catSelect) {
+          catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+        }
+        renderPOSProductsList();
+        renderPOSCart();
+      };
+
+      window.filterPOSProducts = function() {
+        renderPOSProductsList();
+      };
+
+      function renderPOSProductsList() {
+        const grid = document.getElementById("pos-catalog-grid");
+        if (!grid) return;
+
+        const q = (document.getElementById("pos-search")?.value || "").toLowerCase().trim();
+        const catFilter = document.getElementById("pos-cat-filter")?.value || "";
+
+        let filtered = products.filter(p => p.status === "active");
+
+        if (catFilter) {
+          filtered = filtered.filter(p => p.categoryIds && p.categoryIds.includes(catFilter));
+        }
+        if (q) {
+          filtered = filtered.filter(p => p.name.toLowerCase().includes(q) || (p.brand && p.brand.toLowerCase().includes(q)));
+        }
+
+        if (filtered.length === 0) {
+          grid.innerHTML = `<div style="grid-column: 1/-1;text-align:center;color:var(--g400);padding:40px 0;font-size:13px">No products found</div>`;
+          return;
+        }
+
+        grid.innerHTML = filtered.map(p => {
+          // get display price
+          let priceStr = "—";
+          if (p.variants && p.variants.length > 0) {
+            priceStr = p.variants[0].price.toLocaleString() + " DA";
+          }
+          return `
+            <div class="pos-card" onclick="openPOSFlavorModal('${p.id}')">
+              <div>
+                <div class="pos-card-name">${p.brand ? '<strong>' + p.brand + '</strong> ' : ''}${p.name}</div>
+                <div class="pos-card-price">${priceStr}</div>
+              </div>
+              <div class="pos-card-stock">Stock: ${p.stock}</div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      window.openPOSFlavorModal = function(prodId) {
+        const prod = products.find(p => p.id === prodId);
+        if (!prod) return;
+
+        document.getElementById("pos-modal-prod-id").value = prodId;
+
+        const flavorGroup = document.getElementById("pos-modal-flavors-group");
+        const flavorSelect = document.getElementById("pos-modal-flavor");
+        const varGroup = document.getElementById("pos-modal-variants-group");
+        const varSelect = document.getElementById("pos-modal-variant");
+        const priceInput = document.getElementById("pos-modal-price");
+        document.getElementById("pos-modal-qty").value = 1;
+
+        // Flavors
+        if (prod.flavors && prod.flavors.length > 0) {
+          flavorGroup.style.display = "block";
+          flavorSelect.innerHTML = prod.flavors.map(f => `<option value="${f.name || f}">${f.name || f}</option>`).join("");
+        } else {
+          flavorGroup.style.display = "none";
+          flavorSelect.innerHTML = "";
+        }
+
+        // Variants
+        if (prod.variants && prod.variants.length > 0) {
+          varGroup.style.display = "block";
+          varSelect.innerHTML = prod.variants.map((v, i) => {
+            const label = v.weight ? `${v.weight}${v.unit || ""}`.trim() : `V${i+1}`;
+            return `<option value="${i}">${label} (${v.price.toLocaleString()} DA)</option>`;
+          }).join("");
+          priceInput.value = prod.variants[0].price;
+          
+          varSelect.onchange = function() {
+            const selectedV = prod.variants[parseInt(varSelect.value)];
+            if (selectedV) priceInput.value = selectedV.price;
+          };
+        } else {
+          varGroup.style.display = "none";
+          varSelect.innerHTML = "";
+          priceInput.value = 0;
+        }
+
+        document.getElementById("pos-flavor-modal").classList.add("show");
+      };
+
+      window.confirmAddCartItem = function() {
+        const prodId = document.getElementById("pos-modal-prod-id").value;
+        const prod = products.find(p => p.id === prodId);
+        if (!prod) return;
+
+        const flavorGroup = document.getElementById("pos-modal-flavors-group");
+        const flavor = flavorGroup.style.display !== "none" ? document.getElementById("pos-modal-flavor").value : "";
+        
+        const varGroup = document.getElementById("pos-modal-variants-group");
+        const varIdx = varGroup.style.display !== "none" ? parseInt(document.getElementById("pos-modal-variant").value) : 0;
+        const selectedVariant = prod.variants && prod.variants[varIdx] ? prod.variants[varIdx] : null;
+
+        const qty = parseInt(document.getElementById("pos-modal-qty").value) || 1;
+        const price = parseFloat(document.getElementById("pos-modal-price").value) || 0;
+
+        const variantName = selectedVariant ? (selectedVariant.weight ? `${selectedVariant.weight}${selectedVariant.unit || ""}`.trim() : `Default`) : "";
+
+        // Check stock availability
+        let availableStock = prod.stock || 0;
+        if (selectedVariant) {
+          if (selectedVariant.flavorStock && flavor && selectedVariant.flavorStock[flavor] !== undefined) {
+            availableStock = selectedVariant.flavorStock[flavor];
+          } else if (selectedVariant.stock !== undefined) {
+            availableStock = selectedVariant.stock;
+          }
+        }
+
+        if (availableStock < qty) {
+          showToast(`Insufficient stock! Only ${availableStock} units available.`, "error");
+          return;
+        }
+
+        posCart.push({
+          productId: prodId,
+          name: prod.name,
+          brand: prod.brand,
+          flavor,
+          variant: variantName,
+          variantIndex: varIdx,
+          qty,
+          price
+        });
+
+        closeModal("pos-flavor-modal");
+        renderPOSCart();
+        showToast("Added to POS cart!");
+      };
+
+      function renderPOSCart() {
+        const list = document.getElementById("pos-cart-items-list");
+        if (!list) return;
+
+        if (posCart.length === 0) {
+          list.innerHTML = `<div style="text-align:center;color:var(--g400);padding:40px 0;font-size:13px">Cart is empty</div>`;
+          updatePOSTotals();
+          return;
+        }
+
+        list.innerHTML = posCart.map((item, index) => `
+          <div class="pos-cart-item">
+            <div class="pos-item-desc">
+              <strong>${item.brand ? item.brand + ' - ' : ''}${item.name}</strong>
+              <div class="pos-item-sub">${item.variant || ""}${item.flavor ? ' | ' + item.flavor : ""}</div>
+            </div>
+            <div class="pos-item-meta">
+              <span class="pos-item-qty">x${item.qty}</span>
+              <div style="font-weight:600">${(item.price * item.qty).toLocaleString()} DA</div>
+            </div>
+            <button class="pos-item-del" onclick="removePOSCartItem(${index})">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        `).join("");
+
+        updatePOSTotals();
+      }
+
+      window.removePOSCartItem = function(index) {
+        posCart.splice(index, 1);
+        renderPOSCart();
+      };
+
+      window.updatePOSTotals = function() {
+        const subtotal = posCart.reduce((s, item) => s + (item.price * item.qty), 0);
+        const discount = parseFloat(document.getElementById("pos-discount").value) || 0;
+        const total = Math.max(0, subtotal - discount);
+
+        document.getElementById("pos-subtotal").textContent = subtotal.toLocaleString() + " DA";
+        document.getElementById("pos-discount-val").textContent = discount.toLocaleString() + " DA";
+        document.getElementById("pos-total").textContent = total.toLocaleString() + " DA";
+      };
+
+      window.submitPOSSale = async function() {
+        if (posCart.length === 0) {
+          showToast("Cart is empty!", "error");
+          return;
+        }
+
+        showLoading("Recording sale...");
+        try {
+          const discount = parseFloat(document.getElementById("pos-discount").value) || 0;
+          const custName = document.getElementById("pos-cust-name").value.trim();
+          const custPhone = document.getElementById("pos-cust-phone").value.trim();
+
+          const subtotal = posCart.reduce((s, item) => s + (item.price * item.qty), 0);
+          const totalAmount = Math.max(0, subtotal - discount);
+
+          const saleId = String(Date.now());
+
+          // Insert Sales row
+          const { error: saleErr } = await sb.from("sales").insert({
+            id: saleId,
+            date: new Date().toISOString(),
+            total_amount: totalAmount,
+            discount: discount,
+            customer_name: custName || null,
+            customer_phone: custPhone || null,
+            operator: localStorage.getItem("bb_admin_name") || "Admin"
+          });
+
+          if (saleErr) throw saleErr;
+
+          // Insert Sale items and decrement product stocks
+          for (const item of posCart) {
+            const itemId = String(Date.now()) + Math.random().toString(36).substr(2, 4);
+            const { error: itemErr } = await sb.from("sale_items").insert({
+              id: itemId,
+              sale_id: saleId,
+              product_id: item.productId,
+              product_name: item.name,
+              flavor: item.flavor || null,
+              variant: item.variant || null,
+              qty: item.qty,
+              price: item.price
+            });
+            if (itemErr) throw itemErr;
+
+            // Decrement stock in database
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+              const updatedVariants = JSON.parse(JSON.stringify(prod.variants));
+              const selectedV = updatedVariants[item.variantIndex];
+              if (selectedV) {
+                if (selectedV.flavorStock && item.flavor && selectedV.flavorStock[item.flavor] !== undefined) {
+                  selectedV.flavorStock[item.flavor] = Math.max(0, selectedV.flavorStock[item.flavor] - item.qty);
+                  selectedV.stock = Object.values(selectedV.flavorStock).reduce((a, b) => a + b, 0);
+                } else if (selectedV.stock !== undefined) {
+                  selectedV.stock = Math.max(0, selectedV.stock - item.qty);
+                }
+              }
+              const totalStock = updatedVariants.reduce((a, b) => a + (Number(b.stock) || 0), 0);
+
+              const { error: stockErr } = await sb.from("products").update({
+                variants: updatedVariants,
+                stock: totalStock
+              }).eq("id", item.productId);
+
+              if (stockErr) throw stockErr;
+            }
+          }
+
+          // Reset cart
+          posCart = [];
+          document.getElementById("pos-cust-name").value = "";
+          document.getElementById("pos-cust-phone").value = "";
+          document.getElementById("pos-discount").value = "0";
+
+          showToast("Sale recorded successfully!");
+          
+          // Reload products list and dashboards
+          const dataRes = await apiGet("getInitialData");
+          if (dataRes && dataRes.success) {
+            products = dataRes.products;
+          }
+          await refreshBusinessPortalData();
+          renderPOSProductsList();
+          renderPOSCart();
+        } catch (e) {
+          showToast("Failed to complete sale: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
+      // ─── EXPENSES SYSTEM ───
+      window.loadExpenses = async function() {
+        await refreshBusinessPortalData();
+        renderExpensesList();
+      };
+
+      function renderExpensesList() {
+        const body = document.getElementById("expenses-table-body");
+        if (!body) return;
+
+        if (allExpenses.length === 0) {
+          body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--g400);padding:24px">No expenses logged yet</td></tr>`;
+          return;
+        }
+
+        body.innerHTML = allExpenses.map(e => `
+          <tr>
+            <td>${new Date(e.date).toLocaleDateString()}</td>
+            <td><span class="badge" style="background:var(--g100);color:var(--g800)">${e.category}</span></td>
+            <td>${e.description || "—"}</td>
+            <td style="font-weight:700;color:var(--red)">${Number(e.amount).toLocaleString()} DA</td>
+            <td>
+              <button class="btn-text-danger" style="color:var(--red);font-weight:600" onclick="deleteExpenseRow('${e.id}')">Delete</button>
+            </td>
+          </tr>
+        `).join("");
+      }
+
+      window.saveExpense = async function() {
+        const amountInp = document.getElementById("exp-amount");
+        const categoryInp = document.getElementById("exp-category");
+        const descInp = document.getElementById("exp-description");
+
+        const amount = parseFloat(amountInp.value) || 0;
+        const category = categoryInp.value;
+        const description = descInp.value.trim();
+
+        if (amount <= 0) {
+          showToast("Please enter a valid amount!", "error");
+          return;
+        }
+
+        showLoading("Saving expense...");
+        try {
+          const expenseId = String(Date.now());
+          const { error } = await sb.from("expenses").insert({
+            id: expenseId,
+            date: new Date().toISOString(),
+            amount,
+            category,
+            description: description || null
+          });
+
+          if (error) throw error;
+
+          amountInp.value = "";
+          descInp.value = "";
+
+          showToast("Expense logged successfully!");
+          await loadExpenses();
+        } catch (e) {
+          showToast("Failed to log expense: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
+      window.deleteExpenseRow = async function(id) {
+        if (!confirm("Are you sure you want to delete this expense record?")) return;
+        showLoading("Deleting expense...");
+        try {
+          const { error } = await sb.from("expenses").delete().eq("id", id);
+          if (error) throw error;
+          showToast("Expense record deleted!");
+          await loadExpenses();
+        } catch (e) {
+          showToast("Error deleting: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
+      // ─── PRE-ORDERS SYSTEM ───
+      let preorderItemRows = [];
+
+      window.loadPreorders = async function() {
+        await refreshBusinessPortalData();
+        renderPreordersList();
+      };
+
+      window.openPreorderModal = function(id = "") {
+        const modal = document.getElementById("preorder-modal");
+        const title = document.getElementById("preorder-modal-title");
+        const nameInp = document.getElementById("preorder-cust-name");
+        const phoneInp = document.getElementById("preorder-cust-phone");
+        const notesInp = document.getElementById("preorder-notes");
+        const statusGroup = document.getElementById("preorder-status-group");
+        const statusSelect = document.getElementById("preorder-status");
+        
+        document.getElementById("preorder-id").value = id;
+        preorderItemRows = [];
+
+        if (!id) {
+          title.textContent = "New Pre-Order";
+          nameInp.value = "";
+          phoneInp.value = "";
+          notesInp.value = "";
+          statusGroup.style.display = "none";
+          addPreorderItemRow();
+        } else {
+          title.textContent = "Edit Pre-Order";
+          const pre = allPreorders.find(x => x.id === id);
+          if (pre) {
+            nameInp.value = pre.customer_name;
+            phoneInp.value = pre.customer_phone;
+            notesInp.value = pre.notes || "";
+            statusGroup.style.display = "block";
+            statusSelect.value = pre.status;
+
+            // Load items
+            const items = allPreorderItems.filter(x => x.pre_order_id === id);
+            items.forEach(itm => {
+              addPreorderItemRow({
+                productId: itm.product_id,
+                flavor: itm.flavor,
+                variant: itm.variant,
+                qty: itm.qty
+              });
+            });
+          }
+        }
+
+        modal.classList.add("show");
+      };
+
+      window.addPreorderItemRow = function(data = null) {
+        const container = document.getElementById("preorder-items-list");
+        if (!container) return;
+
+        const rowId = String(Math.random().toString(36).substr(2, 6));
+        const div = document.createElement("div");
+        div.className = "preorder-item-row";
+        div.id = `preorder-row-${rowId}`;
+        div.style.display = "flex";
+        div.style.gap = "8px";
+        div.style.alignItems = "center";
+
+        // Create product options list
+        const activeProds = products.filter(p => p.status === "active");
+        const prodOptions = activeProds.map(p => `<option value="${p.id}" ${data && data.productId === p.id ? 'selected' : ''}>${p.name}</option>`).join("");
+
+        div.innerHTML = `
+          <select class="form-control pre-prod-select" style="flex:2" onchange="updatePreorderRowOptions('${rowId}')">
+            <option value="">Select Product...</option>
+            ${prodOptions}
+          </select>
+          <select class="form-control pre-flavor-select" style="flex:1">
+            <option value="">Flavor...</option>
+          </select>
+          <select class="form-control pre-var-select" style="flex:1">
+            <option value="">Variant...</option>
+          </select>
+          <input type="number" class="form-control pre-qty-input" style="width:60px" value="${data ? data.qty : '1'}" min="1" />
+          <button class="btn-text-danger" style="color:var(--red);font-weight:bold" onclick="this.closest('.preorder-item-row').remove()">×</button>
+        `;
+
+        container.appendChild(div);
+        
+        if (data) {
+          updatePreorderRowOptions(rowId, data.flavor, data.variant);
+        }
+      };
+
+      window.updatePreorderRowOptions = function(rowId, selectedFlavor = "", selectedVariant = "") {
+        const row = document.getElementById(`preorder-row-${rowId}`);
+        if (!row) return;
+
+        const prodId = row.querySelector(".pre-prod-select").value;
+        const flavorSelect = row.querySelector(".pre-flavor-select");
+        const varSelect = row.querySelector(".pre-var-select");
+
+        if (!prodId) {
+          flavorSelect.innerHTML = '<option value="">Flavor...</option>';
+          varSelect.innerHTML = '<option value="">Variant...</option>';
+          return;
+        }
+
+        const prod = products.find(p => p.id === prodId);
+        if (!prod) return;
+
+        // Flavors
+        if (prod.flavors && prod.flavors.length > 0) {
+          flavorSelect.innerHTML = '<option value="">Flavor...</option>' + prod.flavors.map(f => `<option value="${f.name || f}" ${selectedFlavor === (f.name || f) ? 'selected' : ''}>${f.name || f}</option>`).join("");
+        } else {
+          flavorSelect.innerHTML = '<option value="">—</option>';
+        }
+
+        // Variants
+        if (prod.variants && prod.variants.length > 0) {
+          varSelect.innerHTML = '<option value="">Variant...</option>' + prod.variants.map((v, i) => {
+            const label = v.weight ? `${v.weight}${v.unit || ""}`.trim() : `V${i+1}`;
+            return `<option value="${label}" ${selectedVariant === label ? 'selected' : ''}>${label}</option>`;
+          }).join("");
+        } else {
+          varSelect.innerHTML = '<option value="">—</option>';
+        }
+      };
+
+      window.savePreorder = async function() {
+        const id = document.getElementById("preorder-id").value;
+        const name = document.getElementById("preorder-cust-name").value.trim();
+        const phone = document.getElementById("preorder-cust-phone").value.trim();
+        const notes = document.getElementById("preorder-notes").value.trim();
+        const status = document.getElementById("preorder-status").value;
+
+        if (!name || !phone) {
+          showToast("Name and phone are required!", "error");
+          return;
+        }
+
+        const itemRows = document.querySelectorAll("#preorder-items-list .preorder-item-row");
+        if (itemRows.length === 0) {
+          showToast("Add at least one item!", "error");
+          return;
+        }
+
+        showLoading("Saving pre-order...");
+        try {
+          const preId = id || String(Date.now());
+          
+          if (!id) {
+            // Insert new Pre-Order
+            const { error: insertErr } = await sb.from("pre_orders").insert({
+              id: preId,
+              date: new Date().toISOString(),
+              customer_name: name,
+              customer_phone: phone,
+              notes: notes || null,
+              status: "pending",
+              total_amount: 0
+            });
+            if (insertErr) throw insertErr;
+          } else {
+            // Update Pre-Order
+            const { error: updateErr } = await sb.from("pre_orders").update({
+              customer_name: name,
+              customer_phone: phone,
+              notes: notes || null,
+              status: status
+            }).eq("id", preId);
+            if (updateErr) throw updateErr;
+
+            // Delete existing pre-order items to overwrite
+            await sb.from("pre_order_items").delete().eq("pre_order_id", preId);
+          }
+
+          // Insert pre-order items
+          for (const row of itemRows) {
+            const prodId = row.querySelector(".pre-prod-select").value;
+            const flavor = row.querySelector(".pre-flavor-select").value;
+            const variant = row.querySelector(".pre-var-select").value;
+            const qty = parseInt(row.querySelector(".pre-qty-input").value) || 1;
+
+            if (prodId) {
+              const prod = products.find(p => p.id === prodId);
+              const itemId = String(Date.now()) + Math.random().toString(36).substr(2, 4);
+
+              const { error: itemErr } = await sb.from("pre_order_items").insert({
+                id: itemId,
+                pre_order_id: preId,
+                product_id: prodId,
+                product_name: prod ? prod.name : "Product",
+                flavor: flavor || null,
+                variant: variant || null,
+                qty
+              });
+              if (itemErr) throw itemErr;
+            }
+          }
+
+          closeModal("preorder-modal");
+          showToast("Pre-order saved successfully!");
+          await loadPreorders();
+        } catch (e) {
+          showToast("Failed to save: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
+      window.deletePreorderRow = async function(id) {
+        if (!confirm("Are you sure you want to delete this pre-order?")) return;
+        showLoading("Deleting pre-order...");
+        try {
+          const { error } = await sb.from("pre_orders").delete().eq("id", id);
+          if (error) throw error;
+          showToast("Pre-order deleted!");
+          await loadPreorders();
+        } catch (e) {
+          showToast("Error deleting: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
+      window.togglePreorderStatus = async function(id, currentStatus) {
+        const nextStatus = currentStatus === "pending" ? "fulfilled" : (currentStatus === "fulfilled" ? "cancelled" : "pending");
+        showLoading("Updating pre-order...");
+        try {
+          const { error } = await sb.from("pre_orders").update({ status: nextStatus }).eq("id", id);
+          if (error) throw error;
+          showToast(`Status updated to ${nextStatus}!`);
+          await loadPreorders();
+        } catch (e) {
+          showToast("Error: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
+      function renderPreordersList() {
+        const body = document.getElementById("preorders-table-body");
+        if (!body) return;
+
+        const filter = document.getElementById("preorder-status-filter")?.value || "";
+
+        let filtered = allPreorders;
+        if (filter) {
+          filtered = filtered.filter(p => p.status === filter);
+        }
+
+        if (filtered.length === 0) {
+          body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--g400);padding:24px">No pre-orders found</td></tr>`;
+          return;
+        }
+
+        body.innerHTML = filtered.map(p => {
+          const items = allPreorderItems.filter(x => x.pre_order_id === p.id);
+          const itemsText = items.map(itm => `${itm.product_name} (${itm.variant || '—'}${itm.flavor ? ' | ' + itm.flavor : ''}) x${itm.qty}`).join("<br>");
+
+          return `
+            <tr>
+              <td>${new Date(p.date).toLocaleDateString()}</td>
+              <td><strong>${p.customer_name}</strong></td>
+              <td>${p.customer_phone}</td>
+              <td style="font-size:12px;line-height:1.4">${itemsText}</td>
+              <td>${p.total_amount ? p.total_amount.toLocaleString() + ' DA' : '—'}</td>
+              <td><span class="badge badge-${p.status}">${cap(p.status)}</span></td>
+              <td>
+                <div class="action-group">
+                  <button class="act-btn act-edit" onclick="openPreorderModal('${p.id}')">Edit</button>
+                  <button class="act-btn act-confirm" onclick="togglePreorderStatus('${p.id}','${p.status}')">Cycle Status</button>
+                  <button class="act-btn act-delete" onclick="deletePreorderRow('${p.id}')">Delete</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      // ─── CUSTOMERS LEDGER ───
+      let uniqueCustomers = [];
+
+      window.loadCustomers = async function() {
+        await refreshBusinessPortalData();
+        buildCustomersLedger();
+        renderCustomersList();
+      };
+
+      function buildCustomersLedger() {
+        const ledger = {};
+
+        // 1. Process Online orders
+        _dashOrders.forEach(o => {
+          if (!o.phone) return;
+          const phone = o.phone.trim();
+          const name = `${o.firstName} ${o.lastName}`.trim() || "Customer";
+
+          if (!ledger[phone]) {
+            ledger[phone] = {
+              name,
+              phone,
+              ordersCount: 0,
+              totalSpent: 0,
+              history: []
+            };
+          }
+          ledger[phone].ordersCount++;
+          ledger[phone].totalSpent += Number(o.total) || 0;
+          ledger[phone].history.push({
+            type: "Online Order",
+            id: o.id,
+            date: o.createdAt,
+            total: o.total,
+            status: o.status
+          });
+        });
+
+        // 2. Process POS sales
+        allSales.forEach(s => {
+          if (!s.customer_phone) return;
+          const phone = s.customer_phone.trim();
+          const name = s.customer_name ? s.customer_name.trim() : "Walk-in Customer";
+
+          if (!ledger[phone]) {
+            ledger[phone] = {
+              name,
+              phone,
+              ordersCount: 0,
+              totalSpent: 0,
+              history: []
+            };
+          }
+          ledger[phone].ordersCount++;
+          ledger[phone].totalSpent += Number(s.total_amount) || 0;
+          ledger[phone].history.push({
+            type: "In-Store POS Sale",
+            id: s.id,
+            date: s.date,
+            total: s.total_amount,
+            status: "completed"
+          });
+        });
+
+        uniqueCustomers = Object.values(ledger);
+      }
+
+      window.renderCustomersList = function() {
+        const body = document.getElementById("customers-table-body");
+        if (!body) return;
+
+        const q = (document.getElementById("cust-search")?.value || "").toLowerCase().trim();
+        let filtered = uniqueCustomers;
+
+        if (q) {
+          filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q));
+        }
+
+        if (filtered.length === 0) {
+          body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--g400);padding:24px">No customer ledger records found</td></tr>`;
+          return;
+        }
+
+        body.innerHTML = filtered.map((c, i) => `
+          <tr>
+            <td><strong>${c.name}</strong></td>
+            <td>${c.phone}</td>
+            <td>${c.ordersCount}</td>
+            <td style="font-weight:700;color:var(--green)">${c.totalSpent.toLocaleString()} DA</td>
+            <td>
+              <button class="act-btn act-view" onclick="viewCustomerHistory('${i}')">View Purchase Logs</button>
+            </td>
+          </tr>
+        `).join("");
+      };
+
+      window.viewCustomerHistory = function(index) {
+        const c = uniqueCustomers[parseInt(index)];
+        if (!c) return;
+
+        document.getElementById("cust-history-title").textContent = `${c.name} — Purchase History`;
+        const body = document.getElementById("cust-history-body");
+
+        body.innerHTML = `
+          <div style="margin-bottom:15px; font-size:13px; color:var(--g600)">
+            <strong>Phone:</strong> ${c.phone}<br>
+            <strong>Total Records:</strong> ${c.ordersCount} transaction(s)<br>
+            <strong>Total Value:</strong> ${c.totalSpent.toLocaleString()} DA
+          </div>
+          <table class="data-table" style="font-size:12px">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Transaction ID</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${c.history.map(h => `
+                <tr>
+                  <td>${new Date(h.date).toLocaleDateString()}</td>
+                  <td>${h.type}</td>
+                  <td><code>${h.id}</code></td>
+                  <td><strong>${Number(h.total).toLocaleString()} DA</strong></td>
+                  <td><span class="badge badge-${h.status === 'completed' ? 'active' : h.status}">${h.status}</span></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+
+        document.getElementById("cust-history-modal").classList.add("show");
+      };
+
+      // Trigger automatic business portal data reload when page initializes
+      setTimeout(refreshBusinessPortalData, 1000);
+
