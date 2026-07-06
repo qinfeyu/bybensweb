@@ -2053,26 +2053,26 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 170px;
-  height: 170px;
+  width: 110px;
+  height: 110px;
   flex-shrink: 0;
   background: #2a2a2a; /* Premium dark grey */
   color: var(--white);
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
   text-align: center;
-  padding: 20px;
-  border-radius: 28px; /* High roundness matching reference image */
+  padding: 12px;
+  border-radius: 18px; /* Balanced rounded corners for smaller size */
   text-decoration: none;
   transition: all var(--transition);
   box-shadow: var(--shadow-sm);
   white-space: normal;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 .category-btn-card:hover {
   background: var(--red); /* Crimson red on hover */
   box-shadow: var(--shadow-red);
-  transform: translateY(-4px) scale(1.02);
+  transform: translateY(-3px) scale(1.02);
 }
 
 /* Mobile responsive fixes */
@@ -2080,13 +2080,15 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
   .categories-circle-grid {
     justify-content: flex-start;
     scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding: 8px 16px 16px;
   }
   .category-btn-card {
     scroll-snap-align: start;
-    width: 140px;
-    height: 140px;
-    border-radius: 22px;
-    font-size: 13px;
-    padding: 16px;
+    width: 95px;
+    height: 95px;
+    border-radius: 16px;
+    font-size: 11px;
+    padding: 10px;
   }
 }
