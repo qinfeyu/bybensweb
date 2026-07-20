@@ -402,7 +402,7 @@
       // ════════════════════════════════════════════
       // INIT
       // ════════════════════════════════════════════
-      document.addEventListener("DOMContentLoaded", async () => {
+      async function initDashboard() {
         if (!SUPABASE_URL || !sb) {
           showToast("Supabase not configured!", "error");
           return;
@@ -443,7 +443,13 @@
           showToast("Failed to load: " + e.message, "error");
         }
         hideLoading();
-      });
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initDashboard);
+      } else {
+        initDashboard();
+      }
 
       async function loadSubCategories() {
         const r = await apiGet("getSubCategories");
