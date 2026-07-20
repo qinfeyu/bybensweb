@@ -3673,6 +3673,7 @@
           }
         }
 
+        recalcPreorderTotals();
         modal.classList.add("open");
       };
 
@@ -3703,14 +3704,14 @@
             <datalist id="prod-datalist-${rowId}">${datalistOptions}</datalist>
             <input type="hidden" class="pre-prod-id" value="${data ? data.productId : ''}" />
           </div>
-          <select class="form-control pre-flavor-select" style="flex:1;min-width:90px">
+          <select class="form-control pre-flavor-select" style="flex:1;min-width:90px" onchange="recalcPreorderTotals()">
             <option value="">Flavor…</option>
           </select>
-          <select class="form-control pre-var-select" style="flex:1;min-width:90px">
+          <select class="form-control pre-var-select" style="flex:1;min-width:90px" onchange="recalcPreorderTotals()">
             <option value="">Variant…</option>
           </select>
-          <input type="number" class="form-control pre-qty-input" style="width:60px" value="${data ? data.qty : '1'}" min="1" />
-          <button class="btn-text-danger" style="color:var(--red);font-weight:bold;padding:6px" onclick="this.closest('.preorder-item-row').remove()">×</button>
+          <input type="number" class="form-control pre-qty-input" style="width:60px" value="${data ? data.qty : '1'}" min="1" oninput="recalcPreorderTotals()" />
+          <button class="btn-text-danger" style="color:var(--red);font-weight:bold;padding:6px" onclick="this.closest('.preorder-item-row').remove(); recalcPreorderTotals();">×</button>
         `;
 
         container.appendChild(div);
@@ -3718,6 +3719,7 @@
         if (data) {
           updatePreorderRowOptions(rowId, data.flavor, data.variant);
         }
+        recalcPreorderTotals();
       };
 
       window.updatePreorderRowOptions = function(rowId, selectedFlavor = "", selectedVariant = "") {
@@ -4353,6 +4355,7 @@
         } else {
           hiddenInput.value = "";
         }
+        recalcPreorderTotals();
       };
 
       window.deleteCustomerProfile = async function(phone) {
@@ -5127,6 +5130,67 @@
 
 
       /* ─── PRE-ORDER DOWNLOADS & METADATA HELPERS ─── */
+
+      window.recalcPreorderTotals = function() {
+        const itemRows = document.querySelectorAll("#preorder-items-list .preorder-item-row");
+        let subtotal = 0;
+        let deliveryCost = 0;
+
+        itemRows.forEach(row => {
+          const prodId = row.querySelector(".pre-prod-id").value;
+          const variant = row.querySelector(".pre-var-select").value;
+          const qty = parseInt(row.querySelector(".pre-qty-input").value) || 1;
+
+          if (prodId) {
+            const prod = products.find(p => p.id === prodId);
+            let retailPrice = 0;
+            let deliveryPrice = 0;
+
+            if (prod && prod.variants) {
+              const variantName = variant || "";
+              const v = prod.variants.find(x => {
+                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+                return label === variantName.toLowerCase();
+              });
+
+              if (v) {
+                if (v.sku) {
+                  const invItem = inventoryItems.find(x => x.id === v.sku);
+                  if (invItem) {
+                    retailPrice = Number(invItem.retail_dzd) || 0;
+                    deliveryPrice = Number(invItem.delivery_dzd) || 0;
+                  } else {
+                    retailPrice = Number(v.price) || 0;
+                  }
+                } else {
+                  retailPrice = Number(v.price) || 0;
+                }
+              }
+            }
+
+            subtotal += retailPrice * qty;
+            deliveryCost += deliveryPrice * qty;
+          }
+        });
+
+        const grandTotal = subtotal + deliveryCost;
+
+        // Populate modal summary labels
+        const lblSubtotal = document.getElementById("preorder-lbl-subtotal");
+        if (lblSubtotal) lblSubtotal.textContent = `${subtotal.toLocaleString()} DA`;
+
+        const lblDelivery = document.getElementById("preorder-lbl-delivery");
+        if (lblDelivery) lblDelivery.textContent = `${deliveryCost.toLocaleString()} DA`;
+
+        const lblGrandTotal = document.getElementById("preorder-lbl-grandtotal");
+        if (lblGrandTotal) lblGrandTotal.textContent = `${grandTotal.toLocaleString()} DA`;
+
+        // Update hidden/visible delivery price input
+        const delInput = document.getElementById("preorder-delivery-price");
+        if (delInput) {
+          delInput.value = deliveryCost;
+        }
+      };
 
       window.parsePreorderNotes = function(rawNotes) {
         let notes = rawNotes || "";

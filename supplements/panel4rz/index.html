@@ -1942,6 +1942,22 @@
             </button>
           </div>
 
+          <!-- Live totals summary -->
+          <div id="preorder-summary-card" style="margin: 15px 0; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-family: var(--font-b);">
+            <div style="display:flex; justify-content:space-between; color:var(--gray-600);">
+              <span>Items Subtotal:</span>
+              <span id="preorder-lbl-subtotal" style="font-weight:600; color:var(--black);">0 DA</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; color:var(--gray-600);">
+              <span>Delivery Cost (from Inventory):</span>
+              <span id="preorder-lbl-delivery" style="font-weight:600; color:var(--black);">0 DA</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size: 14px; border-top: 1px dashed var(--gray-200); padding-top: 6px; font-weight:700; color:var(--red);">
+              <span>Grand Total:</span>
+              <span id="preorder-lbl-grandtotal">0 DA</span>
+            </div>
+          </div>
+
           <div class="form-group" id="preorder-status-group" style="display:none">
             <label>Status</label>
             <select id="preorder-status" class="form-control">
