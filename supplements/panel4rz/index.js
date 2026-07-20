@@ -4123,12 +4123,22 @@
         showLoading("Saving customer...");
         try {
           const custId = String(Date.now());
-          const { error } = await sb.from("customers").insert({
+          const payload = {
             id: custId,
             name,
             phone,
             group_type: group
-          });
+          };
+
+          let { error } = await sb.from("customers").insert(payload);
+
+          // Self-healing: If group_type column is missing in user's live database, fallback to inserting without it
+          if (error && error.message && error.message.includes("group_type")) {
+            console.warn("group_type column is missing in customers table. Retrying insert without it...");
+            delete payload.group_type;
+            const retryRes = await sb.from("customers").insert(payload);
+            error = retryRes.error;
+          }
 
           if (error) {
             if (error.code === "23505") throw new Error("Phone number already registered!");
