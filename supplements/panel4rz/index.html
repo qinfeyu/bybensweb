@@ -11,8 +11,14 @@
       rel="stylesheet"
     />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/supplements/supabase-client.js"></script>
-    <link rel="stylesheet" href="/supplements/panel4rz/index.css" />
+    <script>
+      (function() {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "/supplements/panel4rz/index.css?t=" + Date.now();
+        document.head.appendChild(link);
+      })();
+    </script>
   </head>
   <body>
 <div class="loading-overlay" id="loading-overlay">
@@ -2035,6 +2041,24 @@
       ><span id="toast-msg">Done!</span>
     </div>
 
-    <script src="/supplements/panel4rz/index.js?v=2"></script>
+    <script>
+      (function() {
+        // Sequential script loader to preserve execution order with cache-busting timestamps
+        const scripts = [
+          "/supplements/supabase-client.js",
+          "/supplements/panel4rz/index.js"
+        ];
+        
+        function loadScript(idx) {
+          if (idx >= scripts.length) return;
+          const script = document.createElement("script");
+          script.src = scripts[idx] + "?t=" + Date.now();
+          script.onload = () => loadScript(idx + 1);
+          document.body.appendChild(script);
+        }
+        
+        loadScript(0);
+      })();
+    </script>
   </body>
 </html>
