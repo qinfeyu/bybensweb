@@ -4360,13 +4360,13 @@
 
         showLoading("Deleting customer...");
         try {
-          // 1. If it's a manually created customer, try to delete it from customers table
+          // 1. If it's a manually created customer, try to delete all matching records from customers table
           const normDel = normalizePhone(phone);
-          const manualCust = manualCustomers.find(c => c.phone && normalizePhone(c.phone) === normDel);
-          if (manualCust) {
-            const { error: delErr } = await sb.from("customers").delete().eq("id", manualCust.id);
+          const matchingCusts = manualCustomers.filter(c => c.phone && normalizePhone(c.phone) === normDel);
+          for (const c of matchingCusts) {
+            const { error: delErr } = await sb.from("customers").delete().eq("id", c.id);
             if (delErr) {
-              console.warn("Could not delete from database customers table:", delErr.message);
+              console.warn(`Could not delete customer ID ${c.id} from database table:`, delErr.message);
             }
           }
 
@@ -4380,7 +4380,29 @@
             console.warn("deleted_customers insert skipped or failed:", delCustErr.message);
           }
 
-          // Also save locally as secondary/primary cache
+          // Mutate local manualCustomers array immediately to give instant UI response
+          manualCustomers = manualCustomers.filter(c => !c.phone || normalizePhone(c.phone) !== normDel);
+
+          // Save locally as secondary/primary cache
+          let localDeleted = [];
+          try {
+            localDeleted = JSON.parse(localStorage.getItem("bb_deleted_customers") || "[]");
+          } catch(e){}
+          localDeleted.push(phone.trim());
+          localStorage.setItem("bb_deleted_customers", JSON.stringify([...new Set(localDeleted)]));
+          
+          // Re-populate deletedCustomerPhones list locally immediately
+          if (!deletedCustomerPhones.includes(phone.trim())) {
+            deletedCustomerPhones.push(phone.trim());
+          }
+
+          showToast("Customer deleted successfully!");
+          await loadCustomers();
+        } catch (e) {
+          // Fall back gracefully to local storage
+          const normDel = normalizePhone(phone);
+          manualCustomers = manualCustomers.filter(c => !c.phone || normalizePhone(c.phone) !== normDel);
+
           let localDeleted = [];
           try {
             localDeleted = JSON.parse(localStorage.getItem("bb_deleted_customers") || "[]");
@@ -4388,16 +4410,9 @@
           localDeleted.push(phone.trim());
           localStorage.setItem("bb_deleted_customers", JSON.stringify([...new Set(localDeleted)]));
 
-          showToast("Customer deleted successfully!");
-          await loadCustomers();
-        } catch (e) {
-          // Fall back gracefully to local storage
-          let localDeleted = [];
-          try {
-            localDeleted = JSON.parse(localStorage.getItem("bb_deleted_customers") || "[]");
-          } catch(e){}
-          localDeleted.push(phone.trim());
-          localStorage.setItem("bb_deleted_customers", JSON.stringify([...new Set(localDeleted)]));
+          if (!deletedCustomerPhones.includes(phone.trim())) {
+            deletedCustomerPhones.push(phone.trim());
+          }
 
           showToast("Customer deleted!");
           await loadCustomers();
