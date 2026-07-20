@@ -4135,10 +4135,12 @@
         showLoading("Saving customer...");
         try {
           const custId = String(Date.now());
+          const cleanPhone = phone.replace(/[^0-9a-zA-Z]/g, "") || custId;
           const payload = {
             id: custId,
             name,
             phone,
+            email: `${cleanPhone}@bybens.placeholder`,
             group_type: group
           };
 
@@ -4156,6 +4158,7 @@
               first_name: firstName,
               last_name: lastName,
               phone: payload.phone,
+              email: payload.email,
               group_type: payload.group_type
             };
 
