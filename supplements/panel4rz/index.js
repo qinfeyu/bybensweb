@@ -35,11 +35,11 @@
       const _PAGE = 15;
       let productPage = 1, catPage = 1, deliveryPage = 1, orderPage = 1;
       let _prodFilter = "", _delFilter = "", _prodAvailabilityFilter = "";
-      function _pagCtrl(total, cur, setFn) {
-        const totalPages = Math.ceil(total / _PAGE);
+      function _pagCtrl(total, cur, setFn, pageSize = _PAGE) {
+        const totalPages = Math.ceil(total / pageSize);
         if (totalPages <= 1) return "";
-        const from = (cur - 1) * _PAGE + 1;
-        const to = Math.min(cur * _PAGE, total);
+        const from = (cur - 1) * pageSize + 1;
+        const to = Math.min(cur * pageSize, total);
         let btns = "";
         if (cur > 1) btns += `<button class="pag-btn" onclick="${setFn}(${cur - 1})">&#8249;</button>`;
         for (let i = 1; i <= totalPages; i++) {
@@ -2980,6 +2980,10 @@
       let inventoryItems = [];
       let activeInventoryTab = "supplement";
       let inventorySpreadsheetMode = false;
+      let inventorySortColumn = "id";
+      let inventorySortDirection = "asc";
+      let inventoryPage = 1;
+      const inventoryPageSize = 20;
 
       async function refreshBusinessPortalData() {
         try {
@@ -4789,15 +4793,47 @@
           return true;
         });
         
-        // Sort items by SKU code ascending
-        filtered.sort((a, b) => (a.id || "").localeCompare(b.id || ""));
+        // Sort items dynamically
+        filtered.sort((a, b) => {
+          let valA = a[inventorySortColumn];
+          let valB = b[inventorySortColumn];
+          
+          if (inventorySortColumn === "margin") {
+            valA = (Number(a.retail_dzd) || 0) - ((Number(a.price_eur) || 0) * (Number(a.rate) || 0) + (Number(a.delivery_dzd) || 0));
+            valB = (Number(b.retail_dzd) || 0) - ((Number(b.price_eur) || 0) * (Number(b.rate) || 0) + (Number(b.delivery_dzd) || 0));
+          } else {
+            if (["price_eur", "stock", "rate", "delivery_dzd", "retail_dzd"].includes(inventorySortColumn)) {
+              valA = Number(valA) || 0;
+              valB = Number(valB) || 0;
+            } else {
+              valA = String(valA || "").toLowerCase();
+              valB = String(valB || "").toLowerCase();
+            }
+          }
+          
+          if (valA < valB) return inventorySortDirection === "asc" ? -1 : 1;
+          if (valA > valB) return inventorySortDirection === "asc" ? 1 : -1;
+          return 0;
+        });
         
+        const pag = document.getElementById("inventory-pag");
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state" style="padding:40px;"><p>No products found. Add your first product using the Quick Add row below.</p></div></td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state" style="padding:40px;"><p>No products found.</p></div></td></tr>`;
+          if (pag) pag.innerHTML = "";
           return;
         }
+
+        // Pagination
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / inventoryPageSize) || 1;
+        inventoryPage = Math.max(1, Math.min(inventoryPage, totalPages));
+        const pageItems = filtered.slice((inventoryPage - 1) * inventoryPageSize, inventoryPage * inventoryPageSize);
         
-        tbody.innerHTML = filtered.map(item => {
+        if (pag) {
+          pag.innerHTML = _pagCtrl(totalItems, inventoryPage, "setInventoryPage", inventoryPageSize);
+        }
+        
+        tbody.innerHTML = pageItems.map(item => {
           const landed = (Number(item.price_eur) * Number(item.rate)) + Number(item.delivery_dzd);
           const margin = Number(item.retail_dzd) - landed;
           const marginColor = margin >= 0 ? "var(--green)" : "var(--red)";
@@ -4842,7 +4878,10 @@
                 <td><span style="font-weight:600; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span></td>
                 <td><strong style="color:var(--black); font-size:13px;">${item.stock}</strong></td>
                 <td style="text-align:center;">
-                  <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px;">Delete</button>
+                  <div style="display:flex; gap:4px; justify-content:center;">
+                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:4px 8px; font-size:11px; height:auto; justify-content:center;">Edit</button>
+                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px;">Delete</button>
+                  </div>
                 </td>
               </tr>`;
           }
@@ -4927,6 +4966,116 @@
         
         hideLoading();
         loadInventoryPage();
+      };
+
+      window.setInventoryPage = function(n) {
+        inventoryPage = n;
+        renderInventoryList();
+      };
+
+      window.toggleInventorySort = function(col) {
+        if (inventorySortColumn === col) {
+          inventorySortDirection = inventorySortDirection === "asc" ? "desc" : "asc";
+        } else {
+          inventorySortColumn = col;
+          inventorySortDirection = "asc";
+        }
+        inventoryPage = 1;
+        renderInventoryList();
+      };
+
+      window.openEditInventoryModal = function(sku) {
+        const item = inventoryItems.find(x => x.id === sku);
+        if (!item) {
+          showToast("Item not found!", "error");
+          return;
+        }
+        document.getElementById("edit-inv-sku").value = item.id;
+        document.getElementById("edit-inv-brand").value = item.brand || "";
+        document.getElementById("edit-inv-name").value = item.name || "";
+        document.getElementById("edit-inv-variant").value = item.variant_spec || "";
+        document.getElementById("edit-inv-size").value = item.size || "";
+        document.getElementById("edit-inv-price").value = item.price_eur || 0;
+        document.getElementById("edit-inv-rate").value = item.rate || 250;
+        document.getElementById("edit-inv-delivery").value = item.delivery_dzd || 0;
+        document.getElementById("edit-inv-retail").value = item.retail_dzd || 0;
+        document.getElementById("edit-inv-qty").value = item.stock || 0;
+        
+        recalcEditLanded();
+        openModal("inv-edit-modal");
+      };
+
+      window.recalcEditLanded = function() {
+        const eur = parseFloat(document.getElementById("edit-inv-price")?.value) || 0;
+        const rate = parseFloat(document.getElementById("edit-inv-rate")?.value) || 0;
+        const delDzd = parseFloat(document.getElementById("edit-inv-delivery")?.value) || 0;
+        const retail = parseFloat(document.getElementById("edit-inv-retail")?.value) || 0;
+        
+        const landed = (eur * rate) + delDzd;
+        const margin = retail - landed;
+        
+        const landedEl = document.getElementById("edit-inv-landed-label");
+        if (landedEl) landedEl.textContent = Math.round(landed).toLocaleString() + " DZD";
+        const marginEl = document.getElementById("edit-inv-margin-label");
+        if (marginEl) {
+          marginEl.textContent = Math.round(margin).toLocaleString() + " DZD";
+          marginEl.style.color = margin >= 0 ? "var(--green)" : "var(--red)";
+        }
+      };
+
+      window.saveInventoryItemEdit = async function() {
+        const id = document.getElementById("edit-inv-sku").value;
+        const brand = document.getElementById("edit-inv-brand").value.trim();
+        const name = document.getElementById("edit-inv-name").value.trim();
+        const variant = document.getElementById("edit-inv-variant").value.trim();
+        const size = document.getElementById("edit-inv-size").value.trim();
+        const price_eur = parseFloat(document.getElementById("edit-inv-price").value) || 0;
+        const rate = parseFloat(document.getElementById("edit-inv-rate").value) || 0;
+        const delivery_dzd = parseFloat(document.getElementById("edit-inv-delivery").value) || 0;
+        const retail_dzd = parseFloat(document.getElementById("edit-inv-retail").value) || 0;
+        const stock = parseInt(document.getElementById("edit-inv-qty").value) || 0;
+        
+        if (!name) {
+          showToast("Product Name is required!", "error");
+          return;
+        }
+        
+        showLoading("Saving changes…");
+        try {
+          const payload = {
+            brand,
+            name,
+            variant_spec: variant,
+            size,
+            price_eur,
+            rate,
+            delivery_dzd,
+            retail_dzd,
+            stock
+          };
+          
+          const { error } = await sb.from("inventory_items").update(payload).eq("id", id);
+          if (error) throw error;
+          
+          // Update local cache
+          const idx = inventoryItems.findIndex(x => x.id === id);
+          if (idx !== -1) {
+            inventoryItems[idx] = { ...inventoryItems[idx], ...payload };
+          }
+          localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+          
+          closeModal("inv-edit-modal");
+          showToast("Item updated successfully!");
+          
+          // Sync stock to storefront products
+          await syncAllLinkedProductsStock();
+          
+          renderInventoryList();
+        } catch (e) {
+          showToast("Error updating item: " + e.message, "error");
+        } finally {
+          hideLoading();
+        }
       };
 
       window.toggleInventorySpreadsheetMode = function() {
