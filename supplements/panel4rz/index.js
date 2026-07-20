@@ -3935,7 +3935,6 @@
               <td>
                 <div class="action-group" style="position: relative;">
                   <button class="act-btn act-edit" onclick="openPreorderModal('${p.id}')">Edit</button>
-                  <button class="act-btn act-confirm" onclick="togglePreorderStatus('${p.id}','${p.status}')">Cycle Status</button>
                   
                   <!-- Download/Print Dropdown -->
                   <div class="inv-dropdown" style="display: inline-block; position: relative;">
@@ -4306,7 +4305,7 @@
           items: orderItems,
           subtotal: subtotalVal,
           total: totalVal,
-          status: "waiting", // Goes to "waiting" under orders tab
+          status: "delivered", // Marked as delivered directly
           created_at: new Date().toISOString()
         });
         if (orderErr) throw orderErr;
@@ -4321,6 +4320,16 @@
           }
         }
         
+        // 3. Delete from pre_orders table (cascades to delete pre_order_items too)
+        const { error: delErr } = await sb.from("pre_orders").delete().eq("id", preId);
+        if (delErr) {
+          console.warn("Could not delete fulfilled preorder from table:", delErr.message);
+        }
+
+        // Mutate local state arrays immediately to remove from list without waiting for refresh
+        allPreorders = allPreorders.filter(x => x.id !== preId);
+        allPreorderItems = allPreorderItems.filter(x => x.pre_order_id !== preId);
+
         // Sync storefront variants link stocks
         await syncAllLinkedProductsStock();
       }
