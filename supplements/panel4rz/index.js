@@ -5211,37 +5211,41 @@
         const totalQty = items.reduce((s, itm) => s + Number(itm.qty || 0), 0);
         
         let totalVal = 0;
-        const tableRowsHtml = items.map((item, idx) => {
+        const customerTableRowsHtml = items.map((item, idx) => {
           const invItem = inventoryItems.find(x => x.id === item.product_id);
           const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
           const itemTotal = price * item.qty;
           totalVal += itemTotal;
-          
-          if (type === 'customer') {
-            return `
-              <tr>
-                <td>${idx + 1}</td>
-                <td>
-                  <div style="font-weight: 600; color: #0f172a;">${item.product_name}</div>
-                  <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</div>
-                </td>
-                <td style="text-align: center; font-weight: 600;">${item.qty}</td>
-                <td style="text-align: right;">${price.toLocaleString()} DA</td>
-                <td style="text-align: right; font-weight: 600; color: #0f172a;">${itemTotal.toLocaleString()} DA</td>
-              </tr>
-            `;
-          } else {
-            return `
-              <tr>
-                <td>${idx + 1}</td>
-                <td>
-                  <div style="font-weight: 600; color: #0f172a;">${item.product_name}</div>
-                  <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</div>
-                </td>
-                <td style="text-align: center; font-weight: 700; font-size: 15px; color: #0f172a;">${item.qty}</td>
-              </tr>
-            `;
-          }
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td>
+                <div style="font-weight: 600; color: #0f172a;">${item.product_name}</div>
+                <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</div>
+              </td>
+              <td style="text-align: center; font-weight: 600;">${item.qty}</td>
+              <td style="text-align: right;">${price.toLocaleString()} DA</td>
+              <td style="text-align: right; font-weight: 600; color: #0f172a;">${itemTotal.toLocaleString()} DA</td>
+            </tr>
+          `;
+        }).join("");
+
+        const courierTableRowsHtml = items.map((item, idx) => {
+          const invItem = inventoryItems.find(x => x.id === item.product_id);
+          const deliveryUnit = invItem ? (Number(invItem.delivery_dzd) || 0) : 0;
+          const deliveryItemTotal = deliveryUnit * item.qty;
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td>
+                <div style="font-weight: 600; color: #0f172a;">${item.product_name}</div>
+                <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</div>
+              </td>
+              <td style="text-align: center; font-weight: 700; color: #0f172a;">${item.qty}</td>
+              <td style="text-align: right;">${deliveryUnit.toLocaleString()} DA</td>
+              <td style="text-align: right; font-weight: 600; color: #0f172a;">${deliveryItemTotal.toLocaleString()} DA</td>
+            </tr>
+          `;
         }).join("");
 
         const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -5313,7 +5317,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  ${tableRowsHtml}
+                  ${customerTableRowsHtml}
                 </tbody>
               </table>
               <table class="summary-table">
@@ -5376,10 +5380,6 @@
                 <div class="title">Courier Delivery Slip<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
               </div>
               <div class="info-grid">
-                <div class="info-block">
-                  <p style="font-size: 19px; font-weight: 700; color:#0f172a; margin-bottom: 4px;">${p.customer_name}</p>
-                  <p style="font-size: 16px; font-weight: 700; color:#0f172a;">📞 ${p.customer_phone}</p>
-                </div>
                 ${notes ? `
                 <div class="info-block" style="background:#f8fafc; padding: 16px; border-radius: 8px; border:1px solid #e2e8f0; margin-top: 10px;">
                   <h3>Delivery Notes / Instructions</h3>
@@ -5391,20 +5391,17 @@
                   <tr>
                     <th style="width: 40px;">#</th>
                     <th>Product Details</th>
-                    <th style="width: 140px; text-align: center;">Quantity to Deliver</th>
+                    <th style="width: 80px; text-align: center;">Qty</th>
+                    <th style="width: 130px; text-align: right;">Delivery Price</th>
+                    <th style="width: 130px; text-align: right;">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${tableRowsHtml}
+                  ${courierTableRowsHtml}
                 </tbody>
               </table>
-              
-              <div class="collect-box" style="margin-bottom: 12px; background: #f8fafc; border-color: #cbd5e1; color: #475569;">
-                <span>TOTAL ITEMS TO DELIVER:</span>
-                <span class="val" style="color: #0f172a;">${totalQty} units</span>
-              </div>
 
-              <div class="collect-box" style="margin-top: 0;">
+              <div class="collect-box" style="margin-top: 30px;">
                 <span>COURIER: COLLECT DELIVERY FEE</span>
                 <span class="val">${deliveryPrice.toLocaleString()} DA</span>
               </div>
