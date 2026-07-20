@@ -3628,6 +3628,7 @@
           nameInp.value = "";
           phoneInp.value = "";
           notesInp.value = "";
+          document.getElementById("preorder-delivery-price").value = "0";
           statusGroup.style.display = "none";
           addPreorderItemRow();
         } else {
@@ -3636,7 +3637,11 @@
           if (pre) {
             nameInp.value = pre.customer_name;
             phoneInp.value = pre.customer_phone;
-            notesInp.value = pre.notes || "";
+            
+            const notesMeta = parsePreorderNotes(pre.notes);
+            notesInp.value = notesMeta.notes;
+            document.getElementById("preorder-delivery-price").value = notesMeta.deliveryPrice;
+
             statusGroup.style.display = "block";
             statusSelect.value = pre.status;
 
@@ -3740,6 +3745,7 @@
         const name = document.getElementById("preorder-cust-name").value.trim();
         const phone = document.getElementById("preorder-cust-phone").value.trim();
         const notes = document.getElementById("preorder-notes").value.trim();
+        const deliveryPrice = parseInt(document.getElementById("preorder-delivery-price").value) || 0;
         const status = document.getElementById("preorder-status").value;
 
         if (!name || !phone) {
@@ -3753,6 +3759,31 @@
           return;
         }
 
+        // Calculate total amount based on item prices and quantity + delivery price
+        let subtotalVal = 0;
+        for (const row of itemRows) {
+          const prodId = row.querySelector(".pre-prod-id").value;
+          const variant = row.querySelector(".pre-var-select").value;
+          const qty = parseInt(row.querySelector(".pre-qty-input").value) || 1;
+
+          if (prodId) {
+            const prod = products.find(p => p.id === prodId);
+            let price = 0;
+            if (prod && prod.variants) {
+              const variantName = variant || "";
+              const v = prod.variants.find(x => {
+                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+                return label === variantName.toLowerCase();
+              });
+              price = v ? (Number(v.price) || 0) : 0;
+            }
+            subtotalVal += price * qty;
+          }
+        }
+        const totalAmount = subtotalVal + deliveryPrice;
+
+        const serializedNotes = serializePreorderNotes(notes, deliveryPrice);
+
         showLoading("Saving pre-order...");
         try {
           const preId = id || String(Date.now());
@@ -3764,9 +3795,9 @@
               date: new Date().toISOString(),
               customer_name: name,
               customer_phone: phone,
-              notes: notes || null,
+              notes: serializedNotes || null,
               status: "pending",
-              total_amount: 0
+              total_amount: totalAmount
             });
             if (insertErr) throw insertErr;
           } else {
@@ -3774,8 +3805,9 @@
             const { error: updateErr } = await sb.from("pre_orders").update({
               customer_name: name,
               customer_phone: phone,
-              notes: notes || null,
-              status: status
+              notes: serializedNotes || null,
+              status: status,
+              total_amount: totalAmount
             }).eq("id", preId);
             if (updateErr) throw updateErr;
 
@@ -3876,9 +3908,21 @@
               <td>${p.total_amount ? p.total_amount.toLocaleString() + ' DA' : '—'}</td>
               <td><span class="badge badge-${p.status}">${cap(p.status)}</span></td>
               <td>
-                <div class="action-group">
+                <div class="action-group" style="position: relative;">
                   <button class="act-btn act-edit" onclick="openPreorderModal('${p.id}')">Edit</button>
                   <button class="act-btn act-confirm" onclick="togglePreorderStatus('${p.id}','${p.status}')">Cycle Status</button>
+                  
+                  <!-- Download/Print Dropdown -->
+                  <div class="inv-dropdown" style="display: inline-block; position: relative;">
+                    <button class="act-btn act-download" onclick="togglePreorderDownloadDropdown('${p.id}', event)" style="background: var(--g50); color: var(--g700); border-color: var(--g300); display: flex; align-items: center; gap: 4px;">
+                      📥 Print…
+                    </button>
+                    <div id="dl-drop-${p.id}" class="inv-dropdown-content" style="display: none; position: absolute; right: 0; background: #fff; border: 1px solid var(--g200); border-radius: 6px; box-shadow: var(--sh-md); z-index: 100; min-width: 170px; margin-top: 4px; text-align: left;">
+                      <a href="#" onclick="printPreorder('${p.id}', 'customer', event)" style="display: block; padding: 10px 14px; font-size: 13px; color: var(--black); text-decoration: none; border-bottom: 1px solid var(--g100); font-family: var(--font-b); font-weight: 500;">📄 Customer Invoice</a>
+                      <a href="#" onclick="printPreorder('${p.id}', 'delivery', event)" style="display: block; padding: 10px 14px; font-size: 13px; color: var(--black); text-decoration: none; font-family: var(--font-b); font-weight: 500;">📦 Courier Slip</a>
+                    </div>
+                  </div>
+                  
                   <button class="act-btn act-delete" onclick="deletePreorderRow('${p.id}')">Delete</button>
                 </div>
               </td>
@@ -4985,5 +5029,278 @@
         reader.readAsText(file);
         event.target.value = "";
       };
+
+
+      /* ─── PRE-ORDER DOWNLOADS & METADATA HELPERS ─── */
+
+      window.parsePreorderNotes = function(rawNotes) {
+        let notes = rawNotes || "";
+        let deliveryPrice = 0;
+        const match = notes.match(/__DELIVERY_PRICE__:(\d+)/);
+        if (match) {
+          deliveryPrice = parseInt(match[1]) || 0;
+          notes = notes.replace(/[\r\n]*__DELIVERY_PRICE__:\d+/, "").trim();
+        }
+        return { notes, deliveryPrice };
+      };
+
+      window.serializePreorderNotes = function(notes, deliveryPrice) {
+        if (!deliveryPrice) return notes;
+        return `${notes}\n__DELIVERY_PRICE__:${deliveryPrice}`.trim();
+      };
+
+      window.togglePreorderDownloadDropdown = function(id, event) {
+        event.stopPropagation();
+        document.querySelectorAll(".inv-dropdown-content").forEach(el => {
+          if (el.id !== `dl-drop-${id}`) el.style.display = "none";
+        });
+        const dropdown = document.getElementById(`dl-drop-${id}`);
+        if (dropdown) {
+          dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+        }
+      };
+
+      document.addEventListener("click", () => {
+        document.querySelectorAll(".inv-dropdown-content").forEach(el => {
+          el.style.display = "none";
+        });
+      });
+
+      window.printPreorder = function(id, type, event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        
+        const p = allPreorders.find(x => x.id === id);
+        if (!p) {
+          showToast("Pre-order not found!", "error");
+          return;
+        }
+        
+        const items = allPreorderItems.filter(x => x.pre_order_id === id);
+        const { notes, deliveryPrice } = parsePreorderNotes(p.notes);
+        
+        let totalVal = 0;
+        const tableRowsHtml = items.map((item, idx) => {
+          const prod = products.find(x => x.id === item.product_id);
+          let price = 0;
+          if (prod && prod.variants) {
+            const v = prod.variants.find(x => {
+              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+              return label === (item.variant || "").toLowerCase();
+            });
+            price = v ? (Number(v.price) || 0) : 0;
+          }
+          const itemTotal = price * item.qty;
+          totalVal += itemTotal;
+          
+          if (type === 'customer') {
+            return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>
+                  <div style="font-weight: 600; color: #0f172a;">${item.product_name}</div>
+                  <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</div>
+                </td>
+                <td style="text-align: center; font-weight: 600;">${item.qty}</td>
+                <td style="text-align: right;">${price.toLocaleString()} DA</td>
+                <td style="text-align: right; font-weight: 600; color: #0f172a;">${itemTotal.toLocaleString()} DA</td>
+              </tr>
+            `;
+          } else {
+            return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>
+                  <div style="font-weight: 600; color: #0f172a;">${item.product_name}</div>
+                  <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</div>
+                </td>
+                <td style="text-align: center; font-weight: 700; font-size: 15px; color: #0f172a;">${item.qty}</td>
+              </tr>
+            `;
+          }
+        }).join("");
+
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) {
+          showToast("Pop-up blocked! Please allow pop-ups to print receipts.", "error");
+          return;
+        }
+
+        let content = "";
+        if (type === 'customer') {
+          content = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Invoice - ${p.customer_name}</title>
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+                body { font-family: 'Outfit', sans-serif; color: #1e293b; padding: 40px; margin: 0; line-height: 1.5; background: #fff; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 24px; margin-bottom: 30px; }
+                .logo { font-size: 26px; font-weight: 800; color: #ad0000; letter-spacing: -0.5px; }
+                .logo span { color: #0f172a; font-weight: 400; }
+                .title { font-size: 18px; font-weight: 700; text-align: right; text-transform: uppercase; color: #64748b; letter-spacing: 1px; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+                .info-block h3 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: 700; }
+                .info-block p { margin: 0; font-size: 14px; font-weight: 500; color: #334155; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 12px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: left; letter-spacing: 0.5px; }
+                td { border-bottom: 1px solid #f1f5f9; padding: 14px 10px; font-size: 13.5px; color: #334155; }
+                .summary-table { width: 340px; margin-left: auto; margin-top: 20px; }
+                .summary-table td { padding: 8px 10px; border: none; font-size: 14px; color: #475569; }
+                .summary-table tr.total { font-size: 18px; font-weight: 700; color: #ad0000; border-top: 2px solid #f1f5f9; }
+                .summary-table tr.total td { color: #ad0000; padding-top: 16px; }
+                .footer { text-align: center; margin-top: 80px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; font-weight: 500; }
+                .btn-print { padding: 10px 20px; background: #ad0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; font-family: 'Outfit', sans-serif; transition: background 0.2s; }
+                .btn-print:hover { background: #880000; }
+                @media print {
+                  body { padding: 20px; }
+                  .no-print { display: none !important; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="no-print" style="margin-bottom: 30px; text-align: right;">
+                <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+              </div>
+              <div class="header">
+                <div class="logo">ByBens <span>Supplements</span></div>
+                <div class="title">Customer Invoice<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
+              </div>
+              <div class="info-grid">
+                <div class="info-block">
+                  <h3>Billed To</h3>
+                  <p style="font-size: 17px; font-weight: 700; color:#0f172a; margin-bottom:4px;">${p.customer_name}</p>
+                  <p style="font-weight: 500; color: #475569;">📞 ${p.customer_phone}</p>
+                </div>
+                <div class="info-block" style="text-align: right;">
+                  <h3>Invoice Date</h3>
+                  <p style="font-size: 15px; font-weight: 600; color: #0f172a;">${new Date(p.date).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Product Details</th>
+                    <th style="width: 80px; text-align: center;">Qty</th>
+                    <th style="width: 130px; text-align: right;">Unit Price</th>
+                    <th style="width: 130px; text-align: right;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRowsHtml}
+                </tbody>
+              </table>
+              <table class="summary-table">
+                <tr>
+                  <td>Items Subtotal:</td>
+                  <td style="text-align: right; font-weight: 600; color: #0f172a;">${totalVal.toLocaleString()} DA</td>
+                </tr>
+                <tr>
+                  <td>Delivery Price:</td>
+                  <td style="text-align: right; font-weight: 600; color: #0f172a;">${deliveryPrice.toLocaleString()} DA</td>
+                </tr>
+                <tr class="total">
+                  <td>Grand Total (DZD):</td>
+                  <td style="text-align: right;">${(totalVal + deliveryPrice).toLocaleString()} DA</td>
+                </tr>
+              </table>
+              <div class="footer">
+                Thank you for shopping with ByBens! If you have any questions about this invoice, please reach out.
+              </div>
+            </body>
+            </html>
+          `;
+        } else {
+          content = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Delivery Slip - ${p.customer_name}</title>
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+                body { font-family: 'Outfit', sans-serif; color: #1e293b; padding: 40px; margin: 0; line-height: 1.5; background: #fff; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 24px; margin-bottom: 30px; }
+                .logo { font-size: 26px; font-weight: 800; color: #ad0000; letter-spacing: -0.5px; }
+                .logo span { color: #0f172a; font-weight: 400; }
+                .title { font-size: 18px; font-weight: 700; text-align: right; text-transform: uppercase; color: #64748b; letter-spacing: 1px; }
+                .info-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 40px; }
+                .info-block h3 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: 700; }
+                .info-block p { margin: 0; font-size: 14px; font-weight: 500; color: #334155; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 12px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: left; letter-spacing: 0.5px; }
+                td { border-bottom: 1px solid #f1f5f9; padding: 14px 10px; font-size: 13.5px; color: #334155; }
+                .collect-box { padding: 22px; background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 8px; font-size: 18px; font-weight: 800; color: #b45309; display: flex; justify-content: space-between; align-items: center; margin-top: 30px; }
+                .collect-box span.val { font-size: 24px; color: #ad0000; font-weight: 800; }
+                .footer { margin-top: 80px; display: flex; justify-content: space-between; font-size: 13px; color: #64748b; }
+                .signature-line { border-top: 1.5px solid #cbd5e1; width: 220px; text-align: center; padding-top: 8px; margin-top: 50px; font-weight: 500; color: #94a3b8; }
+                .btn-print { padding: 10px 20px; background: #ad0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; font-family: 'Outfit', sans-serif; transition: background 0.2s; }
+                .btn-print:hover { background: #880000; }
+                @media print {
+                  body { padding: 20px; }
+                  .no-print { display: none !important; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="no-print" style="margin-bottom: 30px; text-align: right;">
+                <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+              </div>
+              <div class="header">
+                <div class="logo">ByBens <span>Supplements</span></div>
+                <div class="title">Courier Delivery Slip<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
+              </div>
+              <div class="info-grid">
+                <div class="info-block">
+                  <h3>Deliver To</h3>
+                  <p style="font-size: 19px; font-weight: 700; color:#0f172a; margin-bottom: 4px;">${p.customer_name}</p>
+                  <p style="font-size: 16px; font-weight: 700; color:#0f172a;">📞 ${p.customer_phone}</p>
+                </div>
+                ${cleanNotes ? `
+                <div class="info-block" style="background:#f8fafc; padding: 16px; border-radius: 8px; border:1px solid #e2e8f0; margin-top: 10px;">
+                  <h3>Delivery Notes / Instructions</h3>
+                  <p style="font-size: 13.5px; font-weight: normal; color: #475569; white-space: pre-wrap; margin: 0;">${cleanNotes}</p>
+                </div>` : ''}
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Product Details</th>
+                    <th style="width: 140px; text-align: center;">Quantity to Deliver</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRowsHtml}
+                </tbody>
+              </table>
+              
+              <div class="collect-box">
+                <span>COURIER: COLLECT DELIVERY FEE</span>
+                <span class="val">${deliveryPrice.toLocaleString()} DA</span>
+              </div>
+              
+              <div class="footer">
+                <div>
+                  <p style="margin:0; font-weight:600; color:#475569;">Courier Signature:</p>
+                  <div class="signature-line">Authorized Sign</div>
+                </div>
+                <div>
+                  <p style="margin:0; font-weight:600; color:#475569;">Customer Signature (Received):</p>
+                  <div class="signature-line">Recipient Sign</div>
+                </div>
+              </div>
+            </body>
+            </html>
+          `;
+        }
+
+        printWindow.document.write(content);
+        printWindow.document.close();
+      };
+
 
 

@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS public.pre_orders (
     notes TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     total_amount NUMERIC NOT NULL DEFAULT 0,
+    delivery_price NUMERIC NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 

@@ -2624,5 +2624,10 @@
         outline: none;
         box-shadow: 0 0 0 2px var(--red-light);
       }
-
-
+      .inv-dropdown-content a {
+        transition: background 0.15s, color 0.15s;
+      }
+      .inv-dropdown-content a:hover {
+        background: var(--g50);
+        color: var(--red) !important;
+      }
