@@ -3628,6 +3628,8 @@
         
         document.getElementById("preorder-id").value = id;
         preorderItemRows = [];
+        const itemsContainer = document.getElementById("preorder-items-list");
+        if (itemsContainer) itemsContainer.innerHTML = "";
 
         // Build preorder customers datalist (ONLY PRIVATE GROUP)
         const custDatalist = document.getElementById("preorder-cust-list");
@@ -3687,38 +3689,43 @@
         div.id = `preorder-row-${rowId}`;
         div.style.display = "flex";
         div.style.gap = "8px";
-        div.style.alignItems = "flex-start";
-        div.style.flexWrap = "wrap";
+        div.style.alignItems = "center";
+        div.style.marginBottom = "8px";
 
-        // Build datalist options from active products
-        const activeProds = products.filter(p => p.status === "active");
-        const datalistOptions = activeProds.map(p => `<option value="${p.name}" data-id="${p.id}"></option>`).join("");
+        // Build datalist options from inventory items
+        const datalistOptions = inventoryItems.map(item => {
+          const specStr = [item.variant_spec, item.size].filter(Boolean).join(" - ");
+          const textLabel = `[${item.id}] ${item.brand || ''} - ${item.name} ${specStr ? `(${specStr})` : ''}`.trim();
+          return `<option value="${textLabel}" data-id="${item.id}"></option>`;
+        }).join("");
 
         // Pre-fill name if editing
-        const selectedProd = data ? activeProds.find(p => p.id === data.productId) : null;
-        const prefilledName = selectedProd ? selectedProd.name : "";
+        let prefilledName = "";
+        if (data) {
+          const selectedItem = inventoryItems.find(x => x.id === data.productId);
+          if (selectedItem) {
+            const specStr = [selectedItem.variant_spec, selectedItem.size].filter(Boolean).join(" - ");
+            prefilledName = `[${selectedItem.id}] ${selectedItem.brand || ''} - ${selectedItem.name} ${specStr ? `(${specStr})` : ''}`.trim();
+          } else {
+            prefilledName = data.productName || "";
+          }
+        }
 
         div.innerHTML = `
-          <div style="display:flex;flex-direction:column;flex:2;gap:4px;min-width:140px">
-            <input type="text" class="form-control pre-prod-search" list="prod-datalist-${rowId}" placeholder="Search product…" value="${prefilledName}" oninput="resolvePreorderProductByName(this.value, '${rowId}')" style="font-size:12px" />
-            <datalist id="prod-datalist-${rowId}">${datalistOptions}</datalist>
+          <div style="display:flex;flex-direction:column;flex:3;gap:4px;min-width:180px">
+            <input type="text" class="form-control pre-prod-search" list="inv-datalist-${rowId}" placeholder="Search inventory SKU or name…" value="${prefilledName}" oninput="resolvePreorderInventoryItem(this.value, '${rowId}')" style="font-size:12px" />
+            <datalist id="inv-datalist-${rowId}">${datalistOptions}</datalist>
             <input type="hidden" class="pre-prod-id" value="${data ? data.productId : ''}" />
+            <input type="hidden" class="pre-flavor-select" value="${data ? (data.flavor || '') : ''}" />
+            <input type="hidden" class="pre-var-select" value="${data ? (data.variant || '') : ''}" />
           </div>
-          <select class="form-control pre-flavor-select" style="flex:1;min-width:90px" onchange="recalcPreorderTotals()">
-            <option value="">Flavor…</option>
-          </select>
-          <select class="form-control pre-var-select" style="flex:1;min-width:90px" onchange="recalcPreorderTotals()">
-            <option value="">Variant…</option>
-          </select>
-          <input type="number" class="form-control pre-qty-input" style="width:60px" value="${data ? data.qty : '1'}" min="1" oninput="recalcPreorderTotals()" />
-          <button class="btn-text-danger" style="color:var(--red);font-weight:bold;padding:6px" onclick="this.closest('.preorder-item-row').remove(); recalcPreorderTotals();">×</button>
+          <div style="width:70px">
+            <input type="number" class="form-control pre-qty-input" style="width:100%" value="${data ? data.qty : '1'}" min="1" oninput="recalcPreorderTotals()" />
+          </div>
+          <button class="btn-text-danger" style="color:var(--red);font-weight:bold;padding:6px;font-size:18px" onclick="this.closest('.preorder-item-row').remove(); recalcPreorderTotals();">×</button>
         `;
 
         container.appendChild(div);
-
-        if (data) {
-          updatePreorderRowOptions(rowId, data.flavor, data.variant);
-        }
         recalcPreorderTotals();
       };
 
@@ -3776,24 +3783,15 @@
           return;
         }
 
-        // Calculate total amount based on item prices and quantity + delivery price
+        // Calculate total amount based on item prices in inventory
         let subtotalVal = 0;
         for (const row of itemRows) {
-          const prodId = row.querySelector(".pre-prod-id").value;
-          const variant = row.querySelector(".pre-var-select").value;
+          const prodId = row.querySelector(".pre-prod-id").value; // SKU
           const qty = parseInt(row.querySelector(".pre-qty-input").value) || 1;
 
           if (prodId) {
-            const prod = products.find(p => p.id === prodId);
-            let price = 0;
-            if (prod && prod.variants) {
-              const variantName = variant || "";
-              const v = prod.variants.find(x => {
-                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-                return label === variantName.toLowerCase();
-              });
-              price = v ? (Number(v.price) || 0) : 0;
-            }
+            const invItem = inventoryItems.find(x => x.id === prodId);
+            const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
             subtotalVal += price * qty;
           }
         }
@@ -3834,22 +3832,26 @@
 
           // Insert pre-order items
           for (const row of itemRows) {
-            const prodId = row.querySelector(".pre-prod-id").value;
+            const prodId = row.querySelector(".pre-prod-id").value; // SKU
             const flavor = row.querySelector(".pre-flavor-select").value;
             const variant = row.querySelector(".pre-var-select").value;
             const qty = parseInt(row.querySelector(".pre-qty-input").value) || 1;
 
             if (prodId) {
-              const prod = products.find(p => p.id === prodId);
+              const invItem = inventoryItems.find(x => x.id === prodId);
               const itemId = String(Date.now()) + Math.random().toString(36).substr(2, 4);
+
+              // Use formatted inventory details
+              const brandName = invItem ? `${invItem.brand || ''} - ${invItem.name}`.trim() : "Inventory Item";
+              const specStr = invItem ? [invItem.variant_spec, invItem.size].filter(Boolean).join(" - ") : "";
 
               const { error: itemErr } = await sb.from("pre_order_items").insert({
                 id: itemId,
                 pre_order_id: preId,
                 product_id: prodId,
-                product_name: prod ? prod.name : "Product",
+                product_name: brandName,
                 flavor: flavor || null,
-                variant: variant || null,
+                variant: specStr || variant || null,
                 qty
               });
               if (itemErr) throw itemErr;
@@ -4233,10 +4235,10 @@
       async function checkAndFulfillPreorder(preId, nextStatus) {
         if (nextStatus !== "fulfilled") return;
 
-        // Check if already fulfilled as a sale to prevent duplicates
-        const alreadyFulfilled = allSales.some(s => s.id === `pre-${preId}`);
+        // Check if already fulfilled to prevent duplicates
+        const alreadyFulfilled = _dashOrders.some(o => o.id === `pre-${preId}`);
         if (alreadyFulfilled) {
-          console.log("Pre-order already recorded as a sale.");
+          console.log("Pre-order already recorded in orders.");
           return;
         }
 
@@ -4256,102 +4258,81 @@
         }
         if (items.length === 0) return;
 
-        // 1. Create a sale entry in sales
-        const saleId = `pre-${preId}`;
-        let totalVal = 0;
-        const saleItemsToInsert = [];
-
+        // 1. Create an order entry in orders table
+        const notesMeta = parsePreorderNotes(pre.notes);
+        const orderId = `pre-${preId}`;
+        const nameParts = pre.customer_name.trim().split(" ");
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+        
+        const orderItems = [];
+        let subtotalVal = 0;
+        
         for (const item of items) {
-          const prod = products.find(p => p.id === item.product_id);
-          let price = 0;
-          if (prod && prod.variants) {
-            const variantName = item.variant || "";
-            const v = prod.variants.find(x => {
-              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-              return label === variantName.toLowerCase();
-            });
-            price = v ? (Number(v.price) || 0) : 0;
-          }
-          totalVal += price * item.qty;
-          saleItemsToInsert.push({
-            id: `pre-item-${item.id}`,
-            sale_id: saleId,
-            product_id: item.product_id,
-            product_name: item.product_name,
-            flavor: item.flavor || null,
-            variant: item.variant || null,
-            qty: item.qty,
+          const invItem = inventoryItems.find(x => x.id === item.product_id);
+          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
+          
+          orderItems.push({
+            id: item.product_id, // SKU
+            name: item.product_name,
+            flavor: item.flavor || "",
+            variant: item.variant || "",
+            qty: Number(item.qty) || 1,
             price: price
           });
+          subtotalVal += price * item.qty;
         }
+        
+        const deliveryCost = Number(notesMeta.deliveryPrice) || 0;
+        const totalVal = subtotalVal + deliveryCost;
 
-        // Insert sale
-        const { error: saleErr } = await sb.from("sales").insert({
-          id: saleId,
-          date: new Date().toISOString(),
-          total_amount: totalVal,
-          discount: 0,
-          customer_name: pre.customer_name,
-          customer_phone: pre.customer_phone,
-          operator: localStorage.getItem("bb_admin_name") || "Admin"
+        const { error: orderErr } = await sb.from("orders").insert({
+          id: orderId,
+          source: "pre order",
+          first_name: firstName,
+          last_name: lastName,
+          phone: pre.customer_phone,
+          address: notesMeta.notes || "",
+          wilaya: "",
+          commune: "",
+          delivery_type: "",
+          delivery_cost: deliveryCost,
+          items: orderItems,
+          subtotal: subtotalVal,
+          total: totalVal,
+          status: "waiting", // Goes to "waiting" under orders tab
+          created_at: new Date().toISOString()
         });
-        if (saleErr) throw saleErr;
+        if (orderErr) throw orderErr;
 
-        // Insert sale items and decrement stock
-        for (const saleItem of saleItemsToInsert) {
-          const { error: itemErr } = await sb.from("sale_items").insert(saleItem);
-          if (itemErr) throw itemErr;
-
-          // Decrement stock in database
-          const prod = products.find(p => p.id === saleItem.product_id);
-          if (prod) {
-            const updatedVariants = JSON.parse(JSON.stringify(prod.variants));
-            const selectedV = updatedVariants.find(x => {
-              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-              return label === (saleItem.variant || "").toLowerCase();
-            });
-            if (selectedV) {
-              if (selectedV.flavorStock && saleItem.flavor && selectedV.flavorStock[saleItem.flavor] !== undefined) {
-                selectedV.flavorStock[saleItem.flavor] = Math.max(0, selectedV.flavorStock[saleItem.flavor] - saleItem.qty);
-                selectedV.stock = Object.values(selectedV.flavorStock).reduce((a, b) => a + b, 0);
-              } else if (selectedV.stock !== undefined) {
-                selectedV.stock = Math.max(0, selectedV.stock - saleItem.qty);
-              }
-
-              if (selectedV.sku) {
-                try {
-                  const invItem = inventoryItems.find(x => x.id === selectedV.sku);
-                  if (invItem) {
-                    const newStock = Math.max(0, invItem.stock - saleItem.qty);
-                    invItem.stock = newStock;
-                    await sb.from("inventory_items").update({ stock: newStock }).eq("id", selectedV.sku);
-                    selectedV.stock = newStock;
-                  }
-                } catch(e) { console.warn("Failed to deduct inventory stock:", e); }
-              }
-            }
-            const totalStock = updatedVariants.reduce((a, b) => a + (Number(b.stock) || 0), 0);
-
-            await sb.from("products").update({
-              variants: updatedVariants,
-              stock: totalStock
-            }).eq("id", saleItem.product_id);
+        // 2. Deduct stock from inventory items directly
+        for (const item of items) {
+          const invItem = inventoryItems.find(x => x.id === item.product_id);
+          if (invItem) {
+            const newStock = Math.max(0, invItem.stock - item.qty);
+            invItem.stock = newStock;
+            await sb.from("inventory_items").update({ stock: newStock }).eq("id", invItem.id);
           }
         }
+        
+        // Sync storefront variants link stocks
+        await syncAllLinkedProductsStock();
       }
 
-      window.resolvePreorderProductByName = function(val, rowId) {
+      window.resolvePreorderInventoryItem = function(val, rowId) {
         const row = document.getElementById(`preorder-row-${rowId}`);
         if (!row) return;
 
         const hiddenInput = row.querySelector(".pre-prod-id");
         if (!hiddenInput) return;
 
-        const activeProds = products.filter(p => p.status === "active");
-        const matched = activeProds.find(p => p.name === val);
+        // Resolve by matching the SKU in brackets [SKU]
+        const match = val.match(/^\[([^\]]+)\]/);
+        const sku = match ? match[1] : val;
+
+        const matched = inventoryItems.find(x => x.id === sku || `[${x.id}]` === val.substring(0, x.id.length + 2));
         if (matched) {
-          hiddenInput.value = matched.id;
-          updatePreorderRowOptions(rowId);
+          hiddenInput.value = matched.id; // SKU
         } else {
           hiddenInput.value = "";
         }
@@ -5137,35 +5118,17 @@
         let deliveryCost = 0;
 
         itemRows.forEach(row => {
-          const prodId = row.querySelector(".pre-prod-id").value;
-          const variant = row.querySelector(".pre-var-select").value;
+          const prodId = row.querySelector(".pre-prod-id").value; // SKU
           const qty = parseInt(row.querySelector(".pre-qty-input").value) || 1;
 
           if (prodId) {
-            const prod = products.find(p => p.id === prodId);
+            const invItem = inventoryItems.find(x => x.id === prodId);
             let retailPrice = 0;
             let deliveryPrice = 0;
 
-            if (prod && prod.variants) {
-              const variantName = variant || "";
-              const v = prod.variants.find(x => {
-                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-                return label === variantName.toLowerCase();
-              });
-
-              if (v) {
-                if (v.sku) {
-                  const invItem = inventoryItems.find(x => x.id === v.sku);
-                  if (invItem) {
-                    retailPrice = Number(invItem.retail_dzd) || 0;
-                    deliveryPrice = Number(invItem.delivery_dzd) || 0;
-                  } else {
-                    retailPrice = Number(v.price) || 0;
-                  }
-                } else {
-                  retailPrice = Number(v.price) || 0;
-                }
-              }
+            if (invItem) {
+              retailPrice = Number(invItem.retail_dzd) || 0;
+              deliveryPrice = Number(invItem.delivery_dzd) || 0;
             }
 
             subtotal += retailPrice * qty;
@@ -5242,15 +5205,8 @@
         
         let totalVal = 0;
         const tableRowsHtml = items.map((item, idx) => {
-          const prod = products.find(x => x.id === item.product_id);
-          let price = 0;
-          if (prod && prod.variants) {
-            const v = prod.variants.find(x => {
-              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-              return label === (item.variant || "").toLowerCase();
-            });
-            price = v ? (Number(v.price) || 0) : 0;
-          }
+          const invItem = inventoryItems.find(x => x.id === item.product_id);
+          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
           const itemTotal = price * item.qty;
           totalVal += itemTotal;
           
