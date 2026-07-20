@@ -4136,54 +4136,63 @@
         try {
           const custId = String(Date.now());
           const cleanPhone = phone.replace(/[^0-9a-zA-Z]/g, "") || custId;
+          const parts = name.split(" ");
+          const firstName = parts[0] || "";
+          const lastName = parts.slice(1).join(" ") || "";
+
+          // Populate payload with safe placeholders for ALL potential database columns
           const payload = {
             id: custId,
-            name,
-            phone,
+            name: name,
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone,
             email: `${cleanPhone}@bybens.placeholder`,
-            group_type: group
+            password: `pb_${custId}`,
+            address: "",
+            group_type: group,
+            created_at: new Date().toISOString()
           };
 
-          let { error } = await sb.from("customers").insert(payload);
+          let success = false;
+          let lastError = null;
 
-          // Fallback 1: If database schema expects first_name/last_name instead of a single name column
-          if (error && error.message && error.message.includes("'name' column")) {
-            console.warn("name column is missing. Retrying with split first_name and last_name...");
-            const parts = name.split(" ");
-            const firstName = parts[0] || "";
-            const lastName = parts.slice(1).join(" ") || "";
-            
-            const newPayload = {
-              id: payload.id,
-              first_name: firstName,
-              last_name: lastName,
-              phone: payload.phone,
-              email: payload.email,
-              group_type: payload.group_type
-            };
-
-            const retryRes = await sb.from("customers").insert(newPayload);
-            error = retryRes.error;
-
-            // Fallback 2: If group_type is also missing in the first_name/last_name schema
-            if (error && error.message && error.message.includes("group_type")) {
-              console.warn("group_type column is missing. Retrying insert without it...");
-              delete newPayload.group_type;
-              const finalRetry = await sb.from("customers").insert(newPayload);
-              error = finalRetry.error;
+          // Attempt insert, dropping non-existent columns dynamically based on PostgREST error messages
+          for (let attempt = 0; attempt < 6; attempt++) {
+            const { error } = await sb.from("customers").insert(payload);
+            if (!error) {
+              success = true;
+              break;
             }
-          }
-          // Fallback 3: If name is fine but group_type column is missing
-          else if (error && error.message && error.message.includes("group_type")) {
-            console.warn("group_type column is missing. Retrying insert without it...");
-            delete payload.group_type;
-            const retryRes = await sb.from("customers").insert(payload);
-            error = retryRes.error;
+
+            lastError = error;
+            console.warn(`Customer insert attempt ${attempt} failed: ${error.message}`);
+
+            // Detect missing column error (PostgREST schema cache error)
+            const match = error.message.match(/Could not find the '([^']+)' column/);
+            if (match && match[1]) {
+              const missingCol = match[1];
+              console.warn(`Removing missing column '${missingCol}' from insertion payload...`);
+              delete payload[missingCol];
+              continue;
+            }
+
+            // Detect duplicate key constraint
+            if (error.code === "23505") {
+              if (error.message.includes("phone")) {
+                throw new Error("Phone number already registered!");
+              } else if (error.message.includes("email")) {
+                payload.email = `${cleanPhone}_${Math.random().toString(36).substr(2, 4)}@bybens.placeholder`;
+                continue;
+              }
+            }
+
+            // Any other database error cannot be self-healed, so break the loop
+            break;
           }
 
-          if (error) {
-            if (error.code === "23505") throw new Error("Phone number already registered!");
-            throw error;
+          if (!success) {
+            throw lastError || new Error("An unexpected error occurred while saving the customer.");
           }
 
           closeModal("customer-modal");
