@@ -5208,6 +5208,7 @@
         
         const items = allPreorderItems.filter(x => x.pre_order_id === id);
         const { notes, deliveryPrice } = parsePreorderNotes(p.notes);
+        const totalQty = items.reduce((s, itm) => s + Number(itm.qty || 0), 0);
         
         let totalVal = 0;
         const tableRowsHtml = items.map((item, idx) => {
@@ -5376,7 +5377,6 @@
               </div>
               <div class="info-grid">
                 <div class="info-block">
-                  <h3>Deliver To</h3>
                   <p style="font-size: 19px; font-weight: 700; color:#0f172a; margin-bottom: 4px;">${p.customer_name}</p>
                   <p style="font-size: 16px; font-weight: 700; color:#0f172a;">📞 ${p.customer_phone}</p>
                 </div>
@@ -5399,20 +5399,14 @@
                 </tbody>
               </table>
               
-              <div class="collect-box">
+              <div class="collect-box" style="margin-bottom: 12px; background: #f8fafc; border-color: #cbd5e1; color: #475569;">
+                <span>TOTAL ITEMS TO DELIVER:</span>
+                <span class="val" style="color: #0f172a;">${totalQty} units</span>
+              </div>
+
+              <div class="collect-box" style="margin-top: 0;">
                 <span>COURIER: COLLECT DELIVERY FEE</span>
                 <span class="val">${deliveryPrice.toLocaleString()} DA</span>
-              </div>
-              
-              <div class="footer">
-                <div>
-                  <p style="margin:0; font-weight:600; color:#475569;">Courier Signature:</p>
-                  <div class="signature-line">Authorized Sign</div>
-                </div>
-                <div>
-                  <p style="margin:0; font-weight:600; color:#475569;">Customer Signature (Received):</p>
-                  <div class="signature-line">Recipient Sign</div>
-                </div>
               </div>
             </body>
             </html>
