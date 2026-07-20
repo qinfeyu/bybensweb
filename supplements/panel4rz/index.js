@@ -2976,7 +2976,16 @@
           const preP = sb.from("pre_orders").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
           const preItemsP = sb.from("pre_order_items").select("*").then(r => r.data || []).catch(() => []);
           const expP = sb.from("expenses").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
-          const custP = sb.from("customers").select("*").order("name", { ascending: true }).then(r => r.data || []).catch(() => []);
+          const custP = sb.from("customers").select("*").order("name", { ascending: true })
+            .then(r => {
+              if (r.error) throw r.error;
+              return r.data || [];
+            })
+            .catch(async () => {
+              // Fallback: If "name" column is missing, query without ordering
+              const res = await sb.from("customers").select("*");
+              return res.data || [];
+            });
           const delCustP = sb.from("deleted_customers").select("*").then(r => r.data || []).catch(() => []);
           const invP = sb.from("inventory_items").select("*").order("created_at", { ascending: false }).then(r => r.data || []).catch(() => []);
 
@@ -3948,8 +3957,11 @@
           if (!c.phone) return;
           const phone = c.phone.trim();
           if (deletedCustomerPhones.includes(phone)) return;
+          
+          const cName = c.name ? c.name.trim() : `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Customer";
+          
           ledger[phone] = {
-            name: c.name.trim(),
+            name: cName,
             phone,
             group: c.group_type || 'public',
             ordersCount: 0,
@@ -4132,9 +4144,35 @@
 
           let { error } = await sb.from("customers").insert(payload);
 
-          // Self-healing: If group_type column is missing in user's live database, fallback to inserting without it
-          if (error && error.message && error.message.includes("group_type")) {
-            console.warn("group_type column is missing in customers table. Retrying insert without it...");
+          // Fallback 1: If database schema expects first_name/last_name instead of a single name column
+          if (error && error.message && error.message.includes("'name' column")) {
+            console.warn("name column is missing. Retrying with split first_name and last_name...");
+            const parts = name.split(" ");
+            const firstName = parts[0] || "";
+            const lastName = parts.slice(1).join(" ") || "";
+            
+            const newPayload = {
+              id: payload.id,
+              first_name: firstName,
+              last_name: lastName,
+              phone: payload.phone,
+              group_type: payload.group_type
+            };
+
+            const retryRes = await sb.from("customers").insert(newPayload);
+            error = retryRes.error;
+
+            // Fallback 2: If group_type is also missing in the first_name/last_name schema
+            if (error && error.message && error.message.includes("group_type")) {
+              console.warn("group_type column is missing. Retrying insert without it...");
+              delete newPayload.group_type;
+              const finalRetry = await sb.from("customers").insert(newPayload);
+              error = finalRetry.error;
+            }
+          }
+          // Fallback 3: If name is fine but group_type column is missing
+          else if (error && error.message && error.message.includes("group_type")) {
+            console.warn("group_type column is missing. Retrying insert without it...");
             delete payload.group_type;
             const retryRes = await sb.from("customers").insert(payload);
             error = retryRes.error;
