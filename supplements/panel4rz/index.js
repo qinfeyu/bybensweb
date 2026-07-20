@@ -2605,6 +2605,12 @@
         return s ? s[0].toUpperCase() + s.slice(1) : s;
       }
 
+      function normalizePhone(p) {
+        if (!p) return "";
+        const digits = String(p).replace(/\D/g, "");
+        return digits.slice(-9);
+      }
+
       // ════════════════════════════════════════════
       // BUNDLE — single product select
       // ════════════════════════════════════════════
@@ -3952,11 +3958,18 @@
       function buildCustomersLedger() {
         const ledger = {};
 
+        // Helper to check if a phone is in deleted list (using normalized phone matching)
+        const isDeleted = (ph) => {
+          const norm = normalizePhone(ph);
+          if (!norm) return false;
+          return deletedCustomerPhones.some(x => normalizePhone(x) === norm);
+        };
+
         // 0. Seed ledger with manual customers
         manualCustomers.forEach(c => {
           if (!c.phone) return;
           const phone = c.phone.trim();
-          if (deletedCustomerPhones.includes(phone)) return;
+          if (isDeleted(phone)) return;
           
           const cName = c.name ? c.name.trim() : `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Customer";
           
@@ -3974,7 +3987,7 @@
         _dashOrders.forEach(o => {
           if (!o.phone) return;
           const phone = o.phone.trim();
-          if (deletedCustomerPhones.includes(phone)) return;
+          if (isDeleted(phone)) return;
           const name = `${o.firstName} ${o.lastName}`.trim() || "Customer";
 
           if (!ledger[phone]) {
@@ -4002,7 +4015,7 @@
         allSales.forEach(s => {
           if (!s.customer_phone) return;
           const phone = s.customer_phone.trim();
-          if (deletedCustomerPhones.includes(phone)) return;
+          if (isDeleted(phone)) return;
           const name = s.customer_name ? s.customer_name.trim() : "Walk-in Customer";
 
           if (!ledger[phone]) {
@@ -4348,17 +4361,24 @@
         showLoading("Deleting customer...");
         try {
           // 1. If it's a manually created customer, try to delete it from customers table
-          const manualCust = manualCustomers.find(c => c.phone.trim() === phone.trim());
+          const normDel = normalizePhone(phone);
+          const manualCust = manualCustomers.find(c => c.phone && normalizePhone(c.phone) === normDel);
           if (manualCust) {
-            await sb.from("customers").delete().eq("id", manualCust.id).catch(() => {});
+            const { error: delErr } = await sb.from("customers").delete().eq("id", manualCust.id);
+            if (delErr) {
+              console.warn("Could not delete from database customers table:", delErr.message);
+            }
           }
 
           // 2. Try to add to Supabase deleted_customers table
           const delId = String(Date.now());
-          await sb.from("deleted_customers").insert({
+          const { error: delCustErr } = await sb.from("deleted_customers").insert({
             id: delId,
             phone: phone.trim()
           });
+          if (delCustErr) {
+            console.warn("deleted_customers insert skipped or failed:", delCustErr.message);
+          }
 
           // Also save locally as secondary/primary cache
           let localDeleted = [];
@@ -4379,7 +4399,7 @@
           localDeleted.push(phone.trim());
           localStorage.setItem("bb_deleted_customers", JSON.stringify([...new Set(localDeleted)]));
 
-          showToast("Customer deleted (saved locally in browser)!");
+          showToast("Customer deleted!");
           await loadCustomers();
         }
         hideLoading();
