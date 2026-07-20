@@ -3936,7 +3936,7 @@
                     <button class="act-btn act-download" onclick="togglePreorderDownloadDropdown('${p.id}', event)" style="background: var(--g50); color: var(--g700); border-color: var(--g300); display: flex; align-items: center; gap: 4px;">
                       📥 Print…
                     </button>
-                    <div id="dl-drop-${p.id}" class="inv-dropdown-content" style="display: none; position: absolute; right: 0; background: #fff; border: 1px solid var(--g200); border-radius: 6px; box-shadow: var(--sh-md); z-index: 100; min-width: 170px; margin-top: 4px; text-align: left;">
+                    <div id="dl-drop-${p.id}" class="inv-dropdown-content" style="display: none; position: absolute; right: 0; bottom: 100%; background: #fff; border: 1px solid var(--g200); border-radius: 6px; box-shadow: var(--sh-md); z-index: 100; min-width: 170px; margin-bottom: 6px; text-align: left;">
                       <a href="#" onclick="printPreorder('${p.id}', 'customer', event)" style="display: block; padding: 10px 14px; font-size: 13px; color: var(--black); text-decoration: none; border-bottom: 1px solid var(--g100); font-family: var(--font-b); font-weight: 500;">📄 Customer Invoice</a>
                       <a href="#" onclick="printPreorder('${p.id}', 'delivery', event)" style="display: block; padding: 10px 14px; font-size: 13px; color: var(--black); text-decoration: none; font-family: var(--font-b); font-weight: 500;">📦 Courier Slip</a>
                     </div>
@@ -5374,10 +5374,10 @@
                   <p style="font-size: 19px; font-weight: 700; color:#0f172a; margin-bottom: 4px;">${p.customer_name}</p>
                   <p style="font-size: 16px; font-weight: 700; color:#0f172a;">📞 ${p.customer_phone}</p>
                 </div>
-                ${cleanNotes ? `
+                ${notes ? `
                 <div class="info-block" style="background:#f8fafc; padding: 16px; border-radius: 8px; border:1px solid #e2e8f0; margin-top: 10px;">
                   <h3>Delivery Notes / Instructions</h3>
-                  <p style="font-size: 13.5px; font-weight: normal; color: #475569; white-space: pre-wrap; margin: 0;">${cleanNotes}</p>
+                  <p style="font-size: 13.5px; font-weight: normal; color: #475569; white-space: pre-wrap; margin: 0;">${notes}</p>
                 </div>` : ''}
               </div>
               <table>
