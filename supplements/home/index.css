@@ -2138,6 +2138,24 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
 
 /* Mobile responsive fixes */
 @media (max-width: 768px) {
+  /* Center Header Logo in Phone Mode */
+  .top-nav {
+    position: relative;
+  }
+  .top-nav > .logo {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    z-index: 5;
+  }
+  .top-nav > .logo img {
+    height: 36px;
+    width: auto;
+    max-width: 130px;
+    object-fit: contain;
+  }
+
   /* Enforce static positioning on footer-brand-logo */
   .footer-brand-logo {
     position: static !important;
