@@ -1713,7 +1713,7 @@ footer {
     display: flex;
   }
   .logo {
-    margin-left: auto;
+    margin-left: 0;
   }
   .cat-nav {
     display: none;
@@ -2146,12 +2146,9 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     position: relative !important;
     width: 100% !important;
   }
-  .nav-right {
-    margin-left: auto !important;
+  .hamburger {
     display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    z-index: 10 !important;
+    margin-right: auto !important;
   }
   .top-nav > .logo {
     position: absolute !important;
@@ -2166,6 +2163,23 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     width: auto !important;
     max-width: 130px !important;
     object-fit: contain !important;
+  }
+  .nav-right {
+    margin-left: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    z-index: 10 !important;
+  }
+  .theme-btn {
+    display: none !important;
+  }
+  #mobileSearchBtn {
+    display: flex !important;
+  }
+  .cart-btn {
+    display: flex !important;
+    margin-left: 0 !important;
   }
 
   /* Enforce static positioning on footer-brand-logo */
