@@ -5111,6 +5111,61 @@
               </tr>`;
           }
         }).join("");
+
+        // Render mobile cards
+        const cardsContainer = document.getElementById("inventory-mobile-cards");
+        if (cardsContainer) {
+          if (!filtered.length) {
+            cardsContainer.innerHTML = `<div class="empty-state" style="padding:20px;text-align:center;"><p>No products found.</p></div>`;
+          } else {
+            cardsContainer.innerHTML = pageItems.map(item => {
+              const landed = (Number(item.price_eur) * Number(item.rate)) + Number(item.delivery_dzd);
+              const margin = Number(item.retail_dzd) - landed;
+              const marginColor = margin >= 0 ? "#16a34a" : "#dc2626";
+              const stockBadge = Number(item.stock) > 2 
+                ? `<span class="badge" style="background:#dcfce7;color:#15803d;font-weight:700;">Stock: ${item.stock}</span>`
+                : (Number(item.stock) > 0 
+                  ? `<span class="badge" style="background:#fef3c7;color:#b45309;font-weight:700;">Low: ${item.stock}</span>`
+                  : `<span class="badge" style="background:#fee2e2;color:#b91c1c;font-weight:700;">Out of stock</span>`);
+
+              const specStr = [item.variant_spec, item.size].filter(Boolean).join(" - ");
+
+              return `
+                <div class="inv-mobile-card" style="background:#fff; border:1px solid var(--g200); border-radius:12px; padding:14px; box-shadow:var(--sh-sm); display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; gap:6px; align-items:center;">
+                      <span class="badge" style="background:var(--g100); color:var(--g800); font-weight:700;">SKU: ${item.id}</span>
+                      ${item.brand ? `<span class="badge" style="background:var(--red-light); color:var(--red); font-weight:600;">${item.brand}</span>` : ''}
+                    </div>
+                    ${stockBadge}
+                  </div>
+                  <div>
+                    <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--black); line-height:1.3;">${item.name}</h4>
+                    ${specStr ? `<div style="font-size:12px; color:var(--g500); margin-top:2px;">${specStr}</div>` : ''}
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:var(--g50); padding:10px; border-radius:8px; border:1px solid var(--g100); text-align:center;">
+                    <div>
+                      <span style="font-size:10px; color:var(--g400); text-transform:uppercase; font-weight:700;">Retail</span><br>
+                      <strong style="font-size:13px; color:var(--black);">${Number(item.retail_dzd).toLocaleString()} DA</strong>
+                    </div>
+                    <div>
+                      <span style="font-size:10px; color:var(--g400); text-transform:uppercase; font-weight:700;">Landed</span><br>
+                      <strong style="font-size:13px; color:var(--g600);">${Math.round(landed).toLocaleString()} DA</strong>
+                    </div>
+                    <div>
+                      <span style="font-size:10px; color:var(--g400); text-transform:uppercase; font-weight:700;">Margin</span><br>
+                      <strong style="font-size:13px; color:${marginColor};">${Math.round(margin).toLocaleString()} DA</strong>
+                    </div>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:2px;">
+                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="width:100%; justify-content:center; min-height:40px; font-size:13px;">✏ Edit</button>
+                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="width:100%; justify-content:center; min-height:40px; font-size:13px;">🗑 Delete</button>
+                  </div>
+                </div>
+              `;
+            }).join("");
+          }
+        }
       };
 
       window.addInventoryItem = async function() {
