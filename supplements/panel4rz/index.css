@@ -1631,6 +1631,7 @@
           transform: translateX(-100%);
           transition: transform var(--tr);
           width: var(--sidebar-w) !important;
+          z-index: 1000;
         }
         #sidebar.mobile-open {
           transform: translateX(0);
@@ -1638,75 +1639,131 @@
         }
         #main {
           margin-left: 0 !important;
+          width: 100% !important;
         }
+        .page {
+          padding: 10px !important;
+        }
+        
+        /* Stop iOS Safari from auto-zooming inputs */
+        input, select, textarea {
+          font-size: 16px !important;
+        }
+        
+        /* Larger touch targets for buttons */
+        button, .btn-primary, .btn-secondary, .tab-btn, .cust-tab-btn, .order-filter-btn {
+          min-height: 42px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
         .form-row { grid-template-columns: 1fr; }
-        .variant-row { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
-        .flavor-row { grid-template-columns: 1fr 80px 100px 36px; }
-        .page { padding: 14px; }
-        th, td { padding: 10px 12px; }
-        .stats-grid { grid-template-columns: 1fr 1fr; }
+        .variant-row { grid-template-columns: 1fr; gap: 8px; }
+        .flavor-row { grid-template-columns: 1fr 70px 80px 36px; }
+        .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
         .settings-grid { grid-template-columns: 1fr; }
-        .modal { max-width: 100% !important; border-radius: 12px; }
-        .modal-overlay { padding: 12px; align-items: flex-end; }
-        .modal-overlay .modal { border-radius: 16px 16px 12px 12px; }
+        
+        /* Modal bottom sheet on phones */
+        .modal-overlay {
+          padding: 0;
+          align-items: flex-end;
+        }
+        .modal {
+          max-width: 100% !important;
+          width: 100% !important;
+          border-radius: 20px 20px 0 0 !important;
+          max-height: 90vh !important;
+          overflow-y: auto;
+          box-sizing: border-box;
+          padding: 16px !important;
+        }
 
-        /* ── Table: remove horizontal scroll, use column hiding instead ── */
-        .table-wrap { overflow-x: visible; }
-        table { min-width: 0 !important; width: 100%; table-layout: fixed; }
-        th, td { word-break: break-word; }
+        /* Touch-Friendly Horizontal Table Scroll with FULL Columns Visible */
+        .table-wrap {
+          overflow-x: auto !important;
+          -webkit-overflow-scrolling: touch;
+          border-radius: 8px;
+          margin-bottom: 15px;
+        }
+        table {
+          min-width: 650px !important;
+          table-layout: auto !important;
+          width: 100%;
+        }
+        th, td {
+          white-space: nowrap !important;
+          padding: 10px 12px !important;
+          font-size: 13px !important;
+        }
 
-        /* ── Products: show only Product(1) + Actions(8), hide 2–7 ── */
-        #page-products table th:nth-child(n+2):nth-child(-n+7),
-        #page-products table td:nth-child(n+2):nth-child(-n+7) { display: none; }
-        #page-products table th:first-child,
-        #page-products table td:first-child { width: 70%; }
+        /* Show all columns on mobile (no hiding essential data) */
+        #page-products table th, #page-products table td,
+        #page-promos table th, #page-promos table td,
+        #page-delivery table th, #page-delivery table td,
+        #page-orders table th, #page-orders table td {
+          display: table-cell !important;
+          width: auto !important;
+        }
 
-        /* ── Promos: show Code(1) + Status(7) + Actions(8), hide 2–6 ── */
-        #page-promos table th:nth-child(n+2):nth-child(-n+6),
-        #page-promos table td:nth-child(n+2):nth-child(-n+6) { display: none; }
+        /* Mobile toolbar & header stacking */
+        .sec-header {
+          flex-direction: column;
+          align-items: stretch !important;
+          gap: 10px;
+          margin-bottom: 15px;
+        }
+        .sec-header > div,
+        .sec-header .btn-primary,
+        .sec-header .search-box,
+        .sec-header .form-control {
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box;
+        }
+        
+        .table-toolbar {
+          flex-direction: column;
+          align-items: stretch !important;
+          gap: 10px;
+        }
+        .order-filters {
+          flex-wrap: wrap;
+          gap: 6px;
+        }
 
-        /* ── Delivery: hide #(1) and Office(4), show Wilaya+Home+Actions ── */
-        #page-delivery table th:nth-child(1),
-        #page-delivery table td:nth-child(1),
-        #page-delivery table th:nth-child(4),
-        #page-delivery table td:nth-child(4) { display: none; }
-
-        /* ── Orders: keep Customer(2) + Total(6) + Status(9) + Actions(10) ── */
-        #page-orders table th:nth-child(1),
-        #page-orders table td:nth-child(1),
-        #page-orders table th:nth-child(3),
-        #page-orders table td:nth-child(3),
-        #page-orders table th:nth-child(4),
-        #page-orders table td:nth-child(4),
-        #page-orders table th:nth-child(5),
-        #page-orders table td:nth-child(5),
-        #page-orders table th:nth-child(7),
-        #page-orders table td:nth-child(7),
-        #page-orders table th:nth-child(8),
-        #page-orders table td:nth-child(8) { display: none; }
-
-        /* ── Orders toolbar: stack vertically ── */
-        #page-orders .table-toolbar { flex-direction: column; align-items: stretch; }
-        #page-orders .order-filters { flex-wrap: wrap; justify-content: flex-start; }
-        #page-orders #orders-search,
-        #page-orders #orders-sort { max-width: 100%; width: 100%; }
-
-        /* ── Order detail modal ── */
         .order-detail-grid { grid-template-columns: 1fr; }
         .order-status-btns { flex-direction: column; }
-        .order-status-btns .status-btn { text-align: center; }
+        .order-status-btns .status-btn { text-align: center; width: 100%; min-height: 42px; }
 
-        /* ── Sec header wrapping ── */
-        .sec-header { flex-wrap: wrap; gap: 8px; }
+        /* Budget card mobile layout */
+        #dash-sec-stock .stat-card {
+          flex-direction: column;
+          align-items: flex-start !important;
+          gap: 15px;
+        }
+        #dash-sec-stock .stat-card > div:first-child {
+          flex-direction: column;
+          gap: 15px !important;
+        }
+        #dash-sec-stock .stat-card > div:first-child > div:nth-child(2) {
+          border-left: none !important;
+          padding-left: 0 !important;
+          border-top: 1px solid var(--g200);
+          padding-top: 15px;
+        }
+        #dash-sec-stock .stat-card button {
+          width: 100%;
+          justify-content: center;
+        }
       }
 
       @media (max-width: 480px) {
-        .stats-grid { grid-template-columns: 1fr 1fr; }
-        #topbar { padding: 0 14px; }
-        .tb-title { font-size: 18px; }
-        .page { padding: 12px; }
-        .order-filter-btn { font-size: 11px; padding: 5px 10px; }
+        .stats-grid { grid-template-columns: 1fr; }
+        #topbar { padding: 0 10px; }
+        .tb-title { font-size: 16px; }
         .sec-title { font-size: 18px; }
+        .stat-num { font-size: 20px; }
       }
 
       /* ─── BUNDLE ───────────────────────────────── */
