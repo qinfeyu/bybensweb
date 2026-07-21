@@ -2133,6 +2133,20 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
 
 /* Mobile responsive fixes */
 @media (max-width: 768px) {
+  /* Center Logo Dead-Center in Mobile Phone Header */
+  .top-nav {
+    position: relative !important;
+    justify-content: space-between !important;
+  }
+  .logo {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    z-index: 5 !important;
+  }
+
   /* Hide all carousel arrows on mobile */
   .carousel-arrow {
     display: none !important;

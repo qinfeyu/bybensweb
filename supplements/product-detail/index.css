@@ -2173,14 +2173,17 @@
           display: flex;
         }
         .top-nav {
-          position: relative;
+          position: relative !important;
+          justify-content: space-between !important;
           gap: 8px;
         }
         .logo {
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          margin: 0;
+          position: absolute !important;
+          left: 50% !important;
+          top: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          margin: 0 !important;
+          z-index: 5 !important;
         }
         #mobileSearchBtn {
           margin-left: auto;

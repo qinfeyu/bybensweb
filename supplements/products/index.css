@@ -1873,19 +1873,27 @@
           display: flex;
         }
 
+        .top-nav {
+          position: relative !important;
+          justify-content: space-between !important;
+          gap: 10px;
+        }
+        .logo {
+          position: absolute !important;
+          left: 50% !important;
+          top: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          margin: 0 !important;
+          z-index: 5 !important;
+        }
         .logo img {
           max-width: 100px;
-        }
-        .top-nav {
-          gap: 10px;
         }
         #desktopProductSearch {
           display: none !important;
         }
         #mobileProductSearchBtn {
           display: flex !important;
-          position: relative;
-          left: 16px;
         }
 
         .product-grid {
