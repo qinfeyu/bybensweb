@@ -5780,7 +5780,13 @@
                 <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
               </div>
               <div class="header">
-                <div class="logo">ByBens <span>Supplements</span></div>
+                <div>
+                  <div class="logo">ByBens <span>Supplements</span></div>
+                  <div style="font-size:12px; color:#475569; margin-top:4px; font-weight:500; line-height:1.4;">
+                    📞 +213 662 269 449 &nbsp;|&nbsp; ✉️ contact@bybens.com<br>
+                    📸 Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; 🌐 www.bybens.com
+                  </div>
+                </div>
                 <div class="title">Customer Invoice<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
               </div>
               <div class="info-grid">
@@ -5815,7 +5821,8 @@
                 </tr>
               </table>
               <div class="footer">
-                Thank you for shopping with ByBens! If you have any questions about this invoice, please reach out.
+                Thank you for shopping with ByBens!<br>
+                <span style="font-weight:600; color:#475569;">📞 +213 662 269 449 &nbsp;•&nbsp; ✉️ contact@bybens.com &nbsp;•&nbsp; 📸 @BENS.SUPPLEMENTS &nbsp;•&nbsp; 🌐 www.bybens.com</span>
               </div>
             </body>
             </html>
@@ -5856,7 +5863,13 @@
                 <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
               </div>
               <div class="header">
-                <div class="logo">ByBens <span>Supplements</span></div>
+                <div>
+                  <div class="logo">ByBens <span>Supplements</span></div>
+                  <div style="font-size:12px; color:#475569; margin-top:4px; font-weight:500; line-height:1.4;">
+                    📞 +213 662 269 449 &nbsp;|&nbsp; ✉️ contact@bybens.com<br>
+                    📸 Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; 🌐 www.bybens.com
+                  </div>
+                </div>
                 <div class="title">Courier Delivery Slip<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
               </div>
               <div class="info-grid">
@@ -5884,6 +5897,9 @@
               <div class="collect-box" style="margin-top: 30px;">
                 <span>COURIER: COLLECT DELIVERY FEE</span>
                 <span class="val">${deliveryPrice.toLocaleString()} DA</span>
+              </div>
+              <div class="footer" style="margin-top: 40px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 15px; font-weight: 500;">
+                ByBens Supplements &nbsp;•&nbsp; 📞 +213 662 269 449 &nbsp;•&nbsp; ✉️ contact@bybens.com &nbsp;•&nbsp; 📸 @BENS.SUPPLEMENTS &nbsp;•&nbsp; 🌐 www.bybens.com
               </div>
             </body>
             </html>
