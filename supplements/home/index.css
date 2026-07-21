@@ -2159,9 +2159,9 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     z-index: 5 !important;
   }
   .top-nav > .logo img {
-    height: 36px !important;
+    height: 50px !important;
     width: auto !important;
-    max-width: 130px !important;
+    max-width: 170px !important;
     object-fit: contain !important;
   }
   .nav-right {
