@@ -1940,6 +1940,97 @@
           justify-content: center !important;
           text-align: center !important;
         }
+
+        /* ── INVENTORY TAB STRICT PHONE SCREEN FIT (ZERO DRAGGING / ZERO OVERFLOW) ── */
+        #page-inventory {
+          overflow-x: hidden !important;
+          padding: 8px !important;
+          box-sizing: border-box !important;
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+        #page-inventory .sec-header {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 8px !important;
+          width: 100% !important;
+        }
+        #page-inventory .sec-header > div {
+          flex-direction: column !important;
+          width: 100% !important;
+          gap: 8px !important;
+        }
+        #page-inventory select,
+        #page-inventory input,
+        #page-inventory button {
+          width: 100% !important;
+          box-sizing: border-box !important;
+          min-height: 42px;
+        }
+        #page-inventory .tab-bar {
+          flex-wrap: wrap !important;
+          gap: 6px !important;
+        }
+        #page-inventory .tab-btn {
+          flex: 1 1 auto !important;
+          text-align: center !important;
+        }
+        #page-inventory .table-wrap {
+          overflow-x: hidden !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        #page-inventory table {
+          min-width: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          table-layout: fixed !important;
+          box-sizing: border-box !important;
+        }
+        #page-inventory th,
+        #page-inventory td {
+          white-space: normal !important;
+          word-break: break-word !important;
+          padding: 6px 3px !important;
+          font-size: 11px !important;
+          line-height: 1.25 !important;
+        }
+        /* On mobile: Hide columns 4 (variant), 5 (size), 6 (price eur), 7 (rate), 8 (delivery), 9 (landed), 11 (margin) to fit 100% screen */
+        #page-inventory table th:nth-child(4), #page-inventory table td:nth-child(4),
+        #page-inventory table th:nth-child(5), #page-inventory table td:nth-child(5),
+        #page-inventory table th:nth-child(6), #page-inventory table td:nth-child(6),
+        #page-inventory table th:nth-child(7), #page-inventory table td:nth-child(7),
+        #page-inventory table th:nth-child(8), #page-inventory table td:nth-child(8),
+        #page-inventory table th:nth-child(9), #page-inventory table td:nth-child(9),
+        #page-inventory table th:nth-child(11), #page-inventory table td:nth-child(11) {
+          display: none !important;
+        }
+        /* Quick add row hide on mobile */
+        #page-inventory .inv-quick-add-row {
+          display: none !important;
+        }
+        
+        /* Remaining column widths for phone screen fit */
+        #page-inventory table th:nth-child(1), #page-inventory table td:nth-child(1) { width: 18%; } /* SKU */
+        #page-inventory table th:nth-child(2), #page-inventory table td:nth-child(2) { width: 20%; } /* Brand */
+        #page-inventory table th:nth-child(3), #page-inventory table td:nth-child(3) { width: 27%; font-weight: 600; } /* Product Name */
+        #page-inventory table th:nth-child(10), #page-inventory table td:nth-child(10) { width: 18%; font-weight: 700; } /* Retail Price */
+        #page-inventory table th:nth-child(12), #page-inventory table td:nth-child(12) { width: 7%; font-weight: 700; text-align: center; } /* Stock */
+        #page-inventory table th:nth-child(13), #page-inventory table td:nth-child(13) { width: 10%; text-align: center; } /* Actions */
+
+        #page-inventory .act-btn,
+        #page-inventory .btn-primary,
+        #page-inventory .btn-danger {
+          padding: 3px 2px !important;
+          font-size: 10px !important;
+          min-height: 24px !important;
+          width: 100% !important;
+          justify-content: center !important;
+          text-align: center !important;
+        }
       }
 
       @media (max-width: 480px) {
