@@ -66,6 +66,9 @@
       select {
         font-family: inherit;
       }
+      textarea {
+        resize: none !important;
+      }
       ul {
         list-style: none;
       }
