@@ -1887,7 +1887,10 @@
           z-index: 5 !important;
         }
         .logo img {
-          max-width: 100px;
+          height: 52px !important;
+          width: auto !important;
+          max-width: 170px !important;
+          object-fit: contain !important;
         }
         #desktopProductSearch {
           display: none !important;
