@@ -2138,22 +2138,34 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
 
 /* Mobile responsive fixes */
 @media (max-width: 768px) {
-  /* Center Header Logo in Phone Mode */
+  /* Center Header Logo in Phone Mode & Pin Cart to Right */
   .top-nav {
-    position: relative;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    position: relative !important;
+    width: 100% !important;
+  }
+  .nav-right {
+    margin-left: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    z-index: 10 !important;
   }
   .top-nav > .logo {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    margin: 0;
-    z-index: 5;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    z-index: 5 !important;
   }
   .top-nav > .logo img {
-    height: 36px;
-    width: auto;
-    max-width: 130px;
-    object-fit: contain;
+    height: 36px !important;
+    width: auto !important;
+    max-width: 130px !important;
+    object-fit: contain !important;
   }
 
   /* Enforce static positioning on footer-brand-logo */
