@@ -3630,8 +3630,8 @@
               <td><span class="badge" style="background:var(--g100);color:var(--g800)">${e.category}</span></td>
               <td>${e.description || "—"}</td>
               <td style="font-weight:700;color:var(--red)">${amountStr}</td>
-              <td>
-                <button class="btn-text-danger" style="color:var(--red);font-weight:600" onclick="deleteExpenseRow('${e.id}')">Delete</button>
+              <td style="text-align:center">
+                <button class="btn-text-danger" style="color:var(--red);font-weight:bold;font-size:14px;padding:2px 4px" onclick="deleteExpenseRow('${e.id}')" title="Delete">🗑</button>
               </td>
             </tr>
           `;
