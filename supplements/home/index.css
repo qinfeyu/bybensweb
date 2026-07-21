@@ -1262,38 +1262,64 @@ textarea {
 }
 
 /* ─── BRANDS / TRUST BAR ─────────────────────────────────── */
+/* ─── BRANDS / TRUST BAR (MATCHING REFERENCE DESIGN) ─── */
 .trust-bar {
-  background: var(--gray-50);
-  border-top: 1px solid var(--gray-100);
-  border-bottom: 1px solid var(--gray-100);
-  padding: 32px 0;
+  background: #f0f0f2;
+  border-top: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--gray-200);
+  padding: 48px 0;
 }
 .trust-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 32px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px 48px;
+  max-width: 720px;
+  margin: 0 auto;
 }
-.trust-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--gray-600);
-  font-size: 13px;
-  font-weight: 600;
-}
-.trust-icon {
-  width: 44px;
-  height: 44px;
-  background: var(--white);
-  border-radius: 10px;
-  border: 1px solid var(--gray-100);
+
+.trust-item-hero {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--red);
-  box-shadow: var(--shadow-sm);
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.trust-icon {
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  background: #ffffff;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ad0000;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.trust-text-block strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.2px;
+  margin-bottom: 2px;
+}
+
+.trust-text-block span {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  display: block;
 }
 
 /* ─── FEATURED BANNER ────────────────────────────────────── */
@@ -2267,5 +2293,35 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     transform: scale(0.85) !important;
     top: 8px !important;
     right: 8px !important;
+  }
+
+  /* Trust Bar Mobile Layout */
+  .trust-bar {
+    padding: 32px 16px !important;
+  }
+  .trust-inner {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 20px 12px !important;
+    max-width: 100% !important;
+  }
+  .trust-item-hero {
+    grid-column: 1 / -1 !important;
+    justify-content: flex-start !important;
+  }
+  .trust-icon {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    border-radius: 14px !important;
+  }
+  .trust-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  .trust-text-block strong {
+    font-size: 13.5px !important;
+  }
+  .trust-text-block span {
+    font-size: 11px !important;
   }
 }
