@@ -5777,7 +5777,8 @@
                 .btn-print { padding: 10px 20px; background: #ad0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; font-family: 'Outfit', sans-serif; transition: background 0.2s; }
                 .btn-print:hover { background: #880000; }
                 @media print {
-                  body { padding: 20px; }
+                  @page { margin: 0mm; }
+                  body { padding: 15mm; }
                   .no-print { display: none !important; }
                 }
               </style>
@@ -5860,7 +5861,8 @@
                 .btn-print { padding: 10px 20px; background: #ad0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; font-family: 'Outfit', sans-serif; transition: background 0.2s; }
                 .btn-print:hover { background: #880000; }
                 @media print {
-                  body { padding: 20px; }
+                  @page { margin: 0mm; }
+                  body { padding: 15mm; }
                   .no-print { display: none !important; }
                 }
               </style>
