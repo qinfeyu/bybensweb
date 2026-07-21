@@ -936,18 +936,16 @@
           <div class="expenses-layout">
             <div class="expense-form-card">
               <h3>Log New Expense</h3>
-              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
-                <div class="form-group">
-                  <label>Amount</label>
-                  <input type="number" step="0.01" id="exp-amount" class="form-control" required min="0" placeholder="0.00" />
-                </div>
-                <div class="form-group">
-                  <label>Currency</label>
-                  <select id="exp-currency" class="form-control" style="cursor: pointer;">
-                    <option value="DZD">DZD (DA)</option>
-                    <option value="EUR">EUR (€)</option>
-                  </select>
-                </div>
+              <div class="form-group">
+                <label>Amount</label>
+                <input type="number" step="0.01" id="exp-amount" class="form-control" required min="0" placeholder="0.00" style="width: 100%; box-sizing: border-box;" />
+              </div>
+              <div class="form-group">
+                <label>Currency</label>
+                <select id="exp-currency" class="form-control" style="width: 100%; box-sizing: border-box; cursor: pointer;">
+                  <option value="DZD">DZD (DA)</option>
+                  <option value="EUR">EUR (€)</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Category</label>
