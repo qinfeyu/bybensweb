@@ -2005,7 +2005,17 @@
           </div>
           
           <div style="margin: 15px 0; border-top: 1px solid var(--gray-200); padding-top: 15px">
-            <h4 style="margin-bottom:10px; font-weight:600">Items List</h4>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <h4 style="margin:0; font-weight:600">Items List</h4>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <label style="font-size:12px; font-weight:500; color:var(--g600);">Filter Category:</label>
+                <select id="preorder-type-filter" class="form-control" style="font-size:12px; padding:4px 8px; height:28px; width:140px;" onchange="updatePreorderItemsDatalists()">
+                  <option value="all">All Items</option>
+                  <option value="supplement">Supplements Only</option>
+                  <option value="snack">Snacks Only</option>
+                </select>
+              </div>
+            </div>
             <div id="preorder-items-list" style="display:flex;flex-direction:column;gap:10px">
               <!-- Dynamically populated list of pre-order items -->
             </div>

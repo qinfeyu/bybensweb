@@ -3637,6 +3637,8 @@
         const statusSelect = document.getElementById("preorder-status");
         
         document.getElementById("preorder-id").value = id;
+        const typeFilterEl = document.getElementById("preorder-type-filter");
+        if (typeFilterEl) typeFilterEl.value = "all";
         preorderItemRows = [];
         const itemsContainer = document.getElementById("preorder-items-list");
         if (itemsContainer) itemsContainer.innerHTML = "";
@@ -3702,8 +3704,14 @@
         div.style.alignItems = "center";
         div.style.marginBottom = "8px";
 
-        // Build datalist options from inventory items
-        const datalistOptions = inventoryItems.map(item => {
+        // Build datalist options from inventory items based on category filter
+        const typeFilter = document.getElementById("preorder-type-filter")?.value || "all";
+        const filteredInventory = inventoryItems.filter(item => {
+          if (typeFilter === "all") return true;
+          return item.type === typeFilter;
+        });
+
+        const datalistOptions = filteredInventory.map(item => {
           const specStr = [item.variant_spec, item.size].filter(Boolean).join(" - ");
           const textLabel = `[${item.id}] ${item.brand || ''} - ${item.name} ${specStr ? `(${specStr})` : ''}`.trim();
           return `<option value="${textLabel}" data-id="${item.id}"></option>`;
@@ -3737,6 +3745,33 @@
 
         container.appendChild(div);
         recalcPreorderTotals();
+      };
+
+      window.updatePreorderItemsDatalists = function() {
+        const typeFilter = document.getElementById("preorder-type-filter")?.value || "all";
+        const rows = document.querySelectorAll(".preorder-item-row");
+        
+        const filteredInventory = inventoryItems.filter(item => {
+          if (typeFilter === "all") return true;
+          return item.type === typeFilter;
+        });
+        
+        const datalistOptions = filteredInventory.map(item => {
+          const specStr = [item.variant_spec, item.size].filter(Boolean).join(" - ");
+          return `[${item.id}] ${item.brand || ''} - ${item.name} ${specStr ? `(${specStr})` : ''}`.trim();
+        });
+        
+        rows.forEach(row => {
+          const rowId = row.id.replace("preorder-row-", "");
+          const datalist = document.getElementById(`inv-datalist-${rowId}`);
+          if (datalist) {
+            datalist.innerHTML = filteredInventory.map(item => {
+              const specStr = [item.variant_spec, item.size].filter(Boolean).join(" - ");
+              const textLabel = `[${item.id}] ${item.brand || ''} - ${item.name} ${specStr ? `(${specStr})` : ''}`.trim();
+              return `<option value="${textLabel}" data-id="${item.id}"></option>`;
+            }).join("");
+          }
+        });
       };
 
       window.updatePreorderRowOptions = function(rowId, selectedFlavor = "", selectedVariant = "") {
