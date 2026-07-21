@@ -5809,17 +5809,9 @@
                 </tbody>
               </table>
               <table class="summary-table">
-                <tr>
-                  <td>Items Subtotal:</td>
-                  <td style="text-align: right; font-weight: 600; color: #0f172a;">${totalVal.toLocaleString()} DA</td>
-                </tr>
-                <tr>
-                  <td>Delivery Price:</td>
-                  <td style="text-align: right; font-weight: 600; color: #0f172a;">${deliveryPrice.toLocaleString()} DA</td>
-                </tr>
                 <tr class="total">
                   <td>Grand Total (DZD):</td>
-                  <td style="text-align: right;">${(totalVal + deliveryPrice).toLocaleString()} DA</td>
+                  <td style="text-align: right;">${totalVal.toLocaleString()} DA</td>
                 </tr>
               </table>
               <div class="footer">
