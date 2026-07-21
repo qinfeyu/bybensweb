@@ -9,6 +9,10 @@
   document.documentElement.removeAttribute('data-theme');
   localStorage.removeItem('bybens_theme');
 
+  const path = window.location.pathname;
+  const isHome = path === '/supplements' || path === '/supplements/' || path.endsWith('/home/') || path.endsWith('/home/index.html');
+  const isProducts = path.includes('/products');
+
   const footerHTML = `
     <footer class="site-footer" role="contentinfo">
       <div class="container">
