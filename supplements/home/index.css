@@ -2152,6 +2152,11 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     z-index: 5 !important;
   }
 
+  /* Hide hero-right on mobile to prevent watermark logo overlaying middle of hero section */
+  .hero-right {
+    display: none !important;
+  }
+
   /* Hide all carousel arrows on mobile */
   .carousel-arrow {
     display: none !important;
