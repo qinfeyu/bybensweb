@@ -2138,37 +2138,11 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
 
 /* Mobile responsive fixes */
 @media (max-width: 768px) {
-  /* Center Logo Dead-Center in Mobile Phone Header */
-  #site-header {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 1000 !important;
-    background: var(--white) !important;
-  }
-  .top-nav {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    height: 60px !important;
-    position: relative !important;
-    padding: 0 16px !important;
-  }
-  .logo {
-    position: absolute !important;
-    left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
+  /* Enforce static positioning on footer-brand-logo */
+  .footer-brand-logo {
+    position: static !important;
+    transform: none !important;
     margin: 0 !important;
-    z-index: 5 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-  .logo img {
-    height: 36px !important;
-    width: auto !important;
-    max-width: 130px !important;
-    object-fit: contain !important;
   }
 
   /* Hide hero-right on mobile to prevent watermark logo overlaying middle of hero section */

@@ -14,8 +14,8 @@
       <div class="container">
         <div class="footer-grid">
           <div class="footer-brand">
-            <a href="/supplements" class="logo" style="margin-bottom: 16px; display: inline-flex">
-              <img src="/images/logo.png" alt="ByBens Logo" width="140" height="70" style="height: 70px; width: auto; object-fit: contain;" class="footer-brand-logo" />
+            <a href="/supplements" class="footer-logo" style="margin-bottom: 16px; display: inline-flex">
+              <img src="/images/logo.png" alt="ByBens Logo" width="140" height="70" style="height: 70px; width: auto; object-fit: contain; position: static !important; transform: none !important;" class="footer-brand-logo" />
             </a>
             <p data-i18n="footer.brand.desc">Algeria's premier destination for authentic sports nutrition. We bring world-class supplements directly to your door.</p>
             <div class="social-links">
