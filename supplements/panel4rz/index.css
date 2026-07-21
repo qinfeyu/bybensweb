@@ -1869,6 +1869,77 @@
         #page-expenses table th:nth-child(3), #page-expenses table td:nth-child(3) { width: 26%; }
         #page-expenses table th:nth-child(4), #page-expenses table td:nth-child(4) { width: 22%; font-weight: 700; word-break: break-all !important; }
         #page-expenses table th:nth-child(5), #page-expenses table td:nth-child(5) { width: 10%; text-align: center; }
+
+        /* ── PRE-ORDERS TAB STRICT PHONE SCREEN FIT (ZERO DRAGGING / ZERO OVERFLOW) ── */
+        #page-preorders {
+          overflow-x: hidden !important;
+          padding: 8px !important;
+          box-sizing: border-box !important;
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+        #page-preorders .sec-header {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 8px !important;
+          width: 100% !important;
+        }
+        #page-preorders .sec-header > div {
+          flex-direction: column !important;
+          width: 100% !important;
+          gap: 8px !important;
+        }
+        #page-preorders select,
+        #page-preorders button {
+          width: 100% !important;
+          box-sizing: border-box !important;
+          min-height: 42px;
+        }
+        #page-preorders .table-wrap {
+          overflow-x: hidden !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        #page-preorders table {
+          min-width: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          table-layout: fixed !important;
+          box-sizing: border-box !important;
+        }
+        #page-preorders th,
+        #page-preorders td {
+          white-space: normal !important;
+          word-break: break-word !important;
+          padding: 6px 3px !important;
+          font-size: 11px !important;
+          line-height: 1.2 !important;
+        }
+        #page-preorders table th:nth-child(1), #page-preorders table td:nth-child(1) { width: 14%; }
+        #page-preorders table th:nth-child(2), #page-preorders table td:nth-child(2) { width: 16%; }
+        #page-preorders table th:nth-child(3), #page-preorders table td:nth-child(3) { width: 16%; word-break: break-all !important; }
+        #page-preorders table th:nth-child(4), #page-preorders table td:nth-child(4) { width: 20%; font-size: 10.5px !important; }
+        #page-preorders table th:nth-child(5), #page-preorders table td:nth-child(5) { width: 14%; font-weight: 700; }
+        #page-preorders table th:nth-child(6), #page-preorders table td:nth-child(6) { width: 10%; text-align: center; }
+        #page-preorders table th:nth-child(7), #page-preorders table td:nth-child(7) { width: 10%; text-align: center; }
+
+        #page-preorders .action-group {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 3px !important;
+          width: 100% !important;
+        }
+        #page-preorders .act-btn {
+          padding: 3px 2px !important;
+          font-size: 10px !important;
+          min-height: 24px !important;
+          width: 100% !important;
+          justify-content: center !important;
+          text-align: center !important;
+        }
       }
 
       @media (max-width: 480px) {
