@@ -1262,63 +1262,52 @@ textarea {
 }
 
 /* ─── BRANDS / TRUST BAR ─────────────────────────────────── */
-/* ─── BRANDS / TRUST BAR (MATCHING REFERENCE DESIGN) ─── */
+/* ─── BRANDS / TRUST BAR (DESKTOP HORIZONTAL ROW) ─── */
 .trust-bar {
-  background: #f0f0f2;
-  border-top: 1px solid var(--gray-200);
-  border-bottom: 1px solid var(--gray-200);
-  padding: 48px 0;
+  background: var(--gray-50);
+  border-top: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--gray-100);
+  padding: 32px 0;
 }
 .trust-inner {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 28px 48px;
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.trust-item-hero {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-bottom: 6px;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: nowrap;
 }
-
+.trust-item-hero,
 .trust-item {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  margin-bottom: 0;
+  grid-column: auto;
 }
-
 .trust-icon {
-  width: 58px;
-  height: 58px;
-  min-width: 58px;
-  background: #ffffff;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  background: var(--white);
+  border-radius: 10px;
+  border: 1px solid var(--gray-100);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ad0000;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-  border: 1px solid rgba(0,0,0,0.04);
+  color: var(--red);
+  box-shadow: var(--shadow-sm);
 }
-
 .trust-text-block strong {
   display: block;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
-  color: #111827;
-  letter-spacing: -0.2px;
-  margin-bottom: 2px;
+  color: var(--black);
+  margin-bottom: 0;
 }
-
 .trust-text-block span {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--gray-600);
   display: block;
 }
 
@@ -2295,11 +2284,13 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     right: 8px !important;
   }
 
-  /* Trust Bar Mobile Layout */
+  /* Trust Bar Mobile Layout (Reference Image Design) */
   .trust-bar {
+    background: #f0f0f2 !important;
     padding: 32px 16px !important;
   }
   .trust-inner {
+    display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 20px 12px !important;
     max-width: 100% !important;
@@ -2313,6 +2304,10 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     height: 48px !important;
     min-width: 48px !important;
     border-radius: 14px !important;
+    background: #ffffff !important;
+    color: #ad0000 !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06) !important;
+    border: 1px solid rgba(0,0,0,0.04) !important;
   }
   .trust-icon svg {
     width: 20px !important;
@@ -2320,8 +2315,10 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
   }
   .trust-text-block strong {
     font-size: 13.5px !important;
+    color: #111827 !important;
   }
   .trust-text-block span {
     font-size: 11px !important;
+    color: #6b7280 !important;
   }
 }
