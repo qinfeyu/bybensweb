@@ -488,7 +488,7 @@
           <div class="sec-header">
             <div class="sec-title">Inventory</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <input type="text" id="inv-search" placeholder="Search supplements..." oninput="renderInventoryList()" class="search-box" style="width: 220px;" />
+              <input type="text" id="inv-search" placeholder="Search supplements..." oninput="inventoryPage=1; renderInventoryList()" class="search-box" style="width: 220px;" />
               <select id="inv-brand-filter" class="search-box" onchange="renderInventoryList()" style="width: auto; cursor: pointer;">
                 <option value="">All Brands</option>
               </select>
@@ -903,6 +903,7 @@
                 <!-- Rendered by JS -->
               </tbody>
             </table>
+            <div id="preorders-pag" style="margin-top: 15px;"></div>
           </div>
         </div>
 
@@ -955,6 +956,7 @@
                     <!-- Rendered by JS -->
                   </tbody>
                 </table>
+                <div id="expenses-pag" style="margin-top: 15px;"></div>
               </div>
             </div>
           </div>
@@ -965,7 +967,7 @@
           <div class="sec-header">
             <div class="sec-title">Customers Ledger</div>
             <div style="display:flex;gap:10px">
-              <input type="text" id="cust-search" placeholder="Search customer..." oninput="renderCustomersList()" class="form-control" style="width:250px" />
+              <input type="text" id="cust-search" placeholder="Search customer..." oninput="customerPage=1; renderCustomersList()" class="form-control" style="width:250px" />
               <button class="btn-primary" onclick="openCustomerModal()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>New Customer
               </button>
@@ -996,6 +998,7 @@
                 <!-- Rendered by JS -->
               </tbody>
             </table>
+            <div id="customers-pag" style="margin-top: 15px;"></div>
           </div>
         </div>
         <!-- SETTINGS -->

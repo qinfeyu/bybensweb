@@ -2386,13 +2386,15 @@
           const action = actionMap[type];
           let failed = 0;
           const deletedIds = [];
-          for (const id of ids) {
-            try {
-              const r = await apiPost({ action, id });
-              if (r.success) deletedIds.push(id);
-              else failed++;
-            } catch(e) { failed++; }
-          }
+          const deletePromises = ids.map(id => {
+            return apiPost({ action, id })
+              .then(r => {
+                if (r.success) deletedIds.push(id);
+                else failed++;
+              })
+              .catch(() => { failed++; });
+          });
+          await Promise.all(deletePromises);
           _selReset(type);
           const deletedSet = new Set(deletedIds);
           if (type === "product") {
@@ -2739,10 +2741,14 @@
       let ordersSearch = "";
       let ordersSort = "date-desc";
 
+      let ordersSearchTimeout = null;
       function searchOrders(val) {
         ordersSearch = val.trim().toLowerCase();
         orderPage = 1;
-        _fetchOrdersPage().then(renderOrders).catch(() => renderOrders());
+        if (ordersSearchTimeout) clearTimeout(ordersSearchTimeout);
+        ordersSearchTimeout = setTimeout(() => {
+          _fetchOrdersPage().then(renderOrders).catch(() => renderOrders());
+        }, 300);
       }
 
       function sortOrders(val) {
@@ -2984,6 +2990,12 @@
       let inventorySortDirection = "asc";
       let inventoryPage = 1;
       const inventoryPageSize = 20;
+      let preorderPage = 1;
+      const preorderPageSize = 20;
+      let expensePage = 1;
+      const expensePageSize = 20;
+      let customerPage = 1;
+      const customerPageSize = 20;
 
       async function refreshBusinessPortalData() {
         try {
@@ -3542,16 +3554,32 @@
         renderExpensesList();
       };
 
+      window.setExpensePage = function(n) {
+        expensePage = n;
+        renderExpensesList();
+      };
+
       function renderExpensesList() {
         const body = document.getElementById("expenses-table-body");
         if (!body) return;
 
+        const pag = document.getElementById("expenses-pag");
         if (allExpenses.length === 0) {
           body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--g400);padding:24px">No expenses logged yet</td></tr>`;
+          if (pag) pag.innerHTML = "";
           return;
         }
 
-        body.innerHTML = allExpenses.map(e => `
+        const totalItems = allExpenses.length;
+        const totalPages = Math.ceil(totalItems / expensePageSize) || 1;
+        expensePage = Math.max(1, Math.min(expensePage, totalPages));
+        const pageItems = allExpenses.slice((expensePage - 1) * expensePageSize, expensePage * expensePageSize);
+
+        if (pag) {
+          pag.innerHTML = _pagCtrl(totalItems, expensePage, "setExpensePage", expensePageSize);
+        }
+
+        body.innerHTML = pageItems.map(e => `
           <tr>
             <td>${new Date(e.date).toLocaleDateString()}</td>
             <td><span class="badge" style="background:var(--g100);color:var(--g800)">${e.category}</span></td>
@@ -3943,6 +3971,11 @@
         hideLoading();
       };
 
+      window.setPreorderPage = function(n) {
+        preorderPage = n;
+        renderPreordersList();
+      };
+
       function renderPreordersList() {
         const body = document.getElementById("preorders-table-body");
         if (!body) return;
@@ -3954,12 +3987,23 @@
           filtered = filtered.filter(p => p.status === filter);
         }
 
+        const pag = document.getElementById("preorders-pag");
         if (filtered.length === 0) {
           body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--g400);padding:24px">No pre-orders found</td></tr>`;
+          if (pag) pag.innerHTML = "";
           return;
         }
 
-        body.innerHTML = filtered.map(p => {
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / preorderPageSize) || 1;
+        preorderPage = Math.max(1, Math.min(preorderPage, totalPages));
+        const pageItems = filtered.slice((preorderPage - 1) * preorderPageSize, preorderPage * preorderPageSize);
+
+        if (pag) {
+          pag.innerHTML = _pagCtrl(totalItems, preorderPage, "setPreorderPage", preorderPageSize);
+        }
+
+        body.innerHTML = pageItems.map(p => {
           const items = allPreorderItems.filter(x => x.pre_order_id === p.id);
           const itemsText = items.map(itm => `${itm.product_name} (${itm.variant || '—'}${itm.flavor ? ' | ' + itm.flavor : ''}) x${itm.qty}`).join("<br>");
 
@@ -4094,9 +4138,15 @@
 
       window.toggleCustomerTab = function(group) {
         activeCustomerTab = group;
+        customerPage = 1;
         document.querySelectorAll("#page-customers .cust-tab-bar .cust-tab-btn").forEach(btn => btn.classList.remove("active"));
         if (group === 'public') document.getElementById("cust-tab-public").classList.add("active");
         if (group === 'private') document.getElementById("cust-tab-private").classList.add("active");
+        renderCustomersList();
+      };
+
+      window.setCustomerPage = function(n) {
+        customerPage = n;
         renderCustomersList();
       };
 
@@ -4113,13 +4163,24 @@
           filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q));
         }
 
+        const pag = document.getElementById("customers-pag");
         if (filtered.length === 0) {
           body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--g400);padding:24px">No customer ledger records found</td></tr>`;
+          if (pag) pag.innerHTML = "";
           return;
         }
 
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / customerPageSize) || 1;
+        customerPage = Math.max(1, Math.min(customerPage, totalPages));
+        const pageItems = filtered.slice((customerPage - 1) * customerPageSize, customerPage * customerPageSize);
+
+        if (pag) {
+          pag.innerHTML = _pagCtrl(totalItems, customerPage, "setCustomerPage", customerPageSize);
+        }
+
         // Search original index to support viewCustomerHistory logs correctly
-        body.innerHTML = filtered.map(c => {
+        body.innerHTML = pageItems.map(c => {
           const originalIndex = uniqueCustomers.indexOf(c);
           return `
             <tr>
@@ -4350,13 +4411,19 @@
         if (orderErr) throw orderErr;
 
         // 2. Deduct stock from inventory items directly
+        const stockPromises = [];
         for (const item of items) {
           const invItem = inventoryItems.find(x => x.id === item.product_id);
           if (invItem) {
             const newStock = Math.max(0, invItem.stock - item.qty);
             invItem.stock = newStock;
-            await sb.from("inventory_items").update({ stock: newStock }).eq("id", invItem.id);
+            stockPromises.push(
+              sb.from("inventory_items").update({ stock: newStock }).eq("id", invItem.id)
+            );
           }
+        }
+        if (stockPromises.length > 0) {
+          await Promise.all(stockPromises);
         }
         
         // 3. Delete from pre_orders table (cascades to delete pre_order_items too)
@@ -4659,6 +4726,7 @@
 
       window.syncAllLinkedProductsStock = async function() {
         let changedAny = false;
+        const updatePromises = [];
         
         for (const p of products) {
           if (p.bundleItems && p.bundleItems.length > 0) continue; // skip bundles
@@ -4679,16 +4747,20 @@
           
           if (pChanged) {
             p.stock = (p.variants || []).reduce((s, v) => s + (Number(v.stock) || 0), 0);
-            try {
-              // Update standard products table row in Supabase
-              await sb.from("products").update({
-                variants: p.variants,
-                stock: p.stock
-              }).eq("id", p.id);
-            } catch(e) {
+            const updatePromise = sb.from("products").update({
+              variants: p.variants,
+              stock: p.stock
+            }).eq("id", p.id).then(({ error }) => {
+              if (error) console.warn("Failed to sync stock to database for product " + p.id, error.message);
+            }).catch(e => {
               console.warn("Failed to sync stock to database for product " + p.id, e);
-            }
+            });
+            updatePromises.push(updatePromise);
           }
+        }
+        
+        if (updatePromises.length > 0) {
+          await Promise.all(updatePromises);
         }
         
         if (changedAny) {
