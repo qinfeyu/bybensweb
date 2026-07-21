@@ -555,18 +555,21 @@ function renderProductListToContainer(containerId, productList, lang) {
 }
 
 function renderProducts(lang) {
-  // 1. Best Sellers: up to 8 items
-  const bestSellers = products.slice(0, 8);
+  // Only display in-stock products on the home page
+  const inStockProducts = products.filter((p) => Number(p.stock) > 0);
+
+  // 1. Best Sellers: up to 8 in-stock items
+  const bestSellers = inStockProducts.slice(0, 8);
   renderProductListToContainer("bestSellersGrid", bestSellers, lang);
 
-  // 2. New Arrivals: sort products desc by createdAt or take latest items, up to 8 items
-  const newArrivals = [...products]
+  // 2. New Arrivals: sort in-stock products desc by createdAt, up to 8 items
+  const newArrivals = [...inStockProducts]
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     .slice(0, 8);
   renderProductListToContainer("newArrivalsGrid", newArrivals, lang);
 
-  // 3. Bundles & Packs: items that have a bundleItems array, up to 8 items
-  const bundles = products
+  // 3. Bundles & Packs: in-stock items that have a bundleItems array, up to 8 items
+  const bundles = inStockProducts
     .filter((p) => Array.isArray(p.bundleItems) && p.bundleItems.length > 0)
     .slice(0, 8);
   renderProductListToContainer("bundlesGrid", bundles, lang);
