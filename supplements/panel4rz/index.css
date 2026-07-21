@@ -1736,6 +1736,54 @@
         .order-status-btns { flex-direction: column; }
         .order-status-btns .status-btn { text-align: center; width: 100%; min-height: 42px; }
 
+        /* Pre-Order item rows on mobile */
+        .preorder-item-row {
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+          background: var(--g50);
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid var(--g200);
+        }
+        .preorder-item-row > div:first-child {
+          flex: 1 1 100% !important;
+          width: 100% !important;
+        }
+        .preorder-item-row > div:nth-child(2) {
+          width: 90px !important;
+        }
+
+        /* Action dropdowns & buttons inside table cells */
+        .action-group {
+          flex-wrap: wrap !important;
+          gap: 4px !important;
+        }
+        .act-btn {
+          padding: 6px 10px !important;
+          font-size: 12px !important;
+          min-height: 34px !important;
+        }
+        
+        /* Pre-Orders & Expenses header filter controls */
+        #preorder-status-filter,
+        #preorder-type-filter,
+        #exp-currency,
+        #exp-category {
+          width: 100% !important;
+          box-sizing: border-box;
+          min-height: 42px;
+        }
+
+        /* Customer ledger tabs bar */
+        .cust-tab-bar {
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .cust-tab-btn {
+          flex: 1 1 auto;
+          text-align: center;
+        }
+
         /* Budget card mobile layout */
         #dash-sec-stock .stat-card {
           flex-direction: column;
