@@ -903,6 +903,56 @@
         </tr>`;
           })
           .join("");
+
+        const cardsContainer = document.getElementById("products-mobile-cards");
+        if (cardsContainer) {
+          if (!filtered.length) {
+            cardsContainer.innerHTML = `<div class="empty-state" style="padding:20px;text-align:center;"><p>No products found.</p></div>`;
+          } else {
+            cardsContainer.innerHTML = pageItems.map(p => {
+              const catNames = (p.categoryIds || [])
+                .map(id => categories.find(x => x.id === id)?.name)
+                .filter(Boolean)
+                .join(", ");
+              const _firstImg = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
+              const imgHtml = _firstImg
+                ? `<img src="${_firstImg}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--g200)" />`
+                : `<div style="width:52px;height:52px;background:var(--g100);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--g400);font-size:20px">📦</div>`;
+
+              const stockBadge = Number(p.stock) > 0
+                ? `<span class="badge badge-active" style="font-weight:700">Stock: ${p.stock}</span>`
+                : `<span class="badge badge-inactive" style="font-weight:700">Out of Stock</span>`;
+
+              const variantStr = (p.variants || [])
+                .map(v => `<span style="display:inline-block;background:var(--g100);padding:3px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px;margin-bottom:4px">${v.weight}${v.unit}: ${Number(v.price).toLocaleString()} DA</span>`)
+                .join("");
+
+              return `
+                <div class="prod-mobile-card" style="background:#fff; border:1px solid var(--g200); border-radius:12px; padding:14px; box-shadow:var(--sh-sm); display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; gap:12px; align-items:center;">
+                    ${imgHtml}
+                    <div style="flex:1;">
+                      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <span class="badge" style="background:var(--red-light); color:var(--red); font-weight:700; font-size:10px;">${p.brand || 'No Brand'}</span>
+                        ${stockBadge}
+                      </div>
+                      <h4 style="margin:4px 0 0 0; font-size:15px; font-weight:700; color:var(--black); line-height:1.2;">${p.name}</h4>
+                      ${catNames ? `<div style="font-size:11px; color:var(--g500); margin-top:2px;">${catNames}</div>` : ''}
+                    </div>
+                  </div>
+
+                  ${variantStr ? `<div style="background:var(--g50); padding:8px; border-radius:8px; border:1px solid var(--g100);">${variantStr}</div>` : ''}
+
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:2px;">
+                    <button class="btn-primary" onclick="editProduct('${p.id}')" style="width:100%; justify-content:center; min-height:40px; font-size:13px;">✏ Edit</button>
+                    <button class="btn-danger" onclick="confirmDelete('product','${p.id}')" style="width:100%; justify-content:center; min-height:40px; font-size:13px;">🗑 Delete</button>
+                  </div>
+                </div>
+              `;
+            }).join("");
+          }
+        }
+
         if (pag) pag.innerHTML = _pagCtrl(filtered.length, productPage, "setProductPage");
       }
 

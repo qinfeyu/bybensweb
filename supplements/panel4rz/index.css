@@ -1975,9 +1975,11 @@
           flex: 1 1 auto !important;
           text-align: center !important;
         }
+        #page-products .table-wrap,
         #page-inventory .table-wrap {
           display: none !important;
         }
+        #page-products .prod-mobile-cards,
         #page-inventory .inv-mobile-cards {
           display: flex !important;
           flex-direction: column !important;
