@@ -3060,11 +3060,44 @@
         }
       }
 
+      function getExpenseCurrencyAndAmount(e) {
+        if (e.currency === "EUR" || e.currency === "DZD") {
+          return { currency: e.currency, amount: Number(e.amount) || 0 };
+        }
+        const desc = (e.description || "").trim();
+        if (desc.startsWith("[EUR]")) {
+          return { currency: "EUR", amount: Number(e.amount) || 0 };
+        }
+        if (desc.startsWith("[DZD]")) {
+          return { currency: "DZD", amount: Number(e.amount) || 0 };
+        }
+        const cat = (e.category || "").trim().toLowerCase();
+        if (cat.includes("(eur)")) {
+          return { currency: "EUR", amount: Number(e.amount) || 0 };
+        }
+        return { currency: "DZD", amount: Number(e.amount) || 0 };
+      }
+
       function computeBusinessDashboard() {
         // Compute expenses total
-        const totalExp = allExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        let totalExpDzd = 0;
+        let totalExpEur = 0;
+        allExpenses.forEach(e => {
+          const { currency, amount } = getExpenseCurrencyAndAmount(e);
+          if (currency === "EUR") totalExpEur += amount;
+          else totalExpDzd += amount;
+        });
+
+        // Update budget labels
+        const budgetEur = parseFloat(settings.budget_eur) || 0;
+        const budgetDzd = parseFloat(settings.budget_dzd) || 0;
+        const lblEur = document.getElementById("lbl-budget-eur");
+        const lblDzd = document.getElementById("lbl-budget-dzd");
+        if (lblEur) lblEur.textContent = budgetEur.toFixed(2) + " €";
+        if (lblDzd) lblDzd.textContent = Math.round(budgetDzd).toLocaleString() + " DA";
+
         const expBadge = document.getElementById("total-expenses-badge");
-        if (expBadge) expBadge.textContent = `Total: ${totalExp.toLocaleString()} DA`;
+        if (expBadge) expBadge.textContent = `Total: ${totalExpDzd.toLocaleString()} DA / ${totalExpEur.toFixed(2)} €`;
 
         // Let's add extra KPI elements dynamically to page-dashboard stats-grid if they are missing
         const statsGrid = document.querySelector("#page-dashboard .stats-grid");
@@ -3144,11 +3177,12 @@
           });
         });
 
-        const netProfit = combinedRevenue - totalCOGS - totalExp;
+        const totalExpInDzdEquivalent = totalExpDzd + (totalExpEur * 250);
+        const netProfit = combinedRevenue - totalCOGS - totalExpInDzdEquivalent;
 
         document.getElementById("stat-revenue-total").textContent = fmtRevenue(combinedRevenue);
         if (document.getElementById("stat-total-expenses")) {
-          document.getElementById("stat-total-expenses").textContent = totalExp.toLocaleString() + " DA";
+          document.getElementById("stat-total-expenses").textContent = `${totalExpDzd.toLocaleString()} DA + ${totalExpEur.toFixed(2)} €`;
         }
         if (document.getElementById("stat-net-profit")) {
           document.getElementById("stat-net-profit").textContent = netProfit.toLocaleString() + " DA";
@@ -3532,6 +3566,14 @@
           document.getElementById("pos-cust-phone").value = "";
           document.getElementById("pos-discount").value = "0";
 
+          // Increment DZD budget
+          const curDzd = parseFloat(settings.budget_dzd) || 0;
+          const newDzd = curDzd + totalAmount;
+          await sb.from("settings").upsert([
+            { key: "budget_dzd", value: String(newDzd) }
+          ], { onConflict: "key" });
+          settings.budget_dzd = String(newDzd);
+
           showToast("Sale recorded successfully!");
           
           // Reload products list and dashboards
@@ -3579,27 +3621,33 @@
           pag.innerHTML = _pagCtrl(totalItems, expensePage, "setExpensePage", expensePageSize);
         }
 
-        body.innerHTML = pageItems.map(e => `
-          <tr>
-            <td>${new Date(e.date).toLocaleDateString()}</td>
-            <td><span class="badge" style="background:var(--g100);color:var(--g800)">${e.category}</span></td>
-            <td>${e.description || "—"}</td>
-            <td style="font-weight:700;color:var(--red)">${Number(e.amount).toLocaleString()} DA</td>
-            <td>
-              <button class="btn-text-danger" style="color:var(--red);font-weight:600" onclick="deleteExpenseRow('${e.id}')">Delete</button>
-            </td>
-          </tr>
-        `).join("");
+        body.innerHTML = pageItems.map(e => {
+          const { currency, amount } = getExpenseCurrencyAndAmount(e);
+          const amountStr = currency === "EUR" ? `${amount.toFixed(2)} €` : `${amount.toLocaleString()} DA`;
+          return `
+            <tr>
+              <td>${new Date(e.date).toLocaleDateString()}</td>
+              <td><span class="badge" style="background:var(--g100);color:var(--g800)">${e.category}</span></td>
+              <td>${e.description || "—"}</td>
+              <td style="font-weight:700;color:var(--red)">${amountStr}</td>
+              <td>
+                <button class="btn-text-danger" style="color:var(--red);font-weight:600" onclick="deleteExpenseRow('${e.id}')">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
       }
 
       window.saveExpense = async function() {
         const amountInp = document.getElementById("exp-amount");
         const categoryInp = document.getElementById("exp-category");
         const descInp = document.getElementById("exp-description");
+        const currencyInp = document.getElementById("exp-currency");
 
         const amount = parseFloat(amountInp.value) || 0;
         const category = categoryInp.value;
         const description = descInp.value.trim();
+        const currency = currencyInp ? currencyInp.value : "DZD";
 
         if (amount <= 0) {
           showToast("Please enter a valid amount!", "error");
@@ -3609,17 +3657,58 @@
         showLoading("Saving expense...");
         try {
           const expenseId = String(Date.now());
-          const { error } = await sb.from("expenses").insert({
+          const payload = {
             id: expenseId,
             date: new Date().toISOString(),
             amount,
             category,
             description: description || null
-          });
+          };
 
-          if (error) throw error;
+          const dbPayload = { ...payload };
+
+          try {
+            dbPayload.currency = currency;
+            const { error } = await sb.from("expenses").insert(dbPayload);
+            if (error) throw error;
+          } catch(err) {
+            console.warn("Failed to insert with currency column, trying fallback:", err);
+            // Prepend currency marker to description for fallback parser
+            const fallbackDesc = `[${currency}] ${description || ""}`.trim();
+            const fallbackPayload = {
+              ...payload,
+              description: fallbackDesc
+            };
+            const { error: fbError } = await sb.from("expenses").insert(fallbackPayload);
+            if (fbError) throw fbError;
+            payload.description = fallbackDesc;
+          }
+
+          // Deduct from appropriate budget automatically!
+          const curDzd = parseFloat(settings.budget_dzd) || 0;
+          const curEur = parseFloat(settings.budget_eur) || 0;
+          let newDzd = curDzd;
+          let newEur = curEur;
+          if (currency === "EUR") {
+            newEur = Math.max(0, curEur - amount);
+          } else {
+            newDzd = Math.max(0, curDzd - amount);
+          }
+
+          // Persist budget deduction
+          await sb.from("settings").upsert([
+            { key: "budget_dzd", value: String(newDzd) },
+            { key: "budget_eur", value: String(newEur) }
+          ], { onConflict: "key" });
+
+          settings.budget_dzd = String(newDzd);
+          settings.budget_eur = String(newEur);
+
+          // Update local cache
+          allExpenses.unshift({ ...payload, currency });
 
           amountInp.value = "";
+          descInp.value = "";
           descInp.value = "";
 
           showToast("Expense logged successfully!");
@@ -3634,6 +3723,27 @@
         if (!confirm("Are you sure you want to delete this expense record?")) return;
         showLoading("Deleting expense...");
         try {
+          const exp = allExpenses.find(e => e.id === id);
+          if (exp) {
+            const { currency, amount } = getExpenseCurrencyAndAmount(exp);
+            const curDzd = parseFloat(settings.budget_dzd) || 0;
+            const curEur = parseFloat(settings.budget_eur) || 0;
+            let newDzd = curDzd;
+            let newEur = curEur;
+            if (currency === "EUR") {
+              newEur = curEur + amount;
+            } else {
+              newDzd = curDzd + amount;
+            }
+            await sb.from("settings").upsert([
+              { key: "budget_dzd", value: String(newDzd) },
+              { key: "budget_eur", value: String(newEur) }
+            ], { onConflict: "key" });
+            
+            settings.budget_dzd = String(newDzd);
+            settings.budget_eur = String(newEur);
+          }
+
           const { error } = await sb.from("expenses").delete().eq("id", id);
           if (error) throw error;
           showToast("Expense record deleted!");
@@ -4426,6 +4536,14 @@
           await Promise.all(stockPromises);
         }
         
+        // Increment DZD budget
+        const curDzd = parseFloat(settings.budget_dzd) || 0;
+        const newDzd = curDzd + totalVal;
+        await sb.from("settings").upsert([
+          { key: "budget_dzd", value: String(newDzd) }
+        ], { onConflict: "key" });
+        settings.budget_dzd = String(newDzd);
+
         // 3. Delete from pre_orders table (cascades to delete pre_order_items too)
         const { error: delErr } = await sb.from("pre_orders").delete().eq("id", preId);
         if (delErr) {
@@ -5677,6 +5795,122 @@
 
         printWindow.document.write(content);
         printWindow.document.close();
+      };
+
+      // ─── BUDGETS & CURRENCY EXCHANGE MANAGEMENT ───
+      window.openBudgetModal = function() {
+        openModal("budget-modal");
+        const budgetEur = parseFloat(settings.budget_eur) || 0;
+        const budgetDzd = parseFloat(settings.budget_dzd) || 0;
+        document.getElementById("adj-budget-eur").value = budgetEur;
+        document.getElementById("adj-budget-dzd").value = Math.round(budgetDzd);
+        document.getElementById("ex-amount-dzd").value = "";
+        document.getElementById("ex-amount-eur").value = "";
+      };
+
+      window.recalcConversion = function() {
+        const dzd = parseFloat(document.getElementById("ex-amount-dzd").value) || 0;
+        const rate = parseFloat(document.getElementById("ex-rate").value) || 250;
+        const eur = dzd > 0 && rate > 0 ? (dzd / rate) : 0;
+        document.getElementById("ex-amount-eur").value = eur.toFixed(2);
+      };
+
+      window.saveDirectBudgets = async function() {
+        const eur = parseFloat(document.getElementById("adj-budget-eur").value) || 0;
+        const dzd = parseFloat(document.getElementById("adj-budget-dzd").value) || 0;
+        
+        showLoading("Saving budgets...");
+        try {
+          const { error } = await sb.from("settings").upsert([
+            { key: "budget_eur", value: String(eur) },
+            { key: "budget_dzd", value: String(dzd) }
+          ], { onConflict: "key" });
+          if (error) throw error;
+          
+          settings.budget_eur = String(eur);
+          settings.budget_dzd = String(dzd);
+          
+          updateDashboard();
+          closeModal("budget-modal");
+          showToast("Budgets updated successfully!");
+        } catch(e) {
+          showToast("Failed to save budgets: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
+      window.recordCurrencyConversion = async function() {
+        const dzd = parseFloat(document.getElementById("ex-amount-dzd").value) || 0;
+        const rate = parseFloat(document.getElementById("ex-rate").value) || 250;
+        const eur = dzd > 0 && rate > 0 ? (dzd / rate) : 0;
+        
+        if (dzd <= 0 || rate <= 0) {
+          showToast("Please enter valid amounts!", "error");
+          return;
+        }
+        
+        const curDzd = parseFloat(settings.budget_dzd) || 0;
+        const curEur = parseFloat(settings.budget_eur) || 0;
+        
+        if (dzd > curDzd) {
+          if (!confirm(`Warning: Deducting ${dzd.toLocaleString()} DA will put your DZD budget in negative. Proceed?`)) {
+            return;
+          }
+        }
+        
+        const newDzd = curDzd - dzd;
+        const newEur = curEur + eur;
+        
+        showLoading("Recording currency exchange...");
+        try {
+          const expenseId = String(Date.now());
+          const desc = `Converted ${dzd.toLocaleString()} DA to ${eur.toFixed(2)} EUR at rate ${rate} DA/€`;
+          
+          let payload = {
+            id: expenseId,
+            date: new Date().toISOString(),
+            amount: dzd,
+            category: "Currency Exchange",
+            description: desc
+          };
+          
+          let dbPayload = { ...payload };
+          
+          try {
+            dbPayload.currency = "DZD";
+            const { error: expErr } = await sb.from("expenses").insert(dbPayload);
+            if (expErr) throw expErr;
+          } catch(dbErr) {
+            console.warn("Currency column missing on conversion log fallback:", dbErr);
+            const fallbackDesc = `[DZD] ${desc}`;
+            const fallbackPayload = {
+              ...payload,
+              description: fallbackDesc
+            };
+            const { error: fbErr } = await sb.from("expenses").insert(fallbackPayload);
+            if (fbErr) throw fbErr;
+            payload.description = fallbackDesc;
+          }
+          
+          allExpenses.unshift({ ...payload, currency: "DZD" });
+          
+          const { error: setErr } = await sb.from("settings").upsert([
+            { key: "budget_dzd", value: String(newDzd) },
+            { key: "budget_eur", value: String(newEur) }
+          ], { onConflict: "key" });
+          if (setErr) throw setErr;
+          
+          settings.budget_dzd = String(newDzd);
+          settings.budget_eur = String(newEur);
+          
+          renderExpensesList();
+          updateDashboard();
+          closeModal("budget-modal");
+          showToast("Currency exchange recorded and budgets synced!");
+        } catch(e) {
+          showToast("Error: " + e.message, "error");
+        }
+        hideLoading();
       };
 
 
