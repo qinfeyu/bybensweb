@@ -4028,7 +4028,7 @@
             subtotalVal += price * qty;
           }
         }
-        const totalAmount = subtotalVal + deliveryPrice;
+        const totalAmount = subtotalVal; // Delivery price excluded from total as requested
 
         const serializedNotes = serializePreorderNotes(notes, deliveryPrice);
 
@@ -4167,13 +4167,20 @@
           const items = allPreorderItems.filter(x => x.pre_order_id === p.id);
           const itemsText = items.map(itm => `${itm.product_name} (${itm.variant || '—'}${itm.flavor ? ' | ' + itm.flavor : ''}) x${itm.qty}`).join("<br>");
 
+          const subtotalFromItems = items.reduce((sum, itm) => {
+            const invItem = inventoryItems.find(x => x.id === itm.product_id);
+            const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
+            return sum + (price * (Number(itm.qty) || 1));
+          }, 0);
+          const displayTotal = subtotalFromItems > 0 ? subtotalFromItems : (Number(p.total_amount) || 0);
+
           return `
             <tr>
               <td>${new Date(p.date).toLocaleDateString()}</td>
               <td><strong>${p.customer_name}</strong></td>
               <td>${p.customer_phone}</td>
               <td style="font-size:12px;line-height:1.4">${itemsText}</td>
-              <td>${p.total_amount ? p.total_amount.toLocaleString() + ' DA' : '—'}</td>
+              <td>${displayTotal ? displayTotal.toLocaleString() + ' DA' : '—'}</td>
               <td><span class="badge badge-${p.status}">${cap(p.status)}</span></td>
               <td>
                 <div class="action-group" style="position: relative;">
@@ -4549,7 +4556,7 @@
         }
         
         const deliveryCost = Number(notesMeta.deliveryPrice) || 0;
-        const totalVal = subtotalVal + deliveryCost;
+        const totalVal = subtotalVal; // Delivery price excluded from order total as requested
 
         const { error: orderErr } = await sb.from("orders").insert({
           id: orderId,
@@ -5630,7 +5637,7 @@
           }
         });
 
-        const grandTotal = subtotal + deliveryCost;
+        const grandTotal = subtotal; // Delivery price excluded from grand total as requested
 
         // Populate modal summary labels
         const lblSubtotal = document.getElementById("preorder-lbl-subtotal");
