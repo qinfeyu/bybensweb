@@ -1805,12 +1805,17 @@ footer {
 @media (max-width: 768px) {
   .logo img {
     height: auto;
-    max-width: 100px;
+    max-width: 110px;
   }
 
-  .search-wrap {
-    min-width: 0;
-    flex: 1;
+  .search-wrap,
+  #desktopSearch,
+  #desktopSupplementsBtn {
+    display: none !important;
+  }
+
+  #mobileSearchBtn {
+    display: flex !important;
   }
 
   .top-nav {
