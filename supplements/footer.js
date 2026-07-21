@@ -9,10 +9,6 @@
   document.documentElement.removeAttribute('data-theme');
   localStorage.removeItem('bybens_theme');
 
-  const path = window.location.pathname;
-  const isHome = path === '/supplements' || path === '/supplements/' || path.endsWith('/home/') || path.endsWith('/home/index.html');
-  const isProducts = path.includes('/products');
-
   const footerHTML = `
     <footer class="site-footer" role="contentinfo">
       <div class="container">
@@ -180,166 +176,8 @@
           <a href="/supplements/products" class="about-cta" data-i18n="about.cta">Shop Now</a>
         </div>
       </div>
-    <!-- FIXED MOBILE BOTTOM NAVIGATION BAR -->
-    <nav class="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
-      <a href="/supplements" class="mobile-bottom-item ${isHome ? 'active' : ''}">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-        <span data-i18n="bottom.home">Accueil</span>
-      </a>
-
-      <a href="/supplements/products" class="mobile-bottom-item ${isProducts ? 'active' : ''}">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-        </svg>
-        <span data-i18n="bottom.categories">CATÉGORIES</span>
-      </a>
-
-      <a href="https://wa.me/213662269449" target="_blank" rel="noopener" class="mobile-bottom-item mobile-bottom-wa">
-        <div class="wa-circle-btn">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-          </svg>
-        </div>
-        <span>WhatsApp</span>
-      </a>
-
-      <button class="mobile-bottom-item" onclick="if(typeof openMobileSearch==='function')openMobileSearch();else if(typeof openMobileProductSearch==='function')openMobileProductSearch();else window.location.href='/supplements/products';">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <span data-i18n="bottom.search">RECHERCHE</span>
-      </button>
-
-      <button class="mobile-bottom-item" onclick="if(typeof toggleCart==='function')toggleCart();else window.location.href='/supplements';">
-        <div style="position:relative;display:inline-flex;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="21" r="1"/>
-            <circle cx="20" cy="21" r="1"/>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-          </svg>
-          <span class="cart-badge bottom-cart-badge" id="bottomCartBadge">0</span>
-        </div>
-        <span data-i18n="bottom.cart">Panier</span>
-      </button>
-    </nav>
+    </div>
   `;
-
-  // Inject Styles for Mobile Bottom Nav
-  if (!document.getElementById('mobileBottomNavStyles')) {
-    const styleEl = document.createElement('style');
-    styleEl.id = 'mobileBottomNavStyles';
-    styleEl.textContent = `
-      .mobile-bottom-nav { display: none; }
-      @media (max-width: 768px) {
-        .mobile-bottom-nav {
-          display: flex !important;
-          position: fixed !important;
-          bottom: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          height: 62px !important;
-          background: #ffffff !important;
-          border-top: 1px solid #e5e7eb !important;
-          box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08) !important;
-          z-index: 9990 !important;
-          align-items: center !important;
-          justify-content: space-around !important;
-          padding: 0 4px !important;
-        }
-        .mobile-bottom-item {
-          display: flex !important;
-          flex-direction: column !important;
-          align-items: center !important;
-          justify-content: center !important;
-          flex: 1 !important;
-          height: 100% !important;
-          color: #6b7280 !important;
-          text-decoration: none !important;
-          background: none !important;
-          border: none !important;
-          cursor: pointer !important;
-          padding: 4px 0 !important;
-          font-family: system-ui, -apple-system, sans-serif !important;
-          transition: color 0.15s ease !important;
-          position: relative !important;
-          -webkit-tap-highlight-color: transparent !important;
-        }
-        .mobile-bottom-item.active {
-          color: #e11d48 !important;
-        }
-        .mobile-bottom-item.active svg {
-          stroke: #e11d48 !important;
-        }
-        .mobile-bottom-item svg {
-          stroke: currentColor !important;
-          transition: stroke 0.15s ease !important;
-        }
-        .mobile-bottom-item span {
-          font-size: 10px !important;
-          font-weight: 600 !important;
-          margin-top: 3px !important;
-          letter-spacing: 0.3px !important;
-          text-transform: uppercase !important;
-          line-height: 1 !important;
-        }
-        .mobile-bottom-wa {
-          color: #25d366 !important;
-          overflow: visible !important;
-        }
-        .mobile-bottom-wa span {
-          color: #25d366 !important;
-          font-weight: 700 !important;
-        }
-        .wa-circle-btn {
-          width: 48px !important;
-          height: 48px !important;
-          background: #25d366 !important;
-          border-radius: 50% !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          color: #ffffff !important;
-          box-shadow: 0 4px 14px rgba(37, 211, 102, 0.45) !important;
-          margin-top: -20px !important;
-          border: 3px solid #ffffff !important;
-          transition: transform 0.2s ease !important;
-        }
-        .wa-circle-btn svg {
-          stroke: #ffffff !important;
-        }
-        .bottom-cart-badge {
-          position: absolute !important;
-          top: -4px !important;
-          right: -8px !important;
-          min-width: 16px !important;
-          height: 16px !important;
-          background: #e11d48 !important;
-          color: #ffffff !important;
-          font-size: 9px !important;
-          font-weight: 700 !important;
-          border-radius: 10px !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          padding: 0 3px !important;
-        }
-        .wa-btn {
-          display: none !important;
-        }
-        body {
-          padding-bottom: 64px !important;
-        }
-      }
-    `;
-    document.head.appendChild(styleEl);
-  }
 
   // Modal Functions
   window.openShippingModal = function() { document.getElementById("shippingOverlay").classList.add("open"); document.body.style.overflow = "hidden"; };
@@ -355,28 +193,11 @@
   else document.body.insertAdjacentHTML('beforeend', footerHTML);
 
   // Sync footer logo immediately after injection
-  if (typeof updateLogos === 'function') {
-    updateLogos(document.documentElement.getAttribute('data-theme') === 'dark');
-  }
+  updateLogos(document.documentElement.getAttribute('data-theme') === 'dark');
 
   // Set Year
   const yearEl = document.getElementById("footerYear");
   if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-  // Sync Cart Badges
-  function syncCartBadges() {
-    try {
-      const cartData = JSON.parse(localStorage.getItem('bybens_cart') || '[]');
-      const count = cartData.reduce((sum, item) => sum + (item.qty || 1), 0);
-      document.querySelectorAll('#cartBadge, #bottomCartBadge, .cart-badge').forEach(el => {
-        el.textContent = count;
-        el.style.display = count > 0 ? 'flex' : 'none';
-      });
-    } catch (e) {}
-  }
-  syncCartBadges();
-  window.addEventListener('storage', syncCartBadges);
-  window.addEventListener('cartUpdated', syncCartBadges);
 
   // Contact form — shared across all pages
   window.handleContactForm = async function(e) {
