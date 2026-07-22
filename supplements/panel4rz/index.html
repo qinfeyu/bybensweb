@@ -568,6 +568,11 @@
                  <option value="in-stock">Available / In Stock</option>
                  <option value="out-of-stock">Out of Stock</option>
                </select>
+               <select class="search-box" id="prod-visibility-filter" onchange="filterProductsByVisibility(this.value)" style="min-width:0; width:auto; padding:0 10px; cursor:pointer; height:38px;">
+                 <option value="all">All Visibility</option>
+                 <option value="shown">Shown Products</option>
+                 <option value="hidden">Hidden Products</option>
+               </select>
              </div>
             <div class="sel-bar" id="sel-bar-product">
               <span class="sel-count" id="sel-count-product">0 items selected</span>

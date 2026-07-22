@@ -34,7 +34,7 @@
       let _dashOrders = [];
       const _PAGE = 15;
       let productPage = 1, catPage = 1, deliveryPage = 1, orderPage = 1;
-      let _prodFilter = "", _delFilter = "", _prodAvailabilityFilter = "";
+      let _prodFilter = "", _delFilter = "", _prodAvailabilityFilter = "", _prodVisibilityFilter = "all";
       function _pagCtrl(total, cur, setFn, pageSize = _PAGE) {
         const totalPages = Math.ceil(total / pageSize);
         if (totalPages <= 1) return "";
@@ -848,6 +848,13 @@
       }
       window.filterProductsByAvailability = filterProductsByAvailability;
 
+      function filterProductsByVisibility(val) {
+        productPage = 1;
+        _prodVisibilityFilter = val;
+        renderProducts(_prodFilter);
+      }
+      window.filterProductsByVisibility = filterProductsByVisibility;
+
       function renderProducts(filter = "") {
         _selReset("product");
         const tbody = document.getElementById("products-tbody");
@@ -864,8 +871,15 @@
             } else if (_prodAvailabilityFilter === "out-of-stock") {
               matchesAvailability = Number(p.stock) <= 0;
             }
+
+            let matchesVisibility = true;
+            if (_prodVisibilityFilter === "shown") {
+              matchesVisibility = !p.hidden;
+            } else if (_prodVisibilityFilter === "hidden") {
+              matchesVisibility = !!p.hidden;
+            }
             
-            return matchesText && matchesAvailability;
+            return matchesText && matchesAvailability && matchesVisibility;
           }
         );
         if (!filtered.length) {
