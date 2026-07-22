@@ -514,7 +514,8 @@
         border-radius: 12px;
         box-shadow: var(--sh-sm);
         border: 1px solid var(--g100);
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
       }
       .pag-wrap{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:#fff;border-top:1px solid var(--g100)}
       .pag-info{font-size:12px;color:var(--g400)}

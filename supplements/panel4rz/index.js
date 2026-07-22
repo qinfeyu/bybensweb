@@ -5622,8 +5622,8 @@
                 </td>
                 <td><span class="badge" style="background:#eff6ff; color:#1d4ed8; font-weight:700; font-size:12px;">🇪🇺 ${item.stock_eu || 0}</span></td>
                 <td><span class="badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'} font-weight:700; font-size:12px;">🇩🇿 ${item.stock || 0}</span></td>
-                <td style="text-align:center;">
-                  <div style="display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
+                <td style="text-align:center; min-width:140px;">
+                  <div style="display:flex; gap:3px; justify-content:center; align-items:center; flex-wrap:nowrap; white-space:nowrap;">
                     <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff;" title="Move stock from Europe to Algeria">🚚 Move</button>
                     <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto;">Edit</button>
                     <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto;">Del</button>
