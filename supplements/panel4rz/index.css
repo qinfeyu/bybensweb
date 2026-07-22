@@ -609,6 +609,24 @@
         background: var(--g50);
       }
 
+      #page-inventory .data-table th {
+        padding: 8px 5px !important;
+        font-size: 10.5px !important;
+        letter-spacing: 0.2px !important;
+      }
+      #page-inventory .data-table td {
+        padding: 8px 5px !important;
+        font-size: 11.5px !important;
+      }
+      #page-inventory .data-table .form-control {
+        padding: 2px 4px !important;
+        font-size: 11px !important;
+        height: 28px !important;
+      }
+      #page-inventory .stock-badge {
+        padding: 2px 6px !important;
+        font-size: 10.5px !important;
+      }
       .stock-badge {
         display: inline-flex;
         align-items: center;

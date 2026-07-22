@@ -636,44 +636,44 @@
           </div>
 
           <div class="table-wrap" style="width: 100%; max-width: 100%; overflow-x: auto;">
-            <table class="data-table" style="table-layout: fixed; width: 100%; min-width: 1550px;">
+            <table class="data-table" style="table-layout: fixed; width: 100%; min-width: 1200px;">
               <thead>
                 <tr>
-                  <th style="width: 90px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('id')">SKU ⇅</th>
-                  <th style="width: 100px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('brand')">Brand ⇅</th>
-                  <th style="width: 220px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('name')">Product Name ⇅</th>
-                  <th style="width: 130px;">Variant / Spec</th>
-                  <th style="width: 60px;">Size</th>
-                  <th style="width: 90px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('price_eur')">Price (€) ⇅</th>
-                  <th style="width: 60px;">Rate</th>
-                  <th style="width: 105px;">Delivery (DZD)</th>
-                  <th style="width: 115px;">Landed Cost</th>
-                  <th style="width: 105px;">Retail (DZD)</th>
-                  <th style="width: 125px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('margin')">Margin (DZD) ⇅</th>
-                  <th style="width: 95px; text-align:center; cursor:pointer; user-select:none;" onclick="toggleInventorySort('stock_eu')">Stock EU ⇅</th>
-                  <th style="width: 145px; text-align:center; cursor:pointer; user-select:none;" onclick="toggleInventorySort('stock')">Stock DZ (Sellable) ⇅</th>
-                  <th style="width: 150px; text-align:center;">Actions</th>
+                  <th style="width: 85px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('id')">SKU ⇅</th>
+                  <th style="width: 90px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('brand')">Brand ⇅</th>
+                  <th style="width: 180px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('name')">Product Name ⇅</th>
+                  <th style="width: 95px;">Variant / Spec</th>
+                  <th style="width: 50px;">Size</th>
+                  <th style="width: 75px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('price_eur')">Price (€) ⇅</th>
+                  <th style="width: 45px;">Rate</th>
+                  <th style="width: 80px;">Delivery</th>
+                  <th style="width: 85px;">Landed</th>
+                  <th style="width: 80px;">Retail</th>
+                  <th style="width: 90px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('margin')">Margin ⇅</th>
+                  <th style="width: 65px; text-align:center; cursor:pointer; user-select:none;" onclick="toggleInventorySort('stock_eu')">EU ⇅</th>
+                  <th style="width: 70px; text-align:center; cursor:pointer; user-select:none;" onclick="toggleInventorySort('stock')">DZ ⇅</th>
+                  <th style="width: 110px; text-align:center;">Actions</th>
                 </tr>
                 <tr class="inv-quick-add-row" style="background: rgba(173, 0, 0, 0.03); border-bottom: 2px solid var(--g200);">
-                  <td><input type="text" id="add-inv-sku" class="form-control" placeholder="SKU" style="font-size:12px; font-weight:700; width:100%; box-sizing:border-box;" readonly /></td>
-                  <td><input type="text" id="add-inv-brand" class="form-control" placeholder="Brand" style="font-size:12px; width:100%; box-sizing:border-box;" /></td>
-                  <td><input type="text" id="add-inv-name" class="form-control" placeholder="+ New Item Name" style="font-size:12px; width:100%; box-sizing:border-box;" /></td>
-                  <td><input type="text" id="add-inv-variant" class="form-control" placeholder="Variant/Flavor" style="font-size:12px; width:100%; box-sizing:border-box;" /></td>
-                  <td><input type="text" id="add-inv-size" class="form-control" placeholder="Size" style="font-size:12px; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-sku" class="form-control" placeholder="SKU" style="font-size:11px; font-weight:700; width:100%; box-sizing:border-box;" readonly /></td>
+                  <td><input type="text" id="add-inv-brand" class="form-control" placeholder="Brand" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-name" class="form-control" placeholder="+ New Item Name" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-variant" class="form-control" placeholder="Variant/Flavor" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-size" class="form-control" placeholder="Size" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
                   <td>
-                    <div style="display:flex; align-items:center; gap:2px; width:100%;">
-                      <span style="font-size:12px;">€</span>
-                      <input type="number" step="0.01" id="add-inv-price" class="form-control" value="0.00" style="width:100%; font-size:12px; padding: 4px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" />
+                    <div style="display:flex; align-items:center; gap:1px; width:100%;">
+                      <span style="font-size:11px;">€</span>
+                      <input type="number" step="0.01" id="add-inv-price" class="form-control" value="0.00" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" />
                     </div>
                   </td>
-                  <td><input type="number" id="add-inv-rate" class="form-control" value="250" style="width:100%; font-size:12px; padding: 4px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
-                  <td><input type="number" id="add-inv-delivery" class="form-control" value="0" style="width:100%; font-size:12px; padding: 4px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
-                  <td><span id="add-inv-landed-label" style="font-size:12px; font-weight:600; color:var(--g600); display:block; text-align:center;">0 DZD</span></td>
-                  <td><input type="number" id="add-inv-retail" class="form-control" placeholder="Retail" style="width:100%; font-size:12px; padding: 4px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
-                  <td><span id="add-inv-margin-label" style="font-size:12px; font-weight:600; color:var(--green); display:block; text-align:center;">0 DZD</span></td>
-                  <td><input type="number" id="add-inv-qty-eu" class="form-control" value="0" placeholder="EU" style="width:100%; font-size:12px; padding: 4px; text-align:center; box-sizing:border-box;" title="Stock in Europe" /></td>
-                  <td><input type="number" id="add-inv-qty-dz" class="form-control" value="0" placeholder="DZ" style="width:100%; font-size:12px; padding: 4px; text-align:center; box-sizing:border-box;" title="Stock in Algeria (Sellable)" /></td>
-                  <td style="text-align:center;"><button class="btn-primary" onclick="addInventoryItem()" style="padding: 0 10px; height: 34px; font-size: 12px; width: 100%; box-sizing:border-box; justify-content: center;">+ Add</button></td>
+                  <td><input type="number" id="add-inv-rate" class="form-control" value="250" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
+                  <td><input type="number" id="add-inv-delivery" class="form-control" value="0" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
+                  <td><span id="add-inv-landed-label" style="font-size:11px; font-weight:600; color:var(--g600); display:block; text-align:center;">0 DZD</span></td>
+                  <td><input type="number" id="add-inv-retail" class="form-control" placeholder="Retail" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
+                  <td><span id="add-inv-margin-label" style="font-size:11px; font-weight:600; color:var(--green); display:block; text-align:center;">0 DZD</span></td>
+                  <td><input type="number" id="add-inv-qty-eu" class="form-control" value="0" placeholder="EU" style="width:100%; font-size:11px; padding:2px; text-align:center; box-sizing:border-box;" title="Stock in Europe" /></td>
+                  <td><input type="number" id="add-inv-qty-dz" class="form-control" value="0" placeholder="DZ" style="width:100%; font-size:11px; padding:2px; text-align:center; box-sizing:border-box;" title="Stock in Algeria (Sellable)" /></td>
+                  <td style="text-align:center;"><button class="btn-primary" onclick="addInventoryItem()" style="padding: 0 6px; height: 28px; font-size: 11px; width: 100%; box-sizing:border-box; justify-content: center;">+ Add</button></td>
                 </tr>
               </thead>
               <tbody id="inventory-table-body">

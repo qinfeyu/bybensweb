@@ -5606,27 +5606,27 @@
           } else {
             return `
               <tr style="vertical-align: middle;">
-                <td><strong style="color:var(--black); font-size:12px;">${item.id}</strong></td>
-                <td style="white-space:normal; word-break:break-word;">${item.brand || '-'}</td>
-                <td style="font-weight: 500; white-space:normal; word-break:break-word; line-height:1.35;">${item.name}</td>
-                <td style="white-space:normal; word-break:break-word;">${item.variant_spec || '-'}</td>
-                <td>${item.size || '-'}</td>
-                <td>€ ${Number(item.price_eur).toFixed(2)}</td>
-                <td>${item.rate}</td>
-                <td>${Number(item.delivery_dzd).toLocaleString()} DA</td>
-                <td><span style="font-weight:600; color:var(--g600); font-size:12px;">${Math.round(landed).toLocaleString()} DA</span></td>
-                <td>${Number(item.retail_dzd).toLocaleString()} DA</td>
+                <td><strong style="color:var(--black); font-size:11.5px; white-space:nowrap;">${item.id}</strong></td>
+                <td><span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; font-size:11px;">${item.brand || '-'}</span></td>
+                <td><div style="font-weight: 600; font-size:11.5px; white-space:normal; word-break:break-word; line-height:1.25;">${item.name}</div></td>
+                <td><div style="font-size:11px; white-space:normal; word-break:break-word; line-height:1.2;">${item.variant_spec || '-'}</div></td>
+                <td style="font-size:11px;">${item.size || '-'}</td>
+                <td style="font-size:11px; white-space:nowrap;">€ ${Number(item.price_eur).toFixed(2)}</td>
+                <td style="font-size:11px;">${item.rate}</td>
+                <td style="font-size:11px; white-space:nowrap;">${Number(item.delivery_dzd).toLocaleString()} DA</td>
+                <td><span style="font-weight:600; color:var(--g600); font-size:11px; white-space:nowrap;">${Math.round(landed).toLocaleString()} DA</span></td>
+                <td style="font-size:11px; white-space:nowrap;">${Number(item.retail_dzd).toLocaleString()} DA</td>
                 <td>
-                  <span style="font-weight:700; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span>
-                  <div style="font-size:10.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
+                  <span style="font-weight:700; color:${marginColor}; font-size:11px; white-space:nowrap;">${Math.round(margin).toLocaleString()} DA</span>
+                  <div style="font-size:9.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
                 </td>
-                <td style="text-align:center;"><span class="stock-badge" style="background:#eff6ff; color:#1d4ed8;">EU: ${item.stock_eu || 0}</span></td>
-                <td style="text-align:center;"><span class="stock-badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'}">DZ: ${item.stock || 0}</span></td>
+                <td style="text-align:center;"><span class="stock-badge" style="background:#eff6ff; color:#1d4ed8; padding:2px 5px; font-size:10.5px;">EU: ${item.stock_eu || 0}</span></td>
+                <td style="text-align:center;"><span class="stock-badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'} padding:2px 5px; font-size:10.5px;">DZ: ${item.stock || 0}</span></td>
                 <td style="text-align:center;">
-                  <div style="display:flex; gap:3px; justify-content:center; align-items:center; flex-wrap:nowrap; white-space:nowrap;">
-                    <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; flex-shrink:0;" title="Move stock from Europe to Algeria">🚚 Move</button>
-                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; flex-shrink:0;">Edit</button>
-                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; flex-shrink:0;">Del</button>
+                  <div style="display:flex; gap:2px; justify-content:center; align-items:center; flex-wrap:nowrap;">
+                    <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; flex-shrink:0;" title="Move stock from Europe to Algeria">🚚 Move</button>
+                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; flex-shrink:0;">Edit</button>
+                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; flex-shrink:0;">Del</button>
                   </div>
                 </td>
               </tr>`;
