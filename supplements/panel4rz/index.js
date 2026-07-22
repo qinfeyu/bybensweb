@@ -1454,12 +1454,17 @@
             <label>Cost (DA)</label>
             <input type="number" class="form-control variant-cost-input" placeholder="0" value="${v && v.cost !== undefined ? v.cost : ""}" />
           </div>
-          <div class="form-group">
+          <div class="form-group" style="min-width: 180px;">
             <label>Link SKU (Optional)</label>
-            <select class="form-control form-select variant-sku-select" onchange="onVariantSkuChange(this)">
-              <option value="">-- No SKU --</option>
-              ${getInventorySkuOptions(v ? v.sku : "")}
-            </select>
+            <input type="text"
+                   class="form-control variant-sku-search-input"
+                   list="inventory-skus-datalist"
+                   placeholder="Type SKU or Name to search..."
+                   value="${v && v.sku ? getInventorySkuDisplayLabel(v.sku) : ''}"
+                   onfocus="ensureInventorySkuDatalist()"
+                   oninput="onVariantSkuSearchInput(this)"
+                   onchange="onVariantSkuSearchInput(this)" />
+            <input type="hidden" class="variant-sku-select" value="${v ? (v.sku || '') : ''}" />
           </div>
           <div class="form-group">
             <label>Image</label>
@@ -5217,6 +5222,71 @@
           renderProducts(document.getElementById("prod-search")?.value || "");
           updateDashboard();
         }
+      };
+
+      window.getInventorySkuDisplayLabel = function(sku) {
+        if (!sku) return "";
+        const item = inventoryItems.find(x => x.id === sku);
+        if (!item) return sku;
+        const specLabel = [item.variant_spec, item.size].filter(Boolean).join(" - ");
+        return `[${item.id}] ${item.brand || ''} ${item.name} ${specLabel ? '(' + specLabel + ')' : ''}`.trim();
+      };
+
+      window.ensureInventorySkuDatalist = function() {
+        let datalist = document.getElementById("inventory-skus-datalist");
+        if (!datalist) {
+          datalist = document.createElement("datalist");
+          datalist.id = "inventory-skus-datalist";
+          document.body.appendChild(datalist);
+        }
+        datalist.innerHTML = inventoryItems.map(item => {
+          const specLabel = [item.variant_spec, item.size].filter(Boolean).join(" - ");
+          const fullLabel = `[${item.id}] ${item.brand || ''} ${item.name} ${specLabel ? '(' + specLabel + ')' : ''}`.trim();
+          return `<option value="${fullLabel}">SKU: ${item.id} · Stock: ${item.stock}</option>`;
+        }).join("");
+      };
+
+      window.onVariantSkuSearchInput = function(inputEl) {
+        const row = inputEl.closest(".variant-row");
+        if (!row) return;
+        const hiddenInput = row.querySelector(".variant-sku-select");
+        const val = inputEl.value.trim();
+
+        let matchedSku = "";
+        if (val) {
+          // 1. Try extracting SKU from brackets e.g. [SUP-8801]
+          const match = val.match(/\[(.*?)\]/);
+          if (match && match[1]) {
+            const candidate = match[1].trim();
+            const inv = inventoryItems.find(x => x.id.toLowerCase() === candidate.toLowerCase());
+            if (inv) matchedSku = inv.id;
+          }
+          if (!matchedSku) {
+            // 2. Try direct SKU ID match
+            const invBySku = inventoryItems.find(x => x.id.toLowerCase() === val.toLowerCase());
+            if (invBySku) matchedSku = invBySku.id;
+          }
+          if (!matchedSku) {
+            // 3. Try product name or brand match
+            const invByName = inventoryItems.find(x => {
+              const full = `[${x.id}] ${x.brand || ''} ${x.name}`.toLowerCase();
+              return full.includes(val.toLowerCase());
+            });
+            if (invByName) matchedSku = invByName.id;
+          }
+        }
+
+        if (hiddenInput) hiddenInput.value = matchedSku;
+
+        if (matchedSku) {
+          const inv = inventoryItems.find(x => x.id === matchedSku);
+          if (inv) {
+            row.dataset.varStock = String(inv.stock);
+          }
+        } else {
+          delete row.dataset.varStock;
+        }
+        refreshStockMatrix();
       };
 
       window.getInventorySkuOptions = function(selectedSku = "") {
