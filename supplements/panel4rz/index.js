@@ -3637,16 +3637,26 @@
           return;
         }
 
+        if (lowStockViewAll) {
+          listEl.style.maxHeight = "420px";
+          listEl.style.overflowY = "auto";
+        } else {
+          listEl.style.maxHeight = "none";
+          listEl.style.overflowY = "visible";
+        }
+
         const visibleAlerts = lowStockViewAll ? alerts : alerts.slice(0, 3);
 
         listEl.innerHTML = visibleAlerts.map(a => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--g100);font-size:13px">
-            <div>
-              <strong style="color:var(--black);">${a.name}</strong>
-              <div style="font-size:11px;color:var(--g400);">SKU: ${a.sku}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--g100); font-size:13px; background:#fff;">
+            <div style="min-width:0; flex:1; padding-right:12px;">
+              <div style="font-weight:600; color:var(--black); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${a.name}</div>
+              <div style="font-size:11px; color:var(--g400);">SKU: ${a.sku}</div>
             </div>
-            <span class="stock-badge" style="${a.stock === 0 ? 'background:#fee2e2;color:#b91c1c;' : 'background:#fef3c7;color:#92400e;'} font-size:11px; font-weight:700;">
+            <span class="stock-badge" style="${a.stock === 0 ? 'background:#fee2e2; color:#b91c1c;' : 'background:#fef3c7; color:#92400e;'} font-size:11px; font-weight:700; flex-shrink:0;">
               ${a.stock === 0 ? 'Out of Stock (0)' : `Low Stock (${a.stock})`}
+            </span>
+          </div>
         `).join("");
       }
 
