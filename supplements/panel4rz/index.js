@@ -2886,6 +2886,28 @@
         return map[status] || "badge-waiting";
       }
 
+      function calculateOrderProfit(o) {
+        if (!o) return 0;
+        const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
+        const total = Number(o.total || o.total_amount) || 0;
+        const netRev = Math.max(0, total - delCost);
+        
+        const items = o.items || [];
+        if (items.length > 0) {
+          let totalCogs = 0;
+          items.forEach(it => {
+            const qty = Number(it.qty) || 1;
+            const fallbackP = Number(it.unitPrice || it.price) || 0;
+            const info = getProductPricingAndCost(it.productId || it.id || it.name, it.variantName || it.variant, fallbackP);
+            totalCogs += (info.unitCost || (fallbackP * 0.7)) * qty;
+          });
+          return netRev - totalCogs;
+        } else {
+          return netRev * 0.30;
+        }
+      }
+      window.calculateOrderProfit = calculateOrderProfit;
+
       function renderOrders() {
         _selReset("order");
         const tbody = document.getElementById("orders-tbody");
@@ -2914,7 +2936,7 @@
         });
 
         if (!orders.length && ordersTotal === 0) {
-          tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><p>${ordersSearch ? "No orders match your search" : "No orders"}</p></div></td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state"><p>${ordersSearch ? "No orders match your search" : "No orders"}</p></div></td></tr>`;
           const pag = document.getElementById("orders-pag");
           if (pag) pag.innerHTML = "";
           return;
@@ -2931,6 +2953,11 @@
             }
             const badgeClass = getOrderBadgeClass(o.status);
             const safeId = o.id.replace(/'/g, "\\'");
+            
+            const profit = calculateOrderProfit(o);
+            const profitColor = profit >= 0 ? "var(--green)" : "var(--red)";
+            const profitSign = profit >= 0 ? "+" : "";
+
             return `<tr>
               <td class="cb-td"><input type="checkbox" class="row-cb" data-sel-type="order" data-sel-id="${o.id}" onchange="_selToggle('order','${o.id}',this.checked)"></td>
               <td><span style="font-size:12px;color:var(--g400);font-family:monospace">#${shortId}</span></td>
@@ -2940,6 +2967,7 @@
               <td style="font-size:12px">${o.address || "—"}</td>
               <td style="text-align:center">${itemCount}</td>
               <td><strong>${Number(o.total).toLocaleString("fr-DZ")} DA</strong></td>
+              <td><strong style="color:${profitColor}; font-size:12px;">${profitSign}${Math.round(profit).toLocaleString("fr-DZ")} DA</strong></td>
               <td><span style="font-size:11px;color:var(--g400);background:var(--g100);padding:2px 7px;border-radius:4px">${o.source || "—"}</span></td>
               <td style="font-size:12px;color:var(--g600)">${date}</td>
               <td><span class="badge ${badgeClass}">${cap(o.status)}</span></td>
@@ -2971,6 +2999,10 @@
         const promoRow = o.promoCode
           ? `<div class="summary-row"><span>Promo (${o.promoCode})</span><span style="color:var(--green)">-${Number(o.promoDiscount || 0).toLocaleString("fr-DZ")} DA</span></div>`
           : "";
+
+        const detailProfit = calculateOrderProfit(o);
+        const detailProfitColor = detailProfit >= 0 ? "var(--green)" : "var(--red)";
+        const detailProfitSign = detailProfit >= 0 ? "+" : "";
 
         document.getElementById("order-detail-body").innerHTML = `
           <div class="order-detail-section">
@@ -3004,6 +3036,7 @@
               ${promoRow}
               <div class="summary-row"><span>Delivery (${o.deliveryType === "home" ? "Home" : "Office"})</span><span>${Number(o.deliveryCost || 0).toLocaleString("fr-DZ")} DA</span></div>
               <div class="summary-row total-row"><span>Total</span><strong>${Number(o.total || 0).toLocaleString("fr-DZ")} DA</strong></div>
+              <div class="summary-row" style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--g200); font-weight:600;"><span>Estimated Benefit</span><strong style="color:${detailProfitColor}">${detailProfitSign}${Math.round(detailProfit).toLocaleString("fr-DZ")} DA</strong></div>
             </div>
           </div>
           <div class="order-detail-section">
