@@ -5468,23 +5468,42 @@
         refreshStockMatrix();
       };
 
-      window.loadInventoryPage = function() {
-        // Compute next SKU number
-        const prefix = activeInventoryTab === "supplement" ? "SUP-" : "SNK-";
-        let maxNum = 8800; // starting number is 8801
-        inventoryItems.forEach(item => {
-          if (item.id) {
-            const parts = item.id.split("-");
-            if (parts.length > 1) {
-              const numPart = parseInt(parts[1]);
-              if (!isNaN(numPart) && numPart > maxNum) {
-                maxNum = numPart;
+      window.getSuggestedNextSKU = function(type = activeInventoryTab) {
+        const prefix = type === "supplement" ? "SUP-" : "SNK-";
+        const prefixUpper = prefix.toUpperCase();
+        
+        let maxNum = 0;
+        let padLength = 4;
+        
+        const tabItems = inventoryItems.filter(item => 
+          (item.type === type) || 
+          (item.id && String(item.id).toUpperCase().startsWith(prefixUpper))
+        );
+
+        tabItems.forEach(item => {
+          if (!item.id) return;
+          const idStr = String(item.id).trim();
+          const match = idStr.match(/^(.*?)[-_]?(\d+)$/);
+          if (match) {
+            const digits = match[2];
+            const num = parseInt(digits, 10);
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num;
+              if (digits.length > padLength) {
+                padLength = digits.length;
               }
             }
           }
         });
-        
-        const nextSku = prefix + (maxNum + 1);
+
+        const nextNum = maxNum > 0 ? maxNum + 1 : 1;
+        const paddedNum = String(nextNum).padStart(padLength, "0");
+        return prefix + paddedNum;
+      };
+
+      window.loadInventoryPage = function() {
+        // Compute next SKU number (Last SKU + 1)
+        const nextSku = getSuggestedNextSKU(activeInventoryTab);
         const skuInp = document.getElementById("add-inv-sku");
         if (skuInp) skuInp.value = nextSku;
         
@@ -5813,8 +5832,7 @@
         }
 
         if (!id) {
-          const prefix = activeInventoryTab === "supplement" ? "SUP-" : "SNK-";
-          id = prefix + (Date.now().toString().slice(-4));
+          id = getSuggestedNextSKU(activeInventoryTab);
         }
         
         const payload = {
