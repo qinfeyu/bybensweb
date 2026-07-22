@@ -2894,12 +2894,23 @@
         
         const items = o.items || [];
         if (items.length > 0) {
-          let totalCogs = 0;
-          items.forEach(it => {
+          let grossItemTotal = 0;
+          const itemInfos = items.map(it => {
             const qty = Number(it.qty) || 1;
-            const fallbackP = Number(it.unitPrice || it.price) || 0;
-            const info = getProductPricingAndCost(it.productId || it.id || it.name, it.variantName || it.variant, fallbackP);
-            totalCogs += (info.unitCost || (fallbackP * 0.7)) * qty;
+            const fallbackP = Number(it.unitPrice || it.price || it.unit_price) || 0;
+            const info = getProductPricingAndCost(
+              it.productId || it.product_id || it.id || it.name || it.product_name, 
+              it.variantName || it.variant || it.variant_spec, 
+              fallbackP
+            );
+            const undiscountedPrice = fallbackP || info.retailPrice || 0;
+            grossItemTotal += undiscountedPrice * qty;
+            return { qty, undiscountedPrice, info };
+          });
+
+          let totalCogs = 0;
+          itemInfos.forEach(({ qty, undiscountedPrice, info }) => {
+            totalCogs += (info.unitCost || (undiscountedPrice * 0.7)) * qty;
           });
           return netRev - totalCogs;
         } else {
@@ -3200,9 +3211,11 @@
             ])
           ];
 
-          // Compute business metrics for dashboard KPIs
+          // Compute business metrics for dashboard KPIs & update views
           buildCustomersLedger();
           computeBusinessDashboard();
+          renderOrders();
+          renderPreordersList();
         } catch (e) {
           console.warn("Failed to fetch business portal tables:", e);
         }
@@ -4605,62 +4618,62 @@
           return netRev * 0.30;
         }
       }
-      window.togglePreorderItemsRow = function(id, e) {
-        if (e) e.stopPropagation();
-        
-        document.querySelectorAll("[id^='preorder-items-pop-']").forEach(pop => {
-          if (pop.id !== `preorder-items-pop-${id}`) {
-            pop.style.display = "none";
-            const otherBtn = pop.previousElementSibling;
-            if (otherBtn && pop.dataset.count) {
-              const count = pop.dataset.count;
-              otherBtn.innerHTML = `📦 ${count} Item${count != 1 ? 's' : ''} ▾`;
-            }
-          }
-        });
+      window.viewPreorderItemsModal = function(id) {
+        const p = allPreorders.find(x => x.id === id);
+        if (!p) return;
 
-        const el = document.getElementById(`preorder-items-pop-${id}`);
-        const btn = e ? e.currentTarget : null;
-        if (!el) return;
-        
-        const isHidden = el.style.display === "none" || !el.style.display;
-        if (isHidden) {
-          el.style.display = "block";
-          if (btn) {
-            const rect = btn.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            if (spaceBelow < 260 && rect.top > 260) {
-              el.style.top = "auto";
-              el.style.bottom = "100%";
-              el.style.marginTop = "0";
-              el.style.marginBottom = "6px";
-            } else {
-              el.style.top = "100%";
-              el.style.bottom = "auto";
-              el.style.marginTop = "4px";
-              el.style.marginBottom = "0";
-            }
-          }
-        } else {
-          el.style.display = "none";
+        const items = allPreorderItems.filter(x => x.pre_order_id === id);
+        const titleEl = document.getElementById("preorder-items-modal-title");
+        if (titleEl) {
+          titleEl.textContent = `Pre-Order Items — ${p.customer_name} (${items.length} item${items.length !== 1 ? 's' : ''})`;
         }
-        
-        if (btn) {
-          const count = el.dataset.count || "";
-          btn.innerHTML = isHidden ? `📦 ${count} Item${count != 1 ? 's' : ''} ▴` : `📦 ${count} Item${count != 1 ? 's' : ''} ▾`;
+
+        const itemsRows = items.map(itm => {
+          const invItem = inventoryItems.find(x => x.id === itm.product_id);
+          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
+          const qty = Number(itm.qty) || 1;
+          const lineTotal = price * qty;
+
+          return `
+            <tr>
+              <td><strong style="color:var(--black);">${itm.product_name}</strong></td>
+              <td>${itm.variant || '—'}</td>
+              <td>${itm.flavor || '—'}</td>
+              <td style="text-align:center; font-weight:700;">${qty}</td>
+              <td style="text-align:right;">${price ? price.toLocaleString() + ' DA' : '—'}</td>
+              <td style="text-align:right; font-weight:700;">${lineTotal ? lineTotal.toLocaleString() + ' DA' : '—'}</td>
+            </tr>
+          `;
+        }).join("");
+
+        const bodyEl = document.getElementById("preorder-items-modal-body");
+        if (bodyEl) {
+          bodyEl.innerHTML = `
+            <div style="font-size:13px; color:var(--g600); margin-bottom:12px; padding:8px 12px; background:var(--g50); border-radius:6px; border:1px solid var(--g100);">
+              Customer: <strong style="color:var(--black);">${p.customer_name}</strong> (${p.customer_phone || 'No phone'}) | Date: ${new Date(p.date).toLocaleDateString()}
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product Name</th>
+                    <th>Variant</th>
+                    <th>Flavor</th>
+                    <th style="text-align:center;">Qty</th>
+                    <th style="text-align:right;">Unit Price</th>
+                    <th style="text-align:right;">Line Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsRows || '<tr><td colspan="6" style="text-align:center; color:var(--g400); padding:16px;">No items found</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          `;
         }
+
+        openModal("preorder-items-modal");
       };
-
-      document.addEventListener("click", () => {
-        document.querySelectorAll("[id^='preorder-items-pop-']").forEach(pop => {
-          pop.style.display = "none";
-          const btn = pop.previousElementSibling;
-          if (btn && pop.dataset.count) {
-            const count = pop.dataset.count;
-            btn.innerHTML = `📦 ${count} Item${count != 1 ? 's' : ''} ▾`;
-          }
-        });
-      });
 
       function renderPreordersList() {
         const body = document.getElementById("preorders-table-body");
@@ -4695,29 +4708,10 @@
           
           let itemsColumnHtml = '<span style="color:var(--g400)">—</span>';
           if (itemCount > 0) {
-            const itemsFormatted = items.map(itm => 
-              `<div style="padding:4px 0; border-bottom:1px dashed var(--g200); font-size:11px;">
-                <strong style="color:var(--black);">${itm.product_name}</strong><br>
-                <span style="color:var(--g500);">Variant: ${itm.variant || '—'}${itm.flavor ? ' | Flavor: ' + itm.flavor : ''}</span> 
-                <span style="font-weight:700; color:var(--red); margin-left:4px;">x${itm.qty}</span>
-              </div>`
-            ).join("");
-
             itemsColumnHtml = `
-              <div style="position:relative; display:inline-block;">
-                <button class="act-btn" onclick="togglePreorderItemsRow('${p.id}', event)" style="font-size:11px; padding:3px 9px; background:var(--g50); color:var(--g700); border:1px solid var(--g300); cursor:pointer; font-weight:600; border-radius:5px;">
-                  📦 ${itemCount} Item${itemCount !== 1 ? 's' : ''} ▾
-                </button>
-                <div id="preorder-items-pop-${p.id}" data-count="${itemCount}" onclick="event.stopPropagation()" style="display:none; position:absolute; left:0; top:100%; margin-top:4px; z-index:999; min-width:250px; max-width:320px; background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid var(--g200); box-shadow:0 10px 25px -5px rgba(0,0,0,0.18), 0 8px 10px -6px rgba(0,0,0,0.1); text-align:left;">
-                  <div style="font-size:11px; font-weight:700; color:var(--g600); margin-bottom:6px; border-bottom:1px solid var(--g200); padding-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>Pre-Order Items (${itemCount})</span>
-                    <span style="cursor:pointer; font-size:14px; color:var(--g400);" onclick="togglePreorderItemsRow('${p.id}', event)">&times;</span>
-                  </div>
-                  <div style="max-height:220px; overflow-y:auto; padding-right:4px;">
-                    ${itemsFormatted}
-                  </div>
-                </div>
-              </div>
+              <button class="act-btn act-view" onclick="viewPreorderItemsModal('${p.id}')" style="font-size:11px; padding:4px 10px; font-weight:600; justify-content:center;">
+                📦 ${itemCount} Item${itemCount !== 1 ? 's' : ''} (View)
+              </button>
             `;
           }
 
