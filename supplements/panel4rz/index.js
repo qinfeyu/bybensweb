@@ -5957,13 +5957,12 @@
         let val = el.value;
         if (field === "price_eur" || field === "rate" || field === "delivery_dzd" || field === "retail_dzd") {
           val = parseFloat(val) || 0;
-        } else if (field === "stock") {
+        } else if (field === "stock" || field === "stock_eu") {
           val = parseInt(val) || 0;
         }
         
         item[field] = val;
         
-        // Update Supabase
         try {
           await sb.from("inventory_items").upsert(item);
         } catch(e) {
@@ -5972,7 +5971,6 @@
         
         localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
         
-        // Recalculate row display (landed cost, margin) dynamically without a full list re-render for performance
         const row = el.closest("tr");
         if (row) {
           const landed = (Number(item.price_eur) * Number(item.rate)) + Number(item.delivery_dzd);
@@ -5980,11 +5978,11 @@
           const marginColor = margin >= 0 ? "var(--green)" : "var(--red)";
           
           const landedLabel = row.querySelector("td:nth-child(9) span");
-          if (landedLabel) landedLabel.textContent = `${Math.round(landed).toLocaleString()} DZD`;
+          if (landedLabel) landedLabel.textContent = `${Math.round(landed).toLocaleString()} DA`;
           
           const marginLabel = row.querySelector("td:nth-child(11) span");
           if (marginLabel) {
-            marginLabel.textContent = `${Math.round(margin).toLocaleString()} DZD`;
+            marginLabel.textContent = `${Math.round(margin).toLocaleString()} DA`;
             marginLabel.style.color = marginColor;
           }
         }
@@ -5994,6 +5992,138 @@
         }
       };
 
+      window.importInventoryCSV = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          const text = e.target.result;
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          if (lines.length < 2) {
+            showToast("CSV file is empty or invalid", "error");
+            return;
+          }
+          
+          showLoading("Importing CSV items…");
+          
+          const parseCSVLine = (line) => {
+            const result = [];
+            let current = "";
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                if (inQuotes && line[i+1] === '"') {
+                  current += '"';
+                  i++;
+                } else {
+                  inQuotes = !inQuotes;
+                }
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.trim().replace(/^"|"$/g, ''));
+                current = "";
+              } else {
+                current += char;
+              }
+            }
+            result.push(current.trim().replace(/^"|"$/g, ''));
+            return result;
+          };
+
+          const rawHeaders = parseCSVLine(lines[0]);
+          const normHeaders = rawHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+          
+          const getCol = (keys, fallbackIndex) => {
+            for (const key of keys) {
+              const idx = normHeaders.indexOf(key);
+              if (idx !== -1) return idx;
+            }
+            return fallbackIndex;
+          };
+
+          const idxSku = getCol(["sku", "id"], 0);
+          const idxBrand = getCol(["brand"], 1);
+          const idxName = getCol(["productname", "name", "product"], 2);
+          const idxVariant = getCol(["variantspec", "variant", "flavor", "spec"], 3);
+          const idxSize = getCol(["size"], 4);
+          const idxPriceEur = getCol(["priceeur", "price", "eur"], 5);
+          const idxRate = getCol(["rate", "exchangerate"], 6);
+          const idxDelivery = getCol(["deliverydzd", "delivery"], 7);
+          const idxRetail = getCol(["retaildzd", "retail"], 9);
+          const idxStockEu = getCol(["stockeu", "eu", "europestock"], 12);
+          const idxStockDz = getCol(["stockdz", "stock", "dz", "algeriastock"], 13);
+          const idxType = getCol(["type", "category"], 14);
+
+          const upserts = [];
+
+          for (let i = 1; i < lines.length; i++) {
+            const cols = parseCSVLine(lines[i]);
+            if (cols.length < 2) continue;
+            
+            const id = cols[idxSku] || "";
+            const name = cols[idxName] || "";
+            if (!id || !name) continue;
+
+            const brand = cols[idxBrand] || "";
+            const variant_spec = cols[idxVariant] || null;
+            const size = cols[idxSize] || null;
+            const price_eur = parseFloat(cols[idxPriceEur]) || 0;
+            const rate = parseFloat(cols[idxRate]) || 250;
+            const delivery_dzd = parseFloat(cols[idxDelivery]) || 0;
+            const retail_dzd = parseFloat(cols[idxRetail]) || 0;
+            const stock_eu = parseInt(cols[idxStockEu]) || 0;
+            const stock = parseInt(cols[idxStockDz]) || (parseInt(cols[9]) || 0);
+            const type = cols[idxType] || activeInventoryTab;
+
+            upserts.push({
+              id,
+              type,
+              brand,
+              name,
+              variant_spec,
+              size,
+              price_eur,
+              rate,
+              delivery_dzd,
+              retail_dzd,
+              stock_eu,
+              stock
+            });
+          }
+          
+          if (upserts.length === 0) {
+            showToast("No valid rows found in CSV", "error");
+            hideLoading();
+            return;
+          }
+          
+          try {
+            const { error } = await sb.from("inventory_items").upsert(upserts, { onConflict: "id" });
+            if (error) console.warn("Supabase upsert notice:", error.message);
+          } catch(err) {
+            console.warn("Failed to upsert CSV to Supabase, fallback to localStorage:", err);
+          }
+          
+          upserts.forEach(item => {
+            const idx = inventoryItems.findIndex(x => x.id === item.id);
+            if (idx >= 0) inventoryItems[idx] = { ...inventoryItems[idx], ...item };
+            else inventoryItems.push(item);
+          });
+          localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+          
+          showToast(`✓ Successfully imported ${upserts.length} items with all fields!`);
+          
+          await syncAllLinkedProductsStock();
+          
+          hideLoading();
+          renderInventoryList();
+        };
+        
+        reader.readAsText(file);
+        event.target.value = "";
+      };
+
       window.exportInventoryCSV = function() {
         const items = inventoryItems.filter(item => item.type === activeInventoryTab);
         if (!items.length) {
@@ -6001,12 +6131,33 @@
           return;
         }
         
-        const headers = ["SKU", "Brand", "Product Name", "Variant Spec", "Size", "Price EUR", "Rate", "Delivery DZD", "Retail DZD", "Stock"];
-        let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        const headers = [
+          "SKU",
+          "Brand",
+          "Product Name",
+          "Variant Spec",
+          "Size",
+          "Price EUR",
+          "Rate",
+          "Delivery DZD",
+          "Landed Cost DZD",
+          "Retail DZD",
+          "Margin DZD",
+          "Margin Pct",
+          "Stock EU",
+          "Stock DZ",
+          "Type"
+        ];
+        
+        let csvContent = "\uFEFF" + headers.join(",") + "\n";
         
         items.forEach(item => {
+          const landed = (Number(item.price_eur || 0) * Number(item.rate || 250)) + Number(item.delivery_dzd || 0);
+          const margin = Number(item.retail_dzd || 0) - landed;
+          const marginPct = Number(item.retail_dzd || 0) > 0 ? ((margin / Number(item.retail_dzd || 0)) * 100).toFixed(1) : "0.0";
+
           const row = [
-            item.id || "",
+            `"${(item.id || "").replace(/"/g, '""')}"`,
             `"${(item.brand || "").replace(/"/g, '""')}"`,
             `"${(item.name || "").replace(/"/g, '""')}"`,
             `"${(item.variant_spec || "").replace(/"/g, '""')}"`,
@@ -6014,8 +6165,13 @@
             item.price_eur || 0,
             item.rate || 250,
             item.delivery_dzd || 0,
+            Math.round(landed),
             item.retail_dzd || 0,
-            item.stock || 0
+            Math.round(margin),
+            marginPct,
+            item.stock_eu || 0,
+            item.stock || 0,
+            `"${(item.type || activeInventoryTab).replace(/"/g, '""')}"`
           ];
           csvContent += row.join(",") + "\n";
         });
