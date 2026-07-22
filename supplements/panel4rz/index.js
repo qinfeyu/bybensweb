@@ -3202,12 +3202,48 @@
         let retailPrice = Number(fallbackPrice) || 0;
         let unitCost = 0;
         let productName = "";
+        let inv = null;
 
         const pIdStr = String(productId || "").toLowerCase().trim();
         const vNameStr = String(variantName || "").toLowerCase().trim();
 
-        // 1. Try finding in inventoryItems by ID, SKU, or Name match
-        let inv = inventoryItems.find(x => String(x.id || "").toLowerCase().trim() === pIdStr);
+        // 1. Direct SKU ID match in inventoryItems (if productId is already a SKU like SUP-8801)
+        inv = inventoryItems.find(x => String(x.id || "").toLowerCase().trim() === pIdStr);
+
+        // 2. Look up in products catalog to find variant & its linked SKU
+        const prod = products.find(p => 
+          String(p.id || "").toLowerCase().trim() === pIdStr || 
+          String(p.name || "").toLowerCase().trim() === pIdStr
+        );
+
+        if (prod) {
+          productName = `${prod.brand ? prod.brand + ' - ' : ''}${prod.name}`;
+          if (prod.variants && prod.variants.length > 0) {
+            const v = prod.variants.find(x => {
+              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+              return label === vNameStr || !vNameStr;
+            }) || prod.variants[0];
+
+            if (v) {
+              if (Number(v.price)) retailPrice = Number(v.price);
+              
+              // IF VARIANT HAS LINKED SKU (v.sku), FIND IT IN INVENTORYITEMS!
+              if (v.sku) {
+                const linkedInv = inventoryItems.find(x => String(x.id || "").toLowerCase().trim() === String(v.sku).toLowerCase().trim());
+                if (linkedInv) {
+                  inv = linkedInv;
+                }
+              }
+
+              if (!inv) {
+                if (Number(v.cost)) unitCost = Number(v.cost);
+                else if (Number(v.cost_eur)) unitCost = Number(v.cost_eur) * eurRate;
+              }
+            }
+          }
+        }
+
+        // 3. Fallback search in inventoryItems by Name
         if (!inv && pIdStr) {
           inv = inventoryItems.find(x => String(x.name || "").toLowerCase().trim() === pIdStr);
         }
@@ -3218,6 +3254,7 @@
           });
         }
 
+        // 4. Calculate landed unit cost & retail price from matched inventory item
         if (inv) {
           const rate = Number(inv.rate) || eurRate;
           const pEur = Number(inv.price_eur) || 0;
@@ -3227,29 +3264,15 @@
             retailPrice = Number(inv.retail_dzd);
           }
           productName = `${inv.brand ? inv.brand + ' - ' : ''}${inv.name}${inv.variant_spec ? ' (' + inv.variant_spec + ')' : ''}`;
-        } else {
-          // 2. Try finding in products catalog
-          const prod = products.find(p => String(p.id || "").toLowerCase() === pIdStr || String(p.name || "").toLowerCase() === pIdStr);
-          if (prod) {
-            productName = `${prod.brand ? prod.brand + ' - ' : ''}${prod.name}`;
-            if (prod.variants && prod.variants.length > 0) {
-              const v = prod.variants.find(x => {
-                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-                return label === vNameStr || !vNameStr;
-              }) || prod.variants[0];
-
-              if (v) {
-                if (Number(v.price)) retailPrice = Number(v.price);
-                if (Number(v.cost)) unitCost = Number(v.cost);
-                else if (Number(v.cost_eur)) unitCost = Number(v.cost_eur) * eurRate;
-              }
-            }
-          }
         }
 
         if (!productName) productName = String(productId || "Unknown Item");
         if (!retailPrice && fallbackPrice) retailPrice = Number(fallbackPrice);
-        if (!unitCost && retailPrice) unitCost = retailPrice * 0.7; // default 30% margin fallback if cost missing
+
+        // Fallback: If unit cost is still missing and retailPrice > 0
+        if (!unitCost && retailPrice) {
+          unitCost = retailPrice * 0.7;
+        }
 
         return { productName, retailPrice, unitCost };
       }
