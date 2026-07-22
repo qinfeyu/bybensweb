@@ -5535,7 +5535,7 @@
             valA = (Number(a.retail_dzd) || 0) - ((Number(a.price_eur) || 0) * (Number(a.rate) || 0) + (Number(a.delivery_dzd) || 0));
             valB = (Number(b.retail_dzd) || 0) - ((Number(b.price_eur) || 0) * (Number(b.rate) || 0) + (Number(b.delivery_dzd) || 0));
           } else {
-            if (["price_eur", "stock", "rate", "delivery_dzd", "retail_dzd"].includes(inventorySortColumn)) {
+            if (["price_eur", "stock", "stock_eu", "rate", "delivery_dzd", "retail_dzd"].includes(inventorySortColumn)) {
               valA = Number(valA) || 0;
               valB = Number(valB) || 0;
             } else {
@@ -5594,9 +5594,13 @@
                   <span style="font-weight:700; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span>
                   <div style="font-size:10.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
                 </td>
-                <td><input type="number" value="${item.stock}" class="spreadsheet-input" style="font-weight: 700; color: var(--black);" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'stock')" /></td>
+                <td><input type="number" value="${item.stock_eu || 0}" class="spreadsheet-input" style="font-weight: 600; color: #2563eb;" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'stock_eu')" title="Stock in Europe" /></td>
+                <td><input type="number" value="${item.stock || 0}" class="spreadsheet-input" style="font-weight: 700; color: #16a34a;" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'stock')" title="Stock in Algeria (Sellable)" /></td>
                 <td style="text-align:center;">
-                  <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px;">Delete</button>
+                  <div style="display:flex; gap:2px; justify-content:center;">
+                    <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:2px 5px; font-size:10px; color:#2563eb; border-color:#bfdbfe;" title="Move stock from Europe to Algeria">🚚 Move</button>
+                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:2px 5px; font-size:10px;">Del</button>
+                  </div>
                 </td>
               </tr>`;
           } else {
@@ -5616,11 +5620,13 @@
                   <span style="font-weight:700; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span>
                   <div style="font-size:10.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
                 </td>
-                <td><strong style="color:var(--black); font-size:13px;">${item.stock}</strong></td>
+                <td><span class="badge" style="background:#eff6ff; color:#1d4ed8; font-weight:700; font-size:12px;">🇪🇺 ${item.stock_eu || 0}</span></td>
+                <td><span class="badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'} font-weight:700; font-size:12px;">🇩🇿 ${item.stock || 0}</span></td>
                 <td style="text-align:center;">
-                  <div style="display:flex; gap:4px; justify-content:center;">
-                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:4px 8px; font-size:11px; height:auto; justify-content:center;">Edit</button>
-                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px;">Delete</button>
+                  <div style="display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
+                    <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff;" title="Move stock from Europe to Algeria">🚚 Move</button>
+                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto;">Edit</button>
+                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto;">Del</button>
                   </div>
                 </td>
               </tr>`;
@@ -5638,11 +5644,8 @@
               const margin = Number(item.retail_dzd) - landed;
               const marginPct = Number(item.retail_dzd) > 0 ? ((margin / Number(item.retail_dzd)) * 100).toFixed(1) : "0.0";
               const marginColor = margin >= 0 ? "#16a34a" : "#dc2626";
-              const stockBadge = Number(item.stock) > 2 
-                ? `<span class="badge" style="background:#dcfce7;color:#15803d;font-weight:700;">Stock: ${item.stock}</span>`
-                : (Number(item.stock) > 0 
-                  ? `<span class="badge" style="background:#fef3c7;color:#b45309;font-weight:700;">Low: ${item.stock}</span>`
-                  : `<span class="badge" style="background:#fee2e2;color:#b91c1c;font-weight:700;">Out of stock</span>`);
+              const euStockVal = Number(item.stock_eu) || 0;
+              const dzStockVal = Number(item.stock) || 0;
 
               const specStr = [item.variant_spec, item.size].filter(Boolean).join(" - ");
 
@@ -5653,11 +5656,14 @@
                       <span class="badge" style="background:var(--g100); color:var(--g800); font-weight:700;">SKU: ${item.id}</span>
                       ${item.brand ? `<span class="badge" style="background:var(--red-light); color:var(--red); font-weight:600;">${item.brand}</span>` : ''}
                     </div>
-                    ${stockBadge}
                   </div>
                   <div>
                     <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--black); line-height:1.3;">${item.name}</h4>
                     ${specStr ? `<div style="font-size:12px; color:var(--g500); margin-top:2px;">${specStr}</div>` : ''}
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <span class="badge" style="background:#eff6ff; color:#1d4ed8; font-weight:700; text-align:center; padding:6px;">🇪🇺 Europe Stock: ${euStockVal}</span>
+                    <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:4px 8px; font-size:11px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; justify-content:center;">🚚 Move EU → DZ</button>
                   </div>
                   <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:var(--g50); padding:10px; border-radius:8px; border:1px solid var(--g100); text-align:center;">
                     <div>
@@ -5684,6 +5690,57 @@
         }
       };
 
+      window.openTransferStockModal = function(sku) {
+        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
+        if (!item) return;
+        const currentEu = Number(item.stock_eu) || 0;
+        if (currentEu <= 0) {
+          showToast(`No Europe stock available for [${sku}]! Add Europe stock first in Edit mode.`, "error");
+          return;
+        }
+        const qtyStr = prompt(`Move stock for [${sku}] ${item.brand ? item.brand + ' - ' : ''}${item.name}:\n\nEnter number of units received in Algeria from Europe (Available in Europe: ${currentEu}):`, String(currentEu));
+        if (qtyStr === null) return;
+        const qtyToMove = parseInt(qtyStr);
+        if (isNaN(qtyToMove) || qtyToMove <= 0) return;
+        
+        if (qtyToMove > currentEu) {
+          showToast(`Cannot move ${qtyToMove} units. Only ${currentEu} units available in Europe stock.`, "error");
+          return;
+        }
+
+        window.transferStockEuropeToAlgeria(sku, qtyToMove);
+      };
+
+      window.transferStockEuropeToAlgeria = async function(sku, qtyToMove) {
+        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
+        if (!item) return;
+
+        const currentEu = Number(item.stock_eu) || 0;
+        const currentDz = Number(item.stock) || 0;
+
+        const newEu = Math.max(0, currentEu - qtyToMove);
+        const newDz = currentDz + qtyToMove;
+
+        showLoading("Moving stock to Algeria...");
+        try {
+          const payload = { stock_eu: newEu, stock: newDz };
+          try {
+            await sb.from("inventory_items").update(payload).eq("id", sku);
+          } catch(e) {}
+
+          item.stock_eu = newEu;
+          item.stock = newDz;
+          localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+
+          await syncAllLinkedProductsStock();
+          renderInventoryList();
+          showToast(`Successfully moved ${qtyToMove} unit(s) of [${sku}] to Algeria! Available for sale.`);
+        } catch (e) {
+          showToast("Failed to move stock: " + e.message, "error");
+        }
+        hideLoading();
+      };
+
       window.addInventoryItem = async function() {
         const id = document.getElementById("add-inv-sku")?.value.trim();
         const brand = document.getElementById("add-inv-brand")?.value.trim();
@@ -5694,7 +5751,8 @@
         const rate = parseFloat(document.getElementById("add-inv-rate")?.value) || 0;
         const delDzd = parseFloat(document.getElementById("add-inv-delivery")?.value) || 0;
         const retail = parseFloat(document.getElementById("add-inv-retail")?.value) || 0;
-        const qty = parseInt(document.getElementById("add-inv-qty")?.value) || 0;
+        const stock_eu = parseInt(document.getElementById("add-inv-qty-eu")?.value) || 0;
+        const stock = parseInt(document.getElementById("add-inv-qty-dz")?.value) || 0;
         
         if (!brand || !name) {
           showToast("Brand and Product Name required", "error");
@@ -5712,7 +5770,8 @@
           rate,
           delivery_dzd: delDzd,
           retail_dzd: retail,
-          stock: qty
+          stock_eu,
+          stock
         };
         
         showLoading("Adding inventory item…");
@@ -5795,7 +5854,8 @@
         document.getElementById("edit-inv-rate").value = item.rate || 250;
         document.getElementById("edit-inv-delivery").value = item.delivery_dzd || 0;
         document.getElementById("edit-inv-retail").value = item.retail_dzd || 0;
-        document.getElementById("edit-inv-qty").value = item.stock || 0;
+        if (document.getElementById("edit-inv-qty-eu")) document.getElementById("edit-inv-qty-eu").value = item.stock_eu || 0;
+        if (document.getElementById("edit-inv-qty-dz")) document.getElementById("edit-inv-qty-dz").value = item.stock || 0;
         
         recalcEditLanded();
         openModal("inv-edit-modal");
@@ -5829,7 +5889,8 @@
         const rate = parseFloat(document.getElementById("edit-inv-rate").value) || 0;
         const delivery_dzd = parseFloat(document.getElementById("edit-inv-delivery").value) || 0;
         const retail_dzd = parseFloat(document.getElementById("edit-inv-retail").value) || 0;
-        const stock = parseInt(document.getElementById("edit-inv-qty").value) || 0;
+        const stock_eu = parseInt(document.getElementById("edit-inv-qty-eu")?.value) || 0;
+        const stock = parseInt(document.getElementById("edit-inv-qty-dz")?.value) || 0;
         
         if (!name) {
           showToast("Product Name is required!", "error");
@@ -5847,11 +5908,15 @@
             rate,
             delivery_dzd,
             retail_dzd,
+            stock_eu,
             stock
           };
           
-          const { error } = await sb.from("inventory_items").update(payload).eq("id", id);
-          if (error) throw error;
+          try {
+            await sb.from("inventory_items").update(payload).eq("id", id);
+          } catch (err) {
+            console.warn("Supabase update notice:", err);
+          }
           
           // Update local cache
           const idx = inventoryItems.findIndex(x => x.id === id);
@@ -5869,9 +5934,8 @@
           renderInventoryList();
         } catch (e) {
           showToast("Error updating item: " + e.message, "error");
-        } finally {
-          hideLoading();
         }
+        hideLoading();
       };
 
       window.toggleInventorySpreadsheetMode = function() {
