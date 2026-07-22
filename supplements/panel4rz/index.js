@@ -2635,15 +2635,201 @@
         });
       });
 
-      function showToast(msg, type = "success") {
+      let _lastUndoAction = null;
+
+      function showToast(msg, type = "success", undoAction = null) {
         const t = document.getElementById("toast");
-        document.getElementById("toast-msg").textContent = msg;
+        const msgEl = document.getElementById("toast-msg");
+        if (!t || !msgEl) return;
+        
+        _lastUndoAction = undoAction;
+        
+        if (undoAction && typeof undoAction === "function") {
+          msgEl.innerHTML = `${msg} <button onclick="triggerToastUndo()" style="margin-left:10px; padding:2px 8px; font-size:11px; background:#fff; color:var(--red); border:1px solid var(--red); border-radius:4px; font-weight:700; cursor:pointer;">Undo</button>`;
+        } else {
+          msgEl.textContent = msg;
+        }
+        
         t.className = "";
         t.classList.add("show");
         if (type === "error") t.classList.add("error");
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+        toastTimer = setTimeout(() => {
+          t.classList.remove("show");
+          _lastUndoAction = null;
+        }, 4000);
       }
+      window.showToast = showToast;
+
+      window.triggerToastUndo = function() {
+        if (_lastUndoAction && typeof _lastUndoAction === "function") {
+          _lastUndoAction();
+          _lastUndoAction = null;
+          showToast("Action undone!");
+        }
+      };
+
+      // ════════════════════════════════════════════
+      // COMMAND PALETTE (Ctrl + K) & KEYBOARD SHORTCUTS
+      // ════════════════════════════════════════════
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          openCmdPalette();
+          return;
+        }
+        if (e.key === "Escape") {
+          const cmdModal = document.getElementById("cmd-palette-modal");
+          if (cmdModal && cmdModal.classList.contains("open")) {
+            closeCmdPalette();
+            return;
+          }
+        }
+      });
+
+      window.openCmdPalette = function() {
+        const modal = document.getElementById("cmd-palette-modal");
+        const input = document.getElementById("cmd-palette-input");
+        if (!modal || !input) return;
+        modal.classList.add("open");
+        input.value = "";
+        input.focus();
+        filterCmdPalette("");
+      };
+
+      window.closeCmdPalette = function() {
+        const modal = document.getElementById("cmd-palette-modal");
+        if (modal) modal.classList.remove("open");
+      };
+
+      window.filterCmdPalette = function(q = "") {
+        const container = document.getElementById("cmd-palette-results");
+        if (!container) return;
+        const query = q.toLowerCase().trim();
+
+        const navActions = [
+          { label: "Go to Overview / Financial Dashboard", icon: "📊", action: () => navTo("dash") },
+          { label: "Go to Products", icon: "🏷️", action: () => navTo("products") },
+          { label: "Go to Orders", icon: "🛒", action: () => navTo("orders") },
+          { label: "Go to Pre-Orders", icon: "📦", action: () => navTo("preorders") },
+          { label: "Go to Inventory Manager", icon: "🏭", action: () => navTo("inventory") },
+          { label: "Go to POS Checkout", icon: "🖥️", action: () => navTo("pos") },
+          { label: "Go to Expenses Logger", icon: "💳", action: () => navTo("expenses") },
+          { label: "Go to Customers Ledger", icon: "👥", action: () => navTo("customers") },
+          { label: "Go to Delivery Prices", icon: "🚚", action: () => navTo("delivery") },
+          { label: "Go to Promo Codes", icon: "🎟️", action: () => navTo("promo") },
+          { label: "Go to Categories Manager", icon: "📁", action: () => navTo("categories") },
+          { label: "Add New Product", icon: "➕", action: () => { navTo("products"); openProductModal(); } },
+          { label: "Add New Inventory Item", icon: "➕", action: () => { navTo("inventory"); openAddInvModal(); } },
+          { label: "Add New Pre-Order", icon: "➕", action: () => { navTo("preorders"); openPreorderModal(); } }
+        ];
+
+        let results = [];
+
+        navActions.forEach(cmd => {
+          if (!query || cmd.label.toLowerCase().includes(query)) {
+            results.push({ type: "Navigation", label: cmd.label, icon: cmd.icon, run: cmd.action });
+          }
+        });
+
+        if (query) {
+          inventoryItems.forEach(item => {
+            const full = `${item.id} ${item.brand || ''} ${item.name || ''}`.toLowerCase();
+            if (full.includes(query)) {
+              results.push({
+                type: "Inventory Item",
+                label: `[${item.id}] ${item.brand ? item.brand + ' - ' : ''}${item.name} (${item.stock} in stock)`,
+                icon: "📦",
+                run: () => {
+                  navTo("inventory");
+                  const input = document.getElementById("inv-search");
+                  if (input) { input.value = item.id; debouncedRenderInventoryList(); }
+                }
+              });
+            }
+          });
+        }
+
+        if (results.length === 0) {
+          container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--g400); font-size: 13px;">No commands or items match "${q}"</div>`;
+          return;
+        }
+
+        container.innerHTML = results.slice(0, 12).map((r, idx) => `
+          <div onclick="runCmdPaletteItem(${idx})" class="cmd-item" style="padding: 10px 14px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.12s; margin-bottom: 2px;">
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 500; color: var(--black);">
+              <span style="font-size: 16px;">${r.icon}</span>
+              <span>${r.label}</span>
+            </div>
+            <span style="font-size: 11px; background: var(--g100); color: var(--g500); padding: 2px 8px; border-radius: 4px; font-weight: 500;">${r.type}</span>
+          </div>
+        `).join("");
+
+        window._cmdResults = results;
+      };
+
+      window.runCmdPaletteItem = function(idx) {
+        if (window._cmdResults && window._cmdResults[idx]) {
+          const runFn = window._cmdResults[idx].run;
+          closeCmdPalette();
+          if (runFn) runFn();
+        }
+      };
+
+      function navTo(pageId) {
+        showPage(pageId);
+      }
+
+      window.handlePOSBarcodeScan = function(skuInput) {
+        if (!skuInput) return;
+        const query = skuInput.trim().toLowerCase();
+        if (!query) return;
+
+        const invItem = inventoryItems.find(x => String(x.id || "").toLowerCase().trim() === query);
+        
+        let foundProduct = null;
+        let foundVariant = null;
+
+        if (invItem) {
+          products.forEach(p => {
+            if (p.variants && p.variants.length > 0) {
+              p.variants.forEach(v => {
+                if (String(v.sku || "").toLowerCase().trim() === query) {
+                  foundProduct = p;
+                  foundVariant = v;
+                }
+              });
+            }
+          });
+        }
+
+        if (!foundProduct) {
+          foundProduct = products.find(p => String(p.id || "").toLowerCase() === query || (p.name || "").toLowerCase().includes(query));
+          if (foundProduct && foundProduct.variants && foundProduct.variants.length > 0) {
+            foundVariant = foundProduct.variants[0];
+          }
+        }
+
+        if (foundProduct) {
+          const variantName = foundVariant ? (foundVariant.weight ? `${foundVariant.weight}${foundVariant.unit || ""}` : (foundVariant.label || foundVariant.name || "Default")) : "Default";
+          const flavorName = foundProduct.flavors && foundProduct.flavors.length > 0 ? (foundProduct.flavors[0].label || foundProduct.flavors[0].name || "Default") : "Default";
+          const price = foundVariant ? (Number(foundVariant.price) || 0) : (invItem ? Number(invItem.retail_dzd) : 0);
+
+          addToPOSCart(foundProduct.id, foundProduct.name, variantName, flavorName, price);
+          showToast(`⚡ Added "${foundProduct.name}" to POS cart!`);
+
+          const inputEl = document.getElementById("pos-barcode-input");
+          if (inputEl) inputEl.value = "";
+        } else if (invItem) {
+          addToPOSCart(invItem.id, `${invItem.brand ? invItem.brand + ' - ' : ''}${invItem.name}`, invItem.variant_spec || "Standard", "Default", Number(invItem.retail_dzd) || 0);
+          showToast(`⚡ Added [${invItem.id}] "${invItem.name}" to POS cart!`);
+
+          const inputEl = document.getElementById("pos-barcode-input");
+          if (inputEl) inputEl.value = "";
+        } else {
+          showToast(`No item found matching SKU / Barcode "${skuInput}"`, "error");
+        }
+      };
       // ════════════════════════════════════════════
       // DELIVERY PRICES
       // ════════════════════════════════════════════

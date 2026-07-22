@@ -815,6 +815,9 @@
       .modal-overlay.open .modal {
         transform: scale(1);
       }
+      .cmd-item:hover {
+        background: var(--g100) !important;
+      }
       .modal::-webkit-scrollbar {
         width: 6px;
       }
