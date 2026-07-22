@@ -3323,13 +3323,24 @@
           if (!isDateInFinancialPeriod(s.date)) return;
 
           const saleItems = allSaleItems.filter(x => x.sale_id === s.id);
+          const netSaleRev = Number(s.total_amount) || 0;
+
           if (saleItems.length > 0) {
-            saleItems.forEach(item => {
+            let grossItemTotal = 0;
+            const itemInfos = saleItems.map(item => {
               const qty = Number(item.qty) || 1;
-              const fallbackP = Number(item.price) || (s.total_amount ? Number(s.total_amount) / saleItems.length : 0);
+              const fallbackP = Number(item.price) || (netSaleRev ? netSaleRev / saleItems.length : 0);
               const info = getProductPricingAndCost(item.product_id, item.variant, fallbackP);
-              
-              const itemRev = info.retailPrice * qty;
+              const undiscountedPrice = Number(item.price) || info.retailPrice || fallbackP;
+              grossItemTotal += undiscountedPrice * qty;
+              return { item, qty, undiscountedPrice, info };
+            });
+
+            // Discount factor accounts for POS discount / promo code
+            const discountFactor = (grossItemTotal > 0 && netSaleRev > 0) ? (netSaleRev / grossItemTotal) : 1;
+
+            itemInfos.forEach(({ item, qty, undiscountedPrice, info }) => {
+              const itemRev = undiscountedPrice * qty * discountFactor;
               const itemCogs = info.unitCost * qty;
 
               grossRevenue += itemRev;
@@ -3338,11 +3349,10 @@
               trackItemProfitability(info.productName, qty, itemRev, itemCogs);
             });
           } else {
-            const saleRev = Number(s.total_amount) || 0;
-            grossRevenue += saleRev;
-            const saleCogs = saleRev * 0.7;
+            const saleCogs = netSaleRev * 0.7;
+            grossRevenue += netSaleRev;
             totalCOGS += saleCogs;
-            trackItemProfitability("POS Sale", 1, saleRev, saleCogs);
+            trackItemProfitability("POS Sale", 1, netSaleRev, saleCogs);
           }
         });
 
@@ -3352,13 +3362,25 @@
           if (!isDateInFinancialPeriod(rawDate)) return;
 
           const orderItems = o.items || [];
+          const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
+          const orderNetRev = Math.max(0, (Number(o.total || o.total_amount) || 0) - delCost);
+
           if (orderItems.length > 0) {
-            orderItems.forEach(item => {
+            let grossItemTotal = 0;
+            const itemInfos = orderItems.map(item => {
               const qty = Number(item.qty) || 1;
               const fallbackP = Number(item.price) || 0;
               const info = getProductPricingAndCost(item.productId || item.id || item.name, item.variantName || item.variant, fallbackP);
+              const undiscountedPrice = Number(item.price) || info.retailPrice || fallbackP;
+              grossItemTotal += undiscountedPrice * qty;
+              return { item, qty, undiscountedPrice, info };
+            });
 
-              const itemRev = info.retailPrice * qty;
+            // Discount factor accounts for promo code or order level discount
+            const discountFactor = (grossItemTotal > 0 && orderNetRev > 0) ? (orderNetRev / grossItemTotal) : 1;
+
+            itemInfos.forEach(({ item, qty, undiscountedPrice, info }) => {
+              const itemRev = undiscountedPrice * qty * discountFactor;
               const itemCogs = info.unitCost * qty;
 
               grossRevenue += itemRev;
@@ -3367,11 +3389,10 @@
               trackItemProfitability(info.productName || item.name || "Online Order Item", qty, itemRev, itemCogs);
             });
           } else {
-            const orderRev = Number(o.total || o.total_amount) || 0;
-            grossRevenue += orderRev;
-            const orderCogs = orderRev * 0.7;
+            const orderCogs = orderNetRev * 0.7;
+            grossRevenue += orderNetRev;
             totalCOGS += orderCogs;
-            trackItemProfitability("Online Order", 1, orderRev, orderCogs);
+            trackItemProfitability("Online Order", 1, orderNetRev, orderCogs);
           }
         });
 
@@ -3380,12 +3401,22 @@
           if (!isDateInFinancialPeriod(p.date)) return;
 
           const preItems = allPreorderItems.filter(x => x.pre_order_id === p.id);
+          const netPreRev = Number(p.total_amount) || 0;
+
           if (preItems.length > 0) {
-            preItems.forEach(item => {
+            let grossItemTotal = 0;
+            const itemInfos = preItems.map(item => {
               const qty = Number(item.qty) || 1;
               const info = getProductPricingAndCost(item.product_id || item.product_name, item.variant, 0);
+              const undiscountedPrice = info.retailPrice || 0;
+              grossItemTotal += undiscountedPrice * qty;
+              return { item, qty, undiscountedPrice, info };
+            });
 
-              const itemRev = info.retailPrice * qty;
+            const discountFactor = (grossItemTotal > 0 && netPreRev > 0) ? (netPreRev / grossItemTotal) : 1;
+
+            itemInfos.forEach(({ item, qty, undiscountedPrice, info }) => {
+              const itemRev = undiscountedPrice * qty * discountFactor;
               const itemCogs = info.unitCost * qty;
 
               grossRevenue += itemRev;
@@ -3394,11 +3425,10 @@
               trackItemProfitability(item.product_name || info.productName, qty, itemRev, itemCogs);
             });
           } else {
-            const preRev = Number(p.total_amount) || 0;
-            grossRevenue += preRev;
-            const preCogs = preRev * 0.7;
+            const preCogs = netPreRev * 0.7;
+            grossRevenue += netPreRev;
             totalCOGS += preCogs;
-            trackItemProfitability("Pre-Order", 1, preRev, preCogs);
+            trackItemProfitability("Pre-Order", 1, netPreRev, preCogs);
           }
         });
 
