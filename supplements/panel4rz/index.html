@@ -605,7 +605,7 @@
           <div class="sec-header">
             <div class="sec-title">Inventory</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <input type="text" id="inv-search" placeholder="Search supplements..." oninput="inventoryPage=1; renderInventoryList()" class="search-box" style="width: 220px;" />
+              <input type="text" id="inv-search" placeholder="Search supplements..." oninput="debouncedRenderInventoryList()" class="search-box" style="width: 220px;" />
               <select id="inv-brand-filter" class="search-box" onchange="renderInventoryList()" style="width: auto; cursor: pointer;">
                 <option value="">All Brands</option>
               </select>

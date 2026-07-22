@@ -125,9 +125,44 @@
       // ════════════════════════════════════════════
       // API HELPERS (Supabase)
       // ════════════════════════════════════════════
+      const CACHE_TTL_MS = 5 * 60 * 1000;
+
+      function _getStaticCache() {
+        try {
+          const raw = sessionStorage.getItem("bb_static_catalog_cache");
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (Date.now() - (parsed.timestamp || 0) < CACHE_TTL_MS) {
+            return parsed.data;
+          }
+        } catch(e) {}
+        return null;
+      }
+
+      function _setStaticCache(data) {
+        try {
+          sessionStorage.setItem("bb_static_catalog_cache", JSON.stringify({
+            timestamp: Date.now(),
+            data
+          }));
+        } catch(e) {}
+      }
+
+      function _invalidateStaticCache() {
+        try {
+          sessionStorage.removeItem("bb_static_catalog_cache");
+        } catch(e) {}
+      }
+      window.invalidateStaticCache = _invalidateStaticCache;
+
       async function apiGet(action, params = {}) {
         switch (action) {
           case "getInitialData": {
+            const cached = _getStaticCache();
+            if (cached) {
+              return cached;
+            }
+
             const [
               { data: prods, error: e1 }, { data: cats, error: e2 }, { data: subs, error: e3 },
               { data: promoRows, error: e4 }, { data: dpRows, error: e5 },
@@ -141,7 +176,19 @@
               sb.from("bundle").select("*").eq("id", 1).maybeSingle(),
             ]);
             if (e1 || e2 || e3 || e4 || e5 || e6) throw e1 || e2 || e3 || e4 || e5 || e6;
-            return { success: true, products: (prods || []).map(_remapProductRow), categories: (cats || []).map(_remapCategoryRow), subCategories: (subs || []).map(_remapSubCategoryRow), promos: (promoRows || []).map(_remapPromoRow), deliveryPrices: (dpRows || []).map(_remapDeliveryRow), bundle: bndRow ? { bundleId: bndRow.bundle_id, bundleDescription: bndRow.description_en } : {} };
+
+            const res = {
+              success: true,
+              products: (prods || []).map(_remapProductRow),
+              categories: (cats || []).map(_remapCategoryRow),
+              subCategories: (subs || []).map(_remapSubCategoryRow),
+              promos: (promoRows || []).map(_remapPromoRow),
+              deliveryPrices: (dpRows || []).map(_remapDeliveryRow),
+              bundle: bndRow ? { bundleId: bndRow.bundle_id, bundleDescription: bndRow.description_en } : {}
+            };
+
+            _setStaticCache(res);
+            return res;
           }
           case "getProducts": {
             const { data, error } = await sb.from("products").select("*").order("created_at", { ascending: false });
@@ -834,10 +881,14 @@
       // ════════════════════════════════════════════
       // PRODUCTS
       // ════════════════════════════════════════════
+      let _prodFilterTimer = null;
       function filterProducts(q = "") {
         productPage = 1;
         _prodFilter = q.toLowerCase();
-        renderProducts(_prodFilter);
+        clearTimeout(_prodFilterTimer);
+        _prodFilterTimer = setTimeout(() => {
+          renderProducts(_prodFilter);
+        }, 200);
       }
       window.filterProducts = filterProducts;
 
@@ -3156,23 +3207,22 @@
 
       async function refreshBusinessPortalData() {
         try {
-          const salesP = sb.from("sales").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
-          const saleItemsP = sb.from("sale_items").select("*").then(r => r.data || []).catch(() => []);
-          const preP = sb.from("pre_orders").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
-          const preItemsP = sb.from("pre_order_items").select("*").then(r => r.data || []).catch(() => []);
-          const expP = sb.from("expenses").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
-          const custP = sb.from("customers").select("*").order("name", { ascending: true })
+          const salesP = sb.from("sales").select("id,source,status,total,delivery_cost,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const saleItemsP = sb.from("sale_items").select("id,sale_id,product_id,product_name,variant,flavor,qty,price").then(r => r.data || []).catch(() => []);
+          const preP = sb.from("pre_orders").select("id,customer_name,customer_phone,total_amount,status,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const preItemsP = sb.from("pre_order_items").select("id,pre_order_id,product_id,product_name,variant,flavor,qty").then(r => r.data || []).catch(() => []);
+          const expP = sb.from("expenses").select("id,category,description,amount,currency,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const custP = sb.from("customers").select("id,name,first_name,last_name,phone,wilaya,commune,address,created_at").order("name", { ascending: true })
             .then(r => {
               if (r.error) throw r.error;
               return r.data || [];
             })
             .catch(async () => {
-              // Fallback: If "name" column is missing, query without ordering
-              const res = await sb.from("customers").select("*");
+              const res = await sb.from("customers").select("id,name,first_name,last_name,phone,wilaya,commune,address,created_at");
               return res.data || [];
             });
-          const delCustP = sb.from("deleted_customers").select("*").then(r => r.data || []).catch(() => []);
-          const invP = sb.from("inventory_items").select("*").order("created_at", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const delCustP = sb.from("deleted_customers").select("phone").then(r => r.data || []).catch(() => []);
+          const invP = sb.from("inventory_items").select("id,type,brand,name,variant_spec,size,price_eur,rate,delivery_dzd,retail_dzd,stock,created_at").order("created_at", { ascending: false }).then(r => r.data || []).catch(() => []);
 
           const [sales, saleItems, pre, preItems, exp, cust, delCust, inv] = await Promise.all([
             salesP, saleItemsP, preP, preItemsP, expP, custP, delCustP, invP
@@ -5699,6 +5749,15 @@
         renderInventoryList();
       };
 
+      let _invSearchTimer = null;
+      window.debouncedRenderInventoryList = function() {
+        inventoryPage = 1;
+        clearTimeout(_invSearchTimer);
+        _invSearchTimer = setTimeout(() => {
+          renderInventoryList();
+        }, 200);
+      };
+
       window.toggleInventoryTab = function(type) {
         activeInventoryTab = type;
         document.querySelectorAll("#page-inventory .cust-tab-btn").forEach(btn => {
@@ -6192,6 +6251,23 @@
         renderInventoryList();
       };
 
+      let _pendingSpreadsheetUpserts = new Map();
+      let _spreadsheetUpsertTimer = null;
+
+      function _flushSpreadsheetUpserts() {
+        if (_pendingSpreadsheetUpserts.size === 0) return;
+        const itemsToUpsert = Array.from(_pendingSpreadsheetUpserts.values());
+        _pendingSpreadsheetUpserts.clear();
+
+        const dbPayloads = itemsToUpsert.map(_toDbInventoryPayload);
+        sb.from("inventory_items").upsert(dbPayloads, { onConflict: "id" })
+          .then((res) => {
+            if (res && res.error) console.warn("Batched spreadsheet upsert notice:", res.error.message);
+            else console.log(`Batched upserted ${dbPayloads.length} spreadsheet items to Supabase.`);
+          })
+          .catch(e => console.warn("Failed batched spreadsheet upsert:", e));
+      }
+
       window.updateInventorySpreadsheetItem = async function(el, itemId, field) {
         const item = inventoryItems.find(x => x.id === itemId);
         if (!item) return;
@@ -6205,14 +6281,11 @@
         
         item[field] = val;
         
-        try {
-          const dbPayload = _toDbInventoryPayload(item);
-          await sb.from("inventory_items").upsert(dbPayload, { onConflict: "id" });
-        } catch(e) {
-          console.warn("Failed to upsert to Supabase in spreadsheet mode, fallback to localStorage:", e);
-        }
-        
         localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+        
+        _pendingSpreadsheetUpserts.set(itemId, item);
+        clearTimeout(_spreadsheetUpsertTimer);
+        _spreadsheetUpsertTimer = setTimeout(_flushSpreadsheetUpserts, 1000);
         
         const row = el.closest("tr");
         if (row) {
