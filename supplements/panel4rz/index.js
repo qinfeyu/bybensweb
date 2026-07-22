@@ -4605,7 +4605,43 @@
           return netRev * 0.30;
         }
       }
-      window.calculatePreorderProfit = calculatePreorderProfit;
+      window.togglePreorderItemsRow = function(id, e) {
+        if (e) e.stopPropagation();
+        
+        document.querySelectorAll("[id^='preorder-items-pop-']").forEach(pop => {
+          if (pop.id !== `preorder-items-pop-${id}`) {
+            pop.style.display = "none";
+            const otherBtn = pop.previousElementSibling;
+            if (otherBtn && pop.dataset.count) {
+              const count = pop.dataset.count;
+              otherBtn.innerHTML = `📦 ${count} Item${count != 1 ? 's' : ''} ▾`;
+            }
+          }
+        });
+
+        const el = document.getElementById(`preorder-items-pop-${id}`);
+        const btn = e ? e.currentTarget : null;
+        if (!el) return;
+        
+        const isHidden = el.style.display === "none" || !el.style.display;
+        el.style.display = isHidden ? "block" : "none";
+        
+        if (btn) {
+          const count = el.dataset.count || "";
+          btn.innerHTML = isHidden ? `📦 ${count} Item${count != 1 ? 's' : ''} ▴` : `📦 ${count} Item${count != 1 ? 's' : ''} ▾`;
+        }
+      };
+
+      document.addEventListener("click", () => {
+        document.querySelectorAll("[id^='preorder-items-pop-']").forEach(pop => {
+          pop.style.display = "none";
+          const btn = pop.previousElementSibling;
+          if (btn && pop.dataset.count) {
+            const count = pop.dataset.count;
+            btn.innerHTML = `📦 ${count} Item${count != 1 ? 's' : ''} ▾`;
+          }
+        });
+      });
 
       function renderPreordersList() {
         const body = document.getElementById("preorders-table-body");
@@ -4636,7 +4672,30 @@
 
         body.innerHTML = pageItems.map(p => {
           const items = allPreorderItems.filter(x => x.pre_order_id === p.id);
-          const itemsText = items.map(itm => `${itm.product_name} (${itm.variant || '—'}${itm.flavor ? ' | ' + itm.flavor : ''}) x${itm.qty}`).join("<br>");
+          const itemCount = items.length;
+          
+          let itemsColumnHtml = '<span style="color:var(--g400)">—</span>';
+          if (itemCount > 0) {
+            const itemsFormatted = items.map(itm => 
+              `<div style="padding:4px 0; border-bottom:1px dashed var(--g200); font-size:11px;">
+                <strong style="color:var(--black);">${itm.product_name}</strong><br>
+                <span style="color:var(--g500);">Variant: ${itm.variant || '—'}${itm.flavor ? ' | Flavor: ' + itm.flavor : ''}</span> 
+                <span style="font-weight:700; color:var(--red); margin-left:4px;">x${itm.qty}</span>
+              </div>`
+            ).join("");
+
+            itemsColumnHtml = `
+              <div style="position:relative; display:inline-block;">
+                <button class="act-btn" onclick="togglePreorderItemsRow('${p.id}', event)" style="font-size:11px; padding:3px 9px; background:var(--g50); color:var(--g700); border:1px solid var(--g300); cursor:pointer; font-weight:600; border-radius:5px;">
+                  📦 ${itemCount} Item${itemCount !== 1 ? 's' : ''} ▾
+                </button>
+                <div id="preorder-items-pop-${p.id}" data-count="${itemCount}" onclick="event.stopPropagation()" style="display:none; position:absolute; left:0; top:100%; margin-top:4px; z-index:110; min-width:230px; max-width:300px; background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid var(--g200); box-shadow:var(--sh-md); text-align:left;">
+                  <div style="font-size:11px; font-weight:700; color:var(--g600); margin-bottom:6px; border-bottom:1px solid var(--g200); padding-bottom:4px;">Pre-Order Items (${itemCount})</div>
+                  ${itemsFormatted}
+                </div>
+              </div>
+            `;
+          }
 
           const subtotalFromItems = items.reduce((sum, itm) => {
             const invItem = inventoryItems.find(x => x.id === itm.product_id);
@@ -4654,7 +4713,7 @@
               <td>${new Date(p.date).toLocaleDateString()}</td>
               <td><strong>${p.customer_name}</strong></td>
               <td>${p.customer_phone}</td>
-              <td style="font-size:12px;line-height:1.4">${itemsText}</td>
+              <td style="font-size:12px;">${itemsColumnHtml}</td>
               <td>${displayTotal ? displayTotal.toLocaleString() + ' DA' : '—'}</td>
               <td><strong style="color:${profitColor}; font-size:12px;">${profitSign}${Math.round(profit).toLocaleString()} DA</strong></td>
               <td><span class="badge badge-${p.status}">${cap(p.status)}</span></td>
