@@ -3356,8 +3356,11 @@
           }
         });
 
-        // B. Process Online Orders
+        // B. Process Online Orders (excluding mirrored POS sales & pre-orders to prevent double-counting)
         _dashOrders.forEach(o => {
+          if (o.source === "POS Checkout" || (o.id && String(o.id).startsWith("pos-"))) return;
+          if (o.source === "pre order" || o.source === "Pre-Order" || (o.id && String(o.id).startsWith("pre-"))) return;
+
           const rawDate = o.createdAt || o.created_at || o.date;
           if (!isDateInFinancialPeriod(rawDate)) return;
 
