@@ -4624,7 +4624,26 @@
         if (!el) return;
         
         const isHidden = el.style.display === "none" || !el.style.display;
-        el.style.display = isHidden ? "block" : "none";
+        if (isHidden) {
+          el.style.display = "block";
+          if (btn) {
+            const rect = btn.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 260 && rect.top > 260) {
+              el.style.top = "auto";
+              el.style.bottom = "100%";
+              el.style.marginTop = "0";
+              el.style.marginBottom = "6px";
+            } else {
+              el.style.top = "100%";
+              el.style.bottom = "auto";
+              el.style.marginTop = "4px";
+              el.style.marginBottom = "0";
+            }
+          }
+        } else {
+          el.style.display = "none";
+        }
         
         if (btn) {
           const count = el.dataset.count || "";
@@ -4689,9 +4708,14 @@
                 <button class="act-btn" onclick="togglePreorderItemsRow('${p.id}', event)" style="font-size:11px; padding:3px 9px; background:var(--g50); color:var(--g700); border:1px solid var(--g300); cursor:pointer; font-weight:600; border-radius:5px;">
                   📦 ${itemCount} Item${itemCount !== 1 ? 's' : ''} ▾
                 </button>
-                <div id="preorder-items-pop-${p.id}" data-count="${itemCount}" onclick="event.stopPropagation()" style="display:none; position:absolute; left:0; top:100%; margin-top:4px; z-index:110; min-width:230px; max-width:300px; background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid var(--g200); box-shadow:var(--sh-md); text-align:left;">
-                  <div style="font-size:11px; font-weight:700; color:var(--g600); margin-bottom:6px; border-bottom:1px solid var(--g200); padding-bottom:4px;">Pre-Order Items (${itemCount})</div>
-                  ${itemsFormatted}
+                <div id="preorder-items-pop-${p.id}" data-count="${itemCount}" onclick="event.stopPropagation()" style="display:none; position:absolute; left:0; top:100%; margin-top:4px; z-index:999; min-width:250px; max-width:320px; background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid var(--g200); box-shadow:0 10px 25px -5px rgba(0,0,0,0.18), 0 8px 10px -6px rgba(0,0,0,0.1); text-align:left;">
+                  <div style="font-size:11px; font-weight:700; color:var(--g600); margin-bottom:6px; border-bottom:1px solid var(--g200); padding-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Pre-Order Items (${itemCount})</span>
+                    <span style="cursor:pointer; font-size:14px; color:var(--g400);" onclick="togglePreorderItemsRow('${p.id}', event)">&times;</span>
+                  </div>
+                  <div style="max-height:220px; overflow-y:auto; padding-right:4px;">
+                    ${itemsFormatted}
+                  </div>
                 </div>
               </div>
             `;

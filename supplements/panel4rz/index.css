@@ -1939,7 +1939,7 @@
           min-height: 42px;
         }
         #page-preorders .table-wrap {
-          overflow-x: hidden !important;
+          overflow: visible !important;
           width: 100% !important;
           max-width: 100% !important;
           box-sizing: border-box !important;
