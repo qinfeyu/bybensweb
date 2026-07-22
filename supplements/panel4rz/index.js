@@ -3666,18 +3666,32 @@
         }
 
         grid.innerHTML = filtered.map(p => {
-          // get display price
+          // get display price and stock
           let priceStr = "—";
           if (p.variants && p.variants.length > 0) {
-            priceStr = p.variants[0].price.toLocaleString() + " DA";
+            priceStr = (Number(p.variants[0].price) || 0).toLocaleString() + " DA";
           }
+          let stockVal = p.stock || 0;
+          if (p.variants && p.variants.length > 0) {
+            const hasSkuLinks = p.variants.some(v => v.sku);
+            if (hasSkuLinks) {
+              stockVal = p.variants.reduce((total, v) => {
+                if (v.sku) {
+                  const inv = inventoryItems.find(x => String(x.id || "").trim().toLowerCase() === String(v.sku).trim().toLowerCase());
+                  return total + (inv ? (Number(inv.stock) || 0) : (Number(v.stock) || 0));
+                }
+                return total + (Number(v.stock) || 0);
+              }, 0);
+            }
+          }
+
           return `
             <div class="pos-card" onclick="openPOSFlavorModal('${p.id}')">
               <div>
                 <div class="pos-card-name">${p.brand ? '<strong>' + p.brand + '</strong> ' : ''}${p.name}</div>
                 <div class="pos-card-price">${priceStr}</div>
               </div>
-              <div class="pos-card-stock">Stock: ${p.stock}</div>
+              <div class="pos-card-stock">Stock: ${stockVal}</div>
             </div>
           `;
         }).join("");
@@ -3710,7 +3724,12 @@
           varGroup.style.display = "block";
           varSelect.innerHTML = prod.variants.map((v, i) => {
             const label = v.weight ? `${v.weight}${v.unit || ""}`.trim() : `V${i+1}`;
-            return `<option value="${i}">${label} (${v.price.toLocaleString()} DA)</option>`;
+            let vStock = v.stock;
+            if (v.sku) {
+              const inv = inventoryItems.find(x => String(x.id || "").trim().toLowerCase() === String(v.sku).trim().toLowerCase());
+              if (inv) vStock = inv.stock;
+            }
+            return `<option value="${i}">${label} (${(Number(v.price)||0).toLocaleString()} DA) — Stock: ${vStock !== undefined ? vStock : 0}</option>`;
           }).join("");
           priceInput.value = prod.variants[0].price;
           
@@ -3747,9 +3766,16 @@
         // Check stock availability
         let availableStock = prod.stock || 0;
         if (selectedVariant) {
-          if (selectedVariant.flavorStock && flavor && selectedVariant.flavorStock[flavor] !== undefined) {
+          if (selectedVariant.sku) {
+            const inv = inventoryItems.find(x => String(x.id || "").trim().toLowerCase() === String(selectedVariant.sku).trim().toLowerCase());
+            if (inv) {
+              availableStock = inv.stock;
+            } else if (selectedVariant.stock !== undefined && selectedVariant.stock !== null) {
+              availableStock = selectedVariant.stock;
+            }
+          } else if (selectedVariant.flavorStock && flavor && selectedVariant.flavorStock[flavor] !== undefined) {
             availableStock = selectedVariant.flavorStock[flavor];
-          } else if (selectedVariant.stock !== undefined) {
+          } else if (selectedVariant.stock !== undefined && selectedVariant.stock !== null) {
             availableStock = selectedVariant.stock;
           }
         }
