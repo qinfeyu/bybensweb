@@ -4583,6 +4583,30 @@
         renderPreordersList();
       };
 
+      function calculatePreorderProfit(p) {
+        if (!p) return 0;
+        const items = allPreorderItems.filter(x => x.pre_order_id === p.id);
+        const subtotalFromItems = items.reduce((sum, itm) => {
+          const invItem = inventoryItems.find(x => x.id === itm.product_id);
+          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
+          return sum + (price * (Number(itm.qty) || 1));
+        }, 0);
+        const netRev = subtotalFromItems > 0 ? subtotalFromItems : (Number(p.total_amount) || 0);
+
+        if (items.length > 0) {
+          let totalCogs = 0;
+          items.forEach(itm => {
+            const qty = Number(itm.qty) || 1;
+            const info = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, 0);
+            totalCogs += (info.unitCost || (info.retailPrice * 0.7)) * qty;
+          });
+          return netRev - totalCogs;
+        } else {
+          return netRev * 0.30;
+        }
+      }
+      window.calculatePreorderProfit = calculatePreorderProfit;
+
       function renderPreordersList() {
         const body = document.getElementById("preorders-table-body");
         if (!body) return;
@@ -4596,7 +4620,7 @@
 
         const pag = document.getElementById("preorders-pag");
         if (filtered.length === 0) {
-          body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--g400);padding:24px">No pre-orders found</td></tr>`;
+          body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--g400);padding:24px">No pre-orders found</td></tr>`;
           if (pag) pag.innerHTML = "";
           return;
         }
@@ -4621,6 +4645,10 @@
           }, 0);
           const displayTotal = subtotalFromItems > 0 ? subtotalFromItems : (Number(p.total_amount) || 0);
 
+          const profit = calculatePreorderProfit(p);
+          const profitColor = profit >= 0 ? "var(--green)" : "var(--red)";
+          const profitSign = profit >= 0 ? "+" : "";
+
           return `
             <tr>
               <td>${new Date(p.date).toLocaleDateString()}</td>
@@ -4628,6 +4656,7 @@
               <td>${p.customer_phone}</td>
               <td style="font-size:12px;line-height:1.4">${itemsText}</td>
               <td>${displayTotal ? displayTotal.toLocaleString() + ' DA' : '—'}</td>
+              <td><strong style="color:${profitColor}; font-size:12px;">${profitSign}${Math.round(profit).toLocaleString()} DA</strong></td>
               <td><span class="badge badge-${p.status}">${cap(p.status)}</span></td>
               <td>
                 <div class="action-group" style="position: relative;">
