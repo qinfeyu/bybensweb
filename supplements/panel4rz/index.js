@@ -3137,6 +3137,23 @@
       let customerPage = 1;
       const customerPageSize = 20;
 
+      function _toDbInventoryPayload(item) {
+        if (!item) return null;
+        return {
+          id: String(item.id || "").trim(),
+          type: item.type || "supplement",
+          brand: item.brand || "",
+          name: item.name || "",
+          variant_spec: item.variant_spec || item.variant || null,
+          size: item.size || null,
+          price_eur: Number(item.price_eur) || 0,
+          rate: Number(item.rate) || 250,
+          delivery_dzd: Number(item.delivery_dzd) || 0,
+          retail_dzd: Number(item.retail_dzd) || 0,
+          stock: Number(item.stock) || 0
+        };
+      }
+
       async function refreshBusinessPortalData() {
         try {
           const salesP = sb.from("sales").select("*").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
@@ -3183,7 +3200,7 @@
             if (item.id) {
               if (!mergedInv[item.id]) {
                 mergedInv[item.id] = item;
-                unsyncedLocals.push(item);
+                unsyncedLocals.push(_toDbInventoryPayload(item));
               }
             }
           });
@@ -3192,8 +3209,9 @@
           localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
 
           if (unsyncedLocals.length > 0) {
-            sb.from("inventory_items").upsert(unsyncedLocals, { onConflict: "id" }).then(() => {
-              console.log(`Synced ${unsyncedLocals.length} local inventory items to Supabase.`);
+            sb.from("inventory_items").upsert(unsyncedLocals, { onConflict: "id" }).then((res) => {
+              if (res && res.error) console.warn("Supabase background sync notice:", res.error.message);
+              else console.log(`Successfully synced ${unsyncedLocals.length} local inventory items to Supabase cloud!`);
             }).catch(err => console.warn("Background sync notice:", err));
           }
 
@@ -5997,8 +6015,10 @@
         showLoading("Adding inventory item…");
         
         try {
-          const { error } = await sb.from("inventory_items").upsert(payload, { onConflict: "id" });
+          const dbPayload = _toDbInventoryPayload(payload);
+          const { error } = await sb.from("inventory_items").upsert(dbPayload, { onConflict: "id" });
           if (error) console.warn("Supabase upsert notice:", error.message);
+          else console.log("Inventory item saved to Supabase cloud:", dbPayload.id);
         } catch(e) {
           console.warn("Failed to insert to Supabase, fallback to localStorage:", e);
         }
@@ -6133,7 +6153,9 @@
           };
           
           try {
-            await sb.from("inventory_items").update(payload).eq("id", id);
+            const dbPayload = _toDbInventoryPayload({ id, ...payload });
+            delete dbPayload.id;
+            await sb.from("inventory_items").update(dbPayload).eq("id", id);
           } catch (err) {
             console.warn("Supabase update notice:", err);
           }
@@ -6184,7 +6206,8 @@
         item[field] = val;
         
         try {
-          await sb.from("inventory_items").upsert(item);
+          const dbPayload = _toDbInventoryPayload(item);
+          await sb.from("inventory_items").upsert(dbPayload, { onConflict: "id" });
         } catch(e) {
           console.warn("Failed to upsert to Supabase in spreadsheet mode, fallback to localStorage:", e);
         }
@@ -6485,8 +6508,9 @@
           }
           
           try {
-            const { error } = await sb.from("inventory_items").upsert(upserts, { onConflict: "id" });
-            if (error) throw error;
+            const dbUpserts = upserts.map(_toDbInventoryPayload);
+            const { error } = await sb.from("inventory_items").upsert(dbUpserts, { onConflict: "id" });
+            if (error) console.warn("Supabase CSV upsert notice:", error.message);
           } catch(err) {
             console.warn("Failed to upsert CSV to Supabase, fallback to localStorage:", err);
           }
