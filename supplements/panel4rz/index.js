@@ -508,34 +508,45 @@
       }
 
       function updateDashboard() {
-        document.getElementById("stat-products").textContent = productsTotal || products.length;
-        document.getElementById("stat-orders").textContent = _dashOrders.length;
-        document.getElementById("stat-promos") &&
-          (document.getElementById("stat-promos").textContent = promos.filter(
-            (p) => p.status === "active",
-          ).length);
+        const elProds = document.getElementById("stat-products");
+        if (elProds) elProds.textContent = productsTotal || products.length;
+
+        const elOrders = document.getElementById("stat-orders");
+        if (elOrders) elOrders.textContent = _dashOrders.length;
+
+        const elPromos = document.getElementById("stat-promos");
+        if (elPromos) elPromos.textContent = promos.filter((p) => p.status === "active").length;
 
         const now = new Date();
         const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
         const weekOrders = _dashOrders.filter((o) => {
-          if (!o.createdAt) return false;
-          try { return new Date(o.createdAt) >= weekAgo; } catch (e) { return false; }
+          const rawDate = o.createdAt || o.created_at || o.date;
+          if (!rawDate) return false;
+          try { return new Date(rawDate) >= weekAgo; } catch (e) { return false; }
         });
 
-        document.getElementById("stat-week-orders").textContent = weekOrders.length;
-        document.getElementById("stat-pending").textContent = _dashOrders.filter((o) => o.status === "waiting").length;
+        const elWeekOrders = document.getElementById("stat-week-orders");
+        if (elWeekOrders) elWeekOrders.textContent = weekOrders.length;
 
-        const totalRev = _dashOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-        const weekRev = weekOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-        document.getElementById("stat-revenue-total").textContent = fmtRevenue(totalRev);
-        document.getElementById("stat-revenue-week").textContent = fmtRevenue(weekRev);
+        const elPending = document.getElementById("stat-pending");
+        if (elPending) elPending.textContent = _dashOrders.filter((o) => o.status === "waiting").length;
+
+        const totalRev = _dashOrders.reduce((s, o) => s + (Number(o.total || o.total_amount) || 0), 0);
+        const weekRev = weekOrders.reduce((s, o) => s + (Number(o.total || o.total_amount) || 0), 0);
+
+        const elRevTotal = document.getElementById("stat-revenue-total");
+        if (elRevTotal) elRevTotal.textContent = fmtRevenue(totalRev);
+
+        const elRevWeek = document.getElementById("stat-revenue-week");
+        if (elRevWeek) elRevWeek.textContent = fmtRevenue(weekRev);
 
         const trendEl = document.getElementById("stat-week-trend");
         if (trendEl) {
           const prevWeekOrders = _dashOrders.filter((o) => {
-            if (!o.createdAt) return false;
+            const rawDate = o.createdAt || o.created_at || o.date;
+            if (!rawDate) return false;
             try {
-              const d = new Date(o.createdAt);
+              const d = new Date(rawDate);
               return d >= new Date(now - 14 * 24 * 60 * 60 * 1000) && d < weekAgo;
             } catch (e) { return false; }
           });
@@ -580,14 +591,15 @@
           const recent = _dashOrders.slice(0, 6);
           recentEl.innerHTML = recent.length
             ? recent.map((o) => {
-                const name = `${o.firstName} ${o.lastName}`.trim() || "—";
+                const name = `${o.firstName || o.first_name || ""} ${o.lastName || o.last_name || ""}`.trim() || "—";
                 const badge = `<span class="badge ${getOrderBadgeClass(o.status)}" style="font-size:10px;padding:2px 8px">${cap(o.status)}</span>`;
                 let date = "—";
-                if (o.createdAt) try { date = new Date(o.createdAt).toLocaleDateString("en-GB"); } catch (e) {}
+                const rawDate = o.createdAt || o.created_at || o.date;
+                if (rawDate) try { date = new Date(rawDate).toLocaleDateString("en-GB"); } catch (e) {}
                 return `<div class="recent-order-row" onclick="showPage('orders',document.querySelector('.sb-link[onclick*=orders]'));setTimeout(()=>openOrderDetail('${o.id}'),100)">
                   <div class="recent-order-name">${name}<div class="recent-order-meta">${date} · ${(o.items||[]).length} item${(o.items||[]).length!==1?'s':''}</div></div>
                   ${badge}
-                  <div class="recent-order-total">${Number(o.total||0).toLocaleString("fr-DZ")} DA</div>
+                  <div class="recent-order-total">${Number(o.total||o.total_amount||0).toLocaleString("fr-DZ")} DA</div>
                 </div>`;
               }).join("")
             : `<div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">No orders yet</div>`;
