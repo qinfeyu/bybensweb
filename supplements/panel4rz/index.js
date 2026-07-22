@@ -83,10 +83,10 @@
 
       async function _fetchDashOrders() {
         const { data } = await sb.from("orders")
-          .select("id,status,total,created_at,items,first_name,last_name,phone,wilaya")
+          .select("id,source,status,total,created_at,items,first_name,last_name,phone,wilaya")
           .order("created_at", { ascending: false });
         _dashOrders = (data || []).map(o => ({
-          id: o.id, status: o.status, total: o.total,
+          id: o.id, source: o.source || "", status: o.status, total: o.total,
           createdAt: o.created_at, items: o.items || [],
           firstName: o.first_name || "", lastName: o.last_name || "",
           phone: o.phone || "", wilaya: o.wilaya || ""
@@ -530,6 +530,21 @@
 
         const elPending = document.getElementById("stat-pending");
         if (elPending) elPending.textContent = _dashOrders.filter((o) => o.status === "waiting").length;
+
+        // POS Checkout Stats
+        const posCount = (typeof allSales !== "undefined" && allSales.length) 
+          ? allSales.length 
+          : _dashOrders.filter(o => o.source === "POS Checkout" || (o.id && String(o.id).startsWith("pos-"))).length;
+        
+        const posRevenue = (typeof allSales !== "undefined" && allSales.length)
+          ? allSales.reduce((s, sl) => s + (Number(sl.total_amount) || 0), 0)
+          : _dashOrders.filter(o => o.source === "POS Checkout" || (o.id && String(o.id).startsWith("pos-"))).reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+        const elPosCount = document.getElementById("stat-pos-count");
+        if (elPosCount) elPosCount.textContent = posCount;
+
+        const elPosRev = document.getElementById("stat-pos-revenue");
+        if (elPosRev) elPosRev.textContent = fmtRevenue(posRevenue);
 
         const totalRev = _dashOrders.reduce((s, o) => s + (Number(o.total || o.total_amount) || 0), 0);
         const weekRev = weekOrders.reduce((s, o) => s + (Number(o.total || o.total_amount) || 0), 0);
@@ -3842,26 +3857,26 @@
             price: Number(item.price) || 0
           }));
 
-          try {
-            await sb.from("orders").insert({
-              id: orderId,
-              source: "POS Checkout",
-              first_name: firstName,
-              last_name: lastName,
-              phone: custPhone || "0000000000",
-              address: "In-Store POS Purchase",
-              wilaya: "In-Store",
-              commune: "",
-              delivery_type: "In-Store",
-              delivery_cost: 0,
-              items: orderItems,
-              subtotal: subtotal,
-              total: totalAmount,
-              status: "delivered", // In-store POS sales are completed/delivered immediately
-              created_at: new Date().toISOString()
-            });
-          } catch(err) {
-            console.warn("Notice: POS order mirror error:", err);
+          const { error: insertOrderErr } = await sb.from("orders").insert({
+            id: orderId,
+            source: "POS Checkout",
+            first_name: firstName,
+            last_name: lastName,
+            phone: custPhone || "0000000000",
+            address: "In-Store POS Purchase",
+            wilaya: "In-Store",
+            commune: "",
+            delivery_type: "In-Store",
+            delivery_cost: 0,
+            items: orderItems,
+            subtotal: subtotal,
+            total: totalAmount,
+            status: "delivered", // In-store POS sales are completed/delivered immediately
+            created_at: new Date().toISOString()
+          });
+
+          if (insertOrderErr) {
+            console.error("Error inserting POS order into orders table:", insertOrderErr);
           }
 
           // Reset cart
@@ -3880,15 +3895,18 @@
 
           showToast("Sale recorded successfully!");
           
-          // Reload products list, orders, and dashboards
+          // Reload products list, orders page, and dashboards
           const dataRes = await apiGet("getInitialData");
           if (dataRes && dataRes.success) {
             products = dataRes.products;
           }
           await Promise.all([
             _fetchDashOrders(),
+            _fetchOrdersPage(),
             refreshBusinessPortalData()
           ]);
+          renderOrders();
+          updateDashboard();
           renderPOSProductsList();
           renderPOSCart();
         } catch (e) {
