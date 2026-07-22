@@ -3007,3 +3007,70 @@
         background: #fee2e2;
         color: #b91c1c;
       }
+
+      /* Universal Form Control & Out-Of-Range Reset */
+      *, *:before, *:after {
+        box-sizing: border-box;
+      }
+
+      .form-control,
+      input,
+      select,
+      textarea {
+        box-sizing: border-box !important;
+        max-width: 100% !important;
+      }
+
+      input:out-of-range,
+      input:invalid,
+      select:invalid,
+      textarea:invalid,
+      .form-control:out-of-range,
+      .form-control:invalid,
+      .spreadsheet-input:out-of-range,
+      .spreadsheet-input:invalid {
+        box-shadow: none !important;
+        outline: none !important;
+        border-color: var(--g200) !important;
+        background: #fff !important;
+      }
+
+      .form-control:focus,
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--red) !important;
+        box-shadow: 0 0 0 2px rgba(173, 0, 0, 0.15) !important;
+        outline: none !important;
+      }
+
+      /* Modal Form Controls Overflow Prevention */
+      .modal-body,
+      .form-group,
+      .modal-content {
+        box-sizing: border-box !important;
+        max-width: 100% !important;
+      }
+
+      @media (max-width: 768px) {
+        .modal-dialog,
+        .modal-content {
+          width: 95% !important;
+          max-width: 100% !important;
+          margin: 10px auto !important;
+          padding: 14px !important;
+          box-sizing: border-box !important;
+        }
+        .form-group {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+        .form-control,
+        input.form-control,
+        select.form-control,
+        textarea.form-control {
+          width: 100% !important;
+          font-size: 13px !important;
+          height: 38px;
+        }
+      }

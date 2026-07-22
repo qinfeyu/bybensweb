@@ -6149,7 +6149,7 @@
           "Type"
         ];
         
-        let csvContent = "\uFEFF" + headers.join(",") + "\n";
+        let csvLines = [headers.join(",")];
         
         items.forEach(item => {
           const landed = (Number(item.price_eur || 0) * Number(item.rate || 250)) + Number(item.delivery_dzd || 0);
@@ -6173,17 +6173,20 @@
             item.stock || 0,
             `"${(item.type || activeInventoryTab).replace(/"/g, '""')}"`
           ];
-          csvContent += row.join(",") + "\n";
+          csvLines.push(row.join(","));
         });
         
-        const encodedUri = encodeURI(csvContent);
+        const csvString = "\uFEFF" + csvLines.join("\n");
+        const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         const dateStr = new Date().toISOString().slice(0,10);
-        a.href = encodedUri;
+        a.href = url;
         a.download = `bybens-inventory-${activeInventoryTab}-${dateStr}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         showToast("✓ CSV Exported!");
       };
 
