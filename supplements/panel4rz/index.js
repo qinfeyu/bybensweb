@@ -5240,22 +5240,21 @@
           document.body.appendChild(datalist);
         }
         
-        const optionsMap = new Map();
+        const optionsHtml = [];
         inventoryItems.forEach(item => {
           const specLabel = [item.variant_spec, item.size].filter(Boolean).join(" - ");
           const brandName = item.brand ? `${item.brand} - ` : '';
           const fullLabel = `[${item.id}] ${brandName}${item.name}${specLabel ? ' (' + specLabel + ')' : ''}`.trim();
           const pureName = `${brandName}${item.name}${specLabel ? ' (' + specLabel + ')' : ''}`.trim();
 
-          optionsMap.set(fullLabel, `Stock: ${item.stock}`);
-          if (pureName && !optionsMap.has(pureName)) {
-            optionsMap.set(pureName, `SKU: ${item.id} · Stock: ${item.stock}`);
+          optionsHtml.push(`<option value="${fullLabel}">Stock: ${item.stock}</option>`);
+          if (pureName && pureName !== fullLabel) {
+            optionsHtml.push(`<option value="${pureName}">[SKU: ${item.id}] · Stock: ${item.stock}</option>`);
           }
+          optionsHtml.push(`<option value="${item.id}">[${item.id}] ${fullLabel} · Stock: ${item.stock}</option>`);
         });
 
-        datalist.innerHTML = Array.from(optionsMap.entries()).map(([val, label]) => 
-          `<option value="${val}">${label}</option>`
-        ).join("");
+        datalist.innerHTML = optionsHtml.join("");
       };
 
       window.onVariantSkuSearchInput = function(inputEl) {
@@ -5265,39 +5264,48 @@
         const rawVal = inputEl.value.trim();
         const val = rawVal.toLowerCase();
 
-        let matchedSku = "";
+        let matchedItem = null;
         if (val) {
-          // 1. Try bracket SKU extraction e.g. [SUP-8801]
+          // 1. Bracket extraction e.g. [1001] or [SUP-8801]
           const bracketMatch = val.match(/\[(.*?)\]/);
           if (bracketMatch && bracketMatch[1]) {
             const candidate = bracketMatch[1].trim().toLowerCase();
-            const inv = inventoryItems.find(x => x.id.toLowerCase() === candidate);
-            if (inv) matchedSku = inv.id;
+            matchedItem = inventoryItems.find(x => String(x.id).toLowerCase() === candidate);
           }
 
-          // 2. Direct exact SKU match
-          if (!matchedSku) {
-            const invBySku = inventoryItems.find(x => x.id.toLowerCase() === val);
-            if (invBySku) matchedSku = invBySku.id;
+          // 2. Direct exact SKU ID match
+          if (!matchedItem) {
+            matchedItem = inventoryItems.find(x => String(x.id).toLowerCase() === val);
           }
 
-          // 3. Product Name / Brand match
-          if (!matchedSku) {
-            const invByName = inventoryItems.find(x => {
+          // 3. Exact Product Name match
+          if (!matchedItem) {
+            matchedItem = inventoryItems.find(x => (x.name || "").toLowerCase() === val || `${x.brand || ''} ${x.name || ''}`.toLowerCase().trim() === val);
+          }
+
+          // 4. Product Name or Brand fuzzy match
+          if (!matchedItem) {
+            matchedItem = inventoryItems.find(x => {
               const brandName = `${x.brand || ''} ${x.name}`.toLowerCase();
               const fullLabel = `[${x.id}] ${x.brand || ''} ${x.name} ${x.variant_spec || ''} ${x.size || ''}`.toLowerCase();
-              return brandName.includes(val) || fullLabel.includes(val) || val.includes(x.name.toLowerCase());
+              return brandName.includes(val) || fullLabel.includes(val) || val.includes((x.name || '').toLowerCase());
             });
-            if (invByName) matchedSku = invByName.id;
           }
         }
 
+        const matchedSku = matchedItem ? matchedItem.id : "";
         if (hiddenInput) hiddenInput.value = matchedSku;
 
-        if (matchedSku) {
-          const inv = inventoryItems.find(x => x.id === matchedSku);
-          if (inv) {
-            row.dataset.varStock = String(inv.stock);
+        if (matchedItem) {
+          row.dataset.varStock = String(matchedItem.stock);
+          
+          const specLabel = [matchedItem.variant_spec, matchedItem.size].filter(Boolean).join(" - ");
+          const formattedLabel = `[${matchedItem.id}] ${matchedItem.brand ? matchedItem.brand + ' - ' : ''}${matchedItem.name}${specLabel ? ' (' + specLabel + ')' : ''}`;
+          
+          if (document.activeElement !== inputEl || rawVal.includes("[")) {
+            if (inputEl.value !== formattedLabel) {
+              inputEl.value = formattedLabel;
+            }
           }
         } else {
           delete row.dataset.varStock;

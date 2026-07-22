@@ -777,6 +777,10 @@
         transform: scale(0.96);
         transition: transform 0.25s;
       }
+      .modal.modal-lg {
+        max-width: 980px !important;
+        width: 95% !important;
+      }
       .modal-overlay.open .modal {
         transform: scale(1);
       }
@@ -1022,12 +1026,15 @@
         flex-direction: column;
         gap: 10px;
         margin-bottom: 10px;
+        overflow-x: auto;
+        padding-bottom: 6px;
       }
       .variant-row {
         display: grid;
-        grid-template-columns: 85px 75px 110px 110px 1fr 140px 36px;
+        grid-template-columns: 80px 70px 110px 110px 1fr 140px 36px;
         gap: 10px;
         align-items: end;
+        min-width: 820px;
       }
       .variant-row .form-control {
         height: 38px;
