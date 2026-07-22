@@ -609,6 +609,18 @@
         background: var(--g50);
       }
 
+      .stock-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+      }
       .badge {
         display: inline-flex;
         align-items: center;

@@ -5620,8 +5620,8 @@
                   <span style="font-weight:700; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span>
                   <div style="font-size:10.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
                 </td>
-                <td><span class="badge" style="background:#eff6ff; color:#1d4ed8; font-weight:700; font-size:12px;">🇪🇺 ${item.stock_eu || 0}</span></td>
-                <td><span class="badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'} font-weight:700; font-size:12px;">🇩🇿 ${item.stock || 0}</span></td>
+                <td><span class="stock-badge" style="background:#eff6ff; color:#1d4ed8;">🇪🇺 ${item.stock_eu || 0}</span></td>
+                <td><span class="stock-badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'}">🇩🇿 ${item.stock || 0}</span></td>
                 <td style="text-align:center; min-width:160px;">
                   <div style="display:flex; gap:4px; justify-content:center; align-items:center; flex-wrap:nowrap; white-space:nowrap;">
                     <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:4px 8px; font-size:11px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; flex-shrink:0;" title="Move stock from Europe to Algeria">🚚 Move</button>
