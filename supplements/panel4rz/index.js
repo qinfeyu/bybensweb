@@ -5607,9 +5607,9 @@
             return `
               <tr style="vertical-align: middle;">
                 <td><strong style="color:var(--black); font-size:12px;">${item.id}</strong></td>
-                <td>${item.brand || '-'}</td>
-                <td style="font-weight: 500;">${item.name}</td>
-                <td>${item.variant_spec || '-'}</td>
+                <td style="white-space:normal; word-break:break-word;">${item.brand || '-'}</td>
+                <td style="font-weight: 500; white-space:normal; word-break:break-word; line-height:1.35;">${item.name}</td>
+                <td style="white-space:normal; word-break:break-word;">${item.variant_spec || '-'}</td>
                 <td>${item.size || '-'}</td>
                 <td>€ ${Number(item.price_eur).toFixed(2)}</td>
                 <td>${item.rate}</td>
@@ -5620,13 +5620,13 @@
                   <span style="font-weight:700; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span>
                   <div style="font-size:10.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
                 </td>
-                <td><span class="stock-badge" style="background:#eff6ff; color:#1d4ed8;">🇪🇺 ${item.stock_eu || 0}</span></td>
-                <td><span class="stock-badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'}">🇩🇿 ${item.stock || 0}</span></td>
-                <td style="text-align:center; min-width:160px;">
-                  <div style="display:flex; gap:4px; justify-content:center; align-items:center; flex-wrap:nowrap; white-space:nowrap;">
-                    <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:4px 8px; font-size:11px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; flex-shrink:0;" title="Move stock from Europe to Algeria">🚚 Move</button>
-                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:4px 8px; font-size:11px; height:auto; flex-shrink:0;">Edit</button>
-                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px; height:auto; flex-shrink:0;">Del</button>
+                <td style="text-align:center;"><span class="stock-badge" style="background:#eff6ff; color:#1d4ed8;">🇪🇺 ${item.stock_eu || 0}</span></td>
+                <td style="text-align:center;"><span class="stock-badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'}">🇩🇿 ${item.stock || 0}</span></td>
+                <td style="text-align:center;">
+                  <div style="display:flex; gap:3px; justify-content:center; align-items:center; flex-wrap:nowrap; white-space:nowrap;">
+                    <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; flex-shrink:0;" title="Move stock from Europe to Algeria">🚚 Move</button>
+                    <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; flex-shrink:0;">Edit</button>
+                    <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:3px 6px; font-size:10.5px; height:auto; flex-shrink:0;">Del</button>
                   </div>
                 </td>
               </tr>`;
