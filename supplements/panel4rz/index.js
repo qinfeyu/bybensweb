@@ -3827,6 +3827,43 @@
             }
           }
 
+          // Insert corresponding entry into orders table so POS Checkout sales appear under Orders tab & metrics
+          const nameParts = (custName || "POS Customer").trim().split(" ");
+          const firstName = nameParts[0] || "POS";
+          const lastName = nameParts.slice(1).join(" ") || "Customer";
+
+          const orderId = `pos-${saleId}`;
+          const orderItems = posCart.map(item => ({
+            id: item.productId,
+            name: item.name,
+            flavor: item.flavor || "",
+            variant: item.variant || "",
+            qty: Number(item.qty) || 1,
+            price: Number(item.price) || 0
+          }));
+
+          try {
+            await sb.from("orders").insert({
+              id: orderId,
+              source: "POS Checkout",
+              first_name: firstName,
+              last_name: lastName,
+              phone: custPhone || "0000000000",
+              address: "In-Store POS Purchase",
+              wilaya: "In-Store",
+              commune: "",
+              delivery_type: "In-Store",
+              delivery_cost: 0,
+              items: orderItems,
+              subtotal: subtotal,
+              total: totalAmount,
+              status: "delivered", // In-store POS sales are completed/delivered immediately
+              created_at: new Date().toISOString()
+            });
+          } catch(err) {
+            console.warn("Notice: POS order mirror error:", err);
+          }
+
           // Reset cart
           posCart = [];
           document.getElementById("pos-cust-name").value = "";
@@ -3843,12 +3880,15 @@
 
           showToast("Sale recorded successfully!");
           
-          // Reload products list and dashboards
+          // Reload products list, orders, and dashboards
           const dataRes = await apiGet("getInitialData");
           if (dataRes && dataRes.success) {
             products = dataRes.products;
           }
-          await refreshBusinessPortalData();
+          await Promise.all([
+            _fetchDashOrders(),
+            refreshBusinessPortalData()
+          ]);
           renderPOSProductsList();
           renderPOSCart();
         } catch (e) {
