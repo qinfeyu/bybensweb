@@ -3124,16 +3124,35 @@
           allExpenses = exp;
           manualCustomers = cust;
           
-          // Load inventory items with localStorage fallback
+          // Load inventory items with localStorage fallback & sync
           let localInv = [];
           try {
             localInv = JSON.parse(localStorage.getItem("bb_inventory_items") || "[]");
           } catch(e){}
+
           const mergedInv = {};
-          localInv.forEach(item => { if (item.id) mergedInv[item.id] = item; });
           inv.forEach(item => { if (item.id) mergedInv[item.id] = item; });
+
+          // Re-sync any local items not yet in Supabase
+          const unsyncedLocals = [];
+          localInv.forEach(item => {
+            if (item.id) {
+              if (!mergedInv[item.id]) {
+                mergedInv[item.id] = item;
+                unsyncedLocals.push(item);
+              }
+            }
+          });
+
           inventoryItems = Object.values(mergedInv);
-          
+          localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+
+          if (unsyncedLocals.length > 0) {
+            sb.from("inventory_items").upsert(unsyncedLocals, { onConflict: "id" }).then(() => {
+              console.log(`Synced ${unsyncedLocals.length} local inventory items to Supabase.`);
+            }).catch(err => console.warn("Background sync notice:", err));
+          }
+
           // Sync any variant stocks linked to these items
           syncAllLinkedProductsStock();
 
@@ -5451,15 +5470,16 @@
 
       window.loadInventoryPage = function() {
         // Compute next SKU number
-        const prefix = activeInventoryTab === "supplement" ? "SUP-" : "SNA-";
-        const prefixLower = prefix.toLowerCase();
-        
+        const prefix = activeInventoryTab === "supplement" ? "SUP-" : "SNK-";
         let maxNum = 8800; // starting number is 8801
         inventoryItems.forEach(item => {
-          if (item.id && item.id.toLowerCase().startsWith(prefixLower)) {
-            const numPart = parseInt(item.id.slice(4));
-            if (!isNaN(numPart) && numPart > maxNum) {
-              maxNum = numPart;
+          if (item.id) {
+            const parts = item.id.split("-");
+            if (parts.length > 1) {
+              const numPart = parseInt(parts[1]);
+              if (!isNaN(numPart) && numPart > maxNum) {
+                maxNum = numPart;
+              }
             }
           }
         });
@@ -5775,7 +5795,7 @@
       };
 
       window.addInventoryItem = async function() {
-        const id = document.getElementById("add-inv-sku")?.value.trim();
+        let id = document.getElementById("add-inv-sku")?.value.trim();
         const brand = document.getElementById("add-inv-brand")?.value.trim();
         const name = document.getElementById("add-inv-name")?.value.trim();
         const variant = document.getElementById("add-inv-variant")?.value.trim();
@@ -5791,10 +5811,15 @@
           showToast("Brand and Product Name required", "error");
           return;
         }
+
+        if (!id) {
+          const prefix = activeInventoryTab === "supplement" ? "SUP-" : "SNK-";
+          id = prefix + (Date.now().toString().slice(-4));
+        }
         
         const payload = {
           id,
-          type: activeInventoryTab,
+          type: activeInventoryTab || "supplement",
           brand,
           name,
           variant_spec: variant || null,
@@ -5810,8 +5835,8 @@
         showLoading("Adding inventory item…");
         
         try {
-          const { error } = await sb.from("inventory_items").insert(payload);
-          if (error) throw error;
+          const { error } = await sb.from("inventory_items").upsert(payload, { onConflict: "id" });
+          if (error) console.warn("Supabase upsert notice:", error.message);
         } catch(e) {
           console.warn("Failed to insert to Supabase, fallback to localStorage:", e);
         }
@@ -5822,7 +5847,7 @@
         else inventoryItems.push(payload);
         localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
         
-        showToast("Inventory item added successfully!");
+        showToast(`✓ Inventory item [${id}] added successfully!`);
         
         // Sync any product variants that are linked to this SKU
         await syncAllLinkedProductsStock();
