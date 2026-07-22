@@ -3456,12 +3456,12 @@
         const netProfit = grossProfit - totalOpexDzd;
         const netMarginPct = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
 
-        // 4. Stock Valuation (Warehouse Asset Values)
+        // 4. Stock Valuation (Total Warehouse Asset Values)
         let stockTotalCostEur = 0;
         let stockTotalCostDzd = 0;
         let stockTotalRetailDzd = 0;
         inventoryItems.forEach(inv => {
-          const stk = Number(inv.stock) || 0;
+          const stk = (Number(inv.stock) || 0) + (Number(inv.stock_eu) || 0);
           if (stk > 0) {
             const rate = Number(inv.rate) || eurRate;
             const pEur = Number(inv.price_eur) || 0;
@@ -3565,61 +3565,76 @@
         if (!listEl) return;
 
         const lowStockThreshold = 2;
-        const alerts = [];
+        const alertMap = new Map();
 
+        // 1. Check Inventory Items (Sellable Algeria Stock)
+        inventoryItems.forEach(inv => {
+          const dzStock = Number(inv.stock) || 0;
+          if (dzStock <= lowStockThreshold) {
+            const label = `${inv.brand ? inv.brand + ' - ' : ''}${inv.name}${inv.variant_spec ? ' (' + inv.variant_spec + ')' : ''}`;
+            alertMap.set(inv.id, {
+              name: label,
+              sku: inv.id,
+              stock: dzStock
+            });
+          }
+        });
+
+        // 2. Check Catalog Product Variants
         products.forEach(p => {
           if (p.status !== "active") return;
 
-          // Check variants stock
           (p.variants || []).forEach((v, vi) => {
             const variantLabel = v.weight ? `${v.weight}${v.unit || ""}`.trim() : `V${vi+1}`;
 
-            // Check flavor stocks if matrix exists
+            let realStock = 0;
+            if (v.sku) {
+              const inv = inventoryItems.find(x => x.id === v.sku);
+              if (inv) realStock = Number(inv.stock) || 0;
+              else realStock = v.stock !== undefined ? v.stock : (p.stock || 0);
+            } else {
+              realStock = v.stock !== undefined ? v.stock : (p.stock || 0);
+            }
+
             if (v.flavorStock && Object.keys(v.flavorStock).length > 0) {
               Object.entries(v.flavorStock).forEach(([flavor, stock]) => {
                 if (stock <= lowStockThreshold) {
-                  alerts.push({
-                    name: p.name,
-                    brand: p.brand || "",
-                    variant: variantLabel,
-                    flavor: flavor,
+                  const key = `${p.id}-${v.sku || vi}-${flavor}`;
+                  alertMap.set(key, {
+                    name: `${p.brand ? p.brand + ' - ' : ''}${p.name} (${variantLabel} - ${flavor})`,
+                    sku: v.sku || p.id,
                     stock: stock
                   });
                 }
               });
-            } else {
-              // Otherwise check variant overall stock
-              const stock = v.stock !== undefined ? v.stock : (p.stock || 0);
-              if (stock <= lowStockThreshold) {
-                alerts.push({
-                  name: p.name,
-                  brand: p.brand || "",
-                  variant: variantLabel,
-                  flavor: "",
-                  stock: stock
+            } else if (realStock <= lowStockThreshold) {
+              const key = v.sku || `${p.id}-${vi}`;
+              if (!alertMap.has(key)) {
+                alertMap.set(key, {
+                  name: `${p.brand ? p.brand + ' - ' : ''}${p.name} (${variantLabel})`,
+                  sku: v.sku || p.id,
+                  stock: realStock
                 });
               }
             }
           });
         });
 
-        if (alerts.length === 0) {
-          listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">All products are well stocked!</div>`;
-          if (btn) btn.style.display = "none";
-          return;
-        }
-
-        // Sort alerts by lowest stock level first
+        const alerts = Array.from(alertMap.values());
         alerts.sort((a, b) => a.stock - b.stock);
 
-        // Control Visibility toggle button
         if (btn) {
           if (alerts.length > 3) {
             btn.style.display = "inline-block";
-            btn.textContent = lowStockViewAll ? "Show Less" : "View All";
+            btn.textContent = lowStockViewAll ? "Show Less" : `View All (${alerts.length})`;
           } else {
             btn.style.display = "none";
           }
+        }
+
+        if (alerts.length === 0) {
+          listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">✓ All products & inventory items are sufficiently stocked!</div>`;
+          return;
         }
 
         const visibleAlerts = lowStockViewAll ? alerts : alerts.slice(0, 3);
@@ -3627,17 +3642,11 @@
         listEl.innerHTML = visibleAlerts.map(a => `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--g100);font-size:13px">
             <div>
-              <strong>${a.brand ? a.brand + ' - ' : ''}${a.name}</strong>
-              <div style="font-size:11px;color:var(--g500);margin-top:2px">
-                Variant: <code>${a.variant}</code> ${a.flavor ? ' | Flavor: <code>' + a.flavor + '</code>' : ''}
-              </div>
+              <strong style="color:var(--black);">${a.name}</strong>
+              <div style="font-size:11px;color:var(--g400);">SKU: ${a.sku}</div>
             </div>
-            <div>
-              <span class="badge" style="background:${a.stock === 0 ? 'var(--red)' : 'var(--orange)'};color:#fff;font-weight:bold;font-size:11px;padding:3px 8px;border-radius:4px">
-                Stock: ${a.stock} unit${a.stock !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
+            <span class="stock-badge" style="${a.stock === 0 ? 'background:#fee2e2;color:#b91c1c;' : 'background:#fef3c7;color:#92400e;'} font-size:11px; font-weight:700;">
+              ${a.stock === 0 ? 'Out of Stock (0)' : `Low Stock (${a.stock})`}
         `).join("");
       }
 
