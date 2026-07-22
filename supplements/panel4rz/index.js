@@ -5226,10 +5226,10 @@
 
       window.getInventorySkuDisplayLabel = function(sku) {
         if (!sku) return "";
-        const item = inventoryItems.find(x => x.id === sku);
+        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
         if (!item) return sku;
         const specLabel = [item.variant_spec, item.size].filter(Boolean).join(" - ");
-        return `[${item.id}] ${item.brand || ''} ${item.name} ${specLabel ? '(' + specLabel + ')' : ''}`.trim();
+        return `[${item.id}] ${item.brand ? item.brand + ' - ' : ''}${item.name}${specLabel ? ' (' + specLabel + ')' : ''}`.trim();
       };
 
       window.ensureInventorySkuDatalist = function() {
@@ -5239,38 +5239,54 @@
           datalist.id = "inventory-skus-datalist";
           document.body.appendChild(datalist);
         }
-        datalist.innerHTML = inventoryItems.map(item => {
+        
+        const optionsMap = new Map();
+        inventoryItems.forEach(item => {
           const specLabel = [item.variant_spec, item.size].filter(Boolean).join(" - ");
-          const fullLabel = `[${item.id}] ${item.brand || ''} ${item.name} ${specLabel ? '(' + specLabel + ')' : ''}`.trim();
-          return `<option value="${fullLabel}">SKU: ${item.id} · Stock: ${item.stock}</option>`;
-        }).join("");
+          const brandName = item.brand ? `${item.brand} - ` : '';
+          const fullLabel = `[${item.id}] ${brandName}${item.name}${specLabel ? ' (' + specLabel + ')' : ''}`.trim();
+          const pureName = `${brandName}${item.name}${specLabel ? ' (' + specLabel + ')' : ''}`.trim();
+
+          optionsMap.set(fullLabel, `Stock: ${item.stock}`);
+          if (pureName && !optionsMap.has(pureName)) {
+            optionsMap.set(pureName, `SKU: ${item.id} · Stock: ${item.stock}`);
+          }
+        });
+
+        datalist.innerHTML = Array.from(optionsMap.entries()).map(([val, label]) => 
+          `<option value="${val}">${label}</option>`
+        ).join("");
       };
 
       window.onVariantSkuSearchInput = function(inputEl) {
         const row = inputEl.closest(".variant-row");
         if (!row) return;
         const hiddenInput = row.querySelector(".variant-sku-select");
-        const val = inputEl.value.trim();
+        const rawVal = inputEl.value.trim();
+        const val = rawVal.toLowerCase();
 
         let matchedSku = "";
         if (val) {
-          // 1. Try extracting SKU from brackets e.g. [SUP-8801]
-          const match = val.match(/\[(.*?)\]/);
-          if (match && match[1]) {
-            const candidate = match[1].trim();
-            const inv = inventoryItems.find(x => x.id.toLowerCase() === candidate.toLowerCase());
+          // 1. Try bracket SKU extraction e.g. [SUP-8801]
+          const bracketMatch = val.match(/\[(.*?)\]/);
+          if (bracketMatch && bracketMatch[1]) {
+            const candidate = bracketMatch[1].trim().toLowerCase();
+            const inv = inventoryItems.find(x => x.id.toLowerCase() === candidate);
             if (inv) matchedSku = inv.id;
           }
+
+          // 2. Direct exact SKU match
           if (!matchedSku) {
-            // 2. Try direct SKU ID match
-            const invBySku = inventoryItems.find(x => x.id.toLowerCase() === val.toLowerCase());
+            const invBySku = inventoryItems.find(x => x.id.toLowerCase() === val);
             if (invBySku) matchedSku = invBySku.id;
           }
+
+          // 3. Product Name / Brand match
           if (!matchedSku) {
-            // 3. Try product name or brand match
             const invByName = inventoryItems.find(x => {
-              const full = `[${x.id}] ${x.brand || ''} ${x.name}`.toLowerCase();
-              return full.includes(val.toLowerCase());
+              const brandName = `${x.brand || ''} ${x.name}`.toLowerCase();
+              const fullLabel = `[${x.id}] ${x.brand || ''} ${x.name} ${x.variant_spec || ''} ${x.size || ''}`.toLowerCase();
+              return brandName.includes(val) || fullLabel.includes(val) || val.includes(x.name.toLowerCase());
             });
             if (invByName) matchedSku = invByName.id;
           }

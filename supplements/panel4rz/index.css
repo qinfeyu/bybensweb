@@ -1025,12 +1025,17 @@
       }
       .variant-row {
         display: grid;
-        grid-template-columns: 1fr 100px 120px 120px 140px 36px;
+        grid-template-columns: 85px 75px 110px 110px 1fr 140px 36px;
         gap: 10px;
         align-items: end;
       }
       .variant-row .form-control {
         height: 38px;
+      }
+      input:out-of-range,
+      input:invalid {
+        box-shadow: none !important;
+        outline: none !important;
       }
       .btn-remove-variant {
         height: 38px;
