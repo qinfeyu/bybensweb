@@ -3128,15 +3128,89 @@
         return { currency: "DZD", amount: Number(e.amount) || 0 };
       }
 
+      // ─── COMPLETE FINANCE MANAGER & PROFIT ENGINE ───
+      let currentFinancialPeriod = "all"; // 'all', 'today', 'week', 'month'
+
+      window.setFinancialPeriod = function(period, btnEl) {
+        currentFinancialPeriod = period;
+        if (btnEl) {
+          const container = btnEl.parentElement;
+          if (container) {
+            container.querySelectorAll(".fin-period-btn").forEach(b => b.classList.remove("active"));
+            btnEl.classList.add("active");
+          }
+        }
+        computeBusinessDashboard();
+      };
+
+      function isDateInFinancialPeriod(dateStr) {
+        if (currentFinancialPeriod === "all" || !dateStr) return true;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return true;
+        
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (currentFinancialPeriod === "today") {
+          return d >= startOfToday;
+        }
+        if (currentFinancialPeriod === "week") {
+          const sevenDaysAgo = new Date(startOfToday);
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          return d >= sevenDaysAgo;
+        }
+        if (currentFinancialPeriod === "month") {
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }
+        return true;
+      }
+
+      function getItemUnitCostDzd(productId, variantName) {
+        if (!productId) return 0;
+        const eurRate = parseFloat(settings.budget_rate) || 250;
+        
+        // 1. Check Inventory Items by ID or SKU or Name
+        const inv = inventoryItems.find(x => 
+          x.id === productId || 
+          (x.name && x.name.toLowerCase() === String(productId).toLowerCase())
+        );
+        if (inv) {
+          const rate = Number(inv.rate) || eurRate;
+          const pEur = Number(inv.price_eur) || 0;
+          const del = Number(inv.delivery_dzd) || 0;
+          return (pEur * rate) + del;
+        }
+
+        // 2. Check Product Variants by Product ID
+        const prod = products.find(p => p.id === productId || p.name?.toLowerCase() === String(productId).toLowerCase());
+        if (prod && prod.variants && prod.variants.length > 0) {
+          const vName = String(variantName || "").trim().toLowerCase();
+          const v = prod.variants.find(x => {
+            const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+            return label === vName || !vName;
+          });
+          if (v) {
+            if (Number(v.cost)) return Number(v.cost);
+            if (Number(v.cost_eur)) return Number(v.cost_eur) * eurRate;
+            if (Number(v.price)) return Number(v.price) * 0.7; // Fallback 30% margin default
+          }
+        }
+        return 0;
+      }
+
       function computeBusinessDashboard() {
-        // Compute expenses total
+        const eurRate = parseFloat(settings.budget_rate) || 250;
+
+        // 1. Compute filtered expenses total
         let totalExpDzd = 0;
         let totalExpEur = 0;
         allExpenses.forEach(e => {
+          if (!isDateInFinancialPeriod(e.date)) return;
           const { currency, amount } = getExpenseCurrencyAndAmount(e);
           if (currency === "EUR") totalExpEur += amount;
           else totalExpDzd += amount;
         });
+        const totalOpexDzd = totalExpDzd + (totalExpEur * eurRate);
 
         // Update budget labels
         const budgetEur = parseFloat(settings.budget_eur) || 0;
@@ -3149,100 +3223,174 @@
         const expBadge = document.getElementById("total-expenses-badge");
         if (expBadge) expBadge.textContent = `Total: ${totalExpDzd.toLocaleString()} DA / ${totalExpEur.toFixed(2)} €`;
 
-        // Let's add extra KPI elements dynamically to page-dashboard stats-grid if they are missing
-        const statsGrid = document.querySelector("#page-dashboard .stats-grid");
-        if (statsGrid && !document.getElementById("stat-net-profit")) {
-          // Add Net Profit & Operating Expenses KPI cards to the main dashboard dynamically!
-          const expCard = document.createElement("div");
-          expCard.className = "stat-card";
-          expCard.innerHTML = `
-            <div class="stat-icon purple">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01"/>
-              </svg>
-            </div>
-            <div>
-              <div class="stat-num" id="stat-total-expenses">0 DA</div>
-              <div class="stat-label">Operating Expenses</div>
-            </div>
-          `;
-          statsGrid.appendChild(expCard);
-
-          const netCard = document.createElement("div");
-          netCard.className = "stat-card";
-          netCard.innerHTML = `
-            <div class="stat-icon green">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-              </svg>
-            </div>
-            <div>
-              <div class="stat-num" id="stat-net-profit">0 DA</div>
-              <div class="stat-label">Net Profit Margin</div>
-            </div>
-          `;
-          statsGrid.appendChild(netCard);
-        }
-
-        // Calculate metrics
-        // Revenue = Total orders value + Total POS checkout value
-        const totalSalesRevenue = allSales.reduce((s, sl) => s + (Number(sl.total_amount) || 0), 0);
-        const totalOrdersRevenue = _dashOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-        const combinedRevenue = totalSalesRevenue + totalOrdersRevenue;
-
-        // Cost of goods sold:
-        // For orders: we can map order item quantities to variant costs.
-        // For POS sales: we map sale item quantities to product variant costs recorded at checkout.
+        // 2. Revenue, COGS, and Profitability Breakdown per product
+        let grossRevenue = 0;
         let totalCOGS = 0;
-        
-        // Sum up COGS from sales
-        allSaleItems.forEach(item => {
-          const prod = products.find(p => p.id === item.product_id);
-          if (prod) {
-            // Find cost in variant
-            const variantName = item.variant || "";
-            const v = prod.variants.find(x => {
-              const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-              return label === variantName.toLowerCase();
-            });
-            const itemCost = v ? (Number(v.cost) || 0) : 0;
-            totalCOGS += itemCost * (item.qty || 0);
-          }
-        });
+        const productProfitabilityMap = {};
 
-        // Sum up COGS from online orders
-        _dashOrders.forEach(o => {
-          (o.items || []).forEach(item => {
-            const prod = products.find(p => p.id === item.productId);
-            if (prod) {
-              const variantName = item.variantName || "";
-              const v = prod.variants.find(x => {
-                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-                return label === variantName.toLowerCase();
-              });
-              const itemCost = v ? (Number(v.cost) || 0) : 0;
-              totalCOGS += itemCost * (item.qty || 0);
-            }
+        const trackItemProfitability = (skuOrName, qty, retailPrice, unitCost) => {
+          if (!skuOrName) return;
+          const key = skuOrName;
+          if (!productProfitabilityMap[key]) {
+            productProfitabilityMap[key] = { name: skuOrName, qty: 0, revenue: 0, cogs: 0 };
+          }
+          productProfitabilityMap[key].qty += qty;
+          productProfitabilityMap[key].revenue += retailPrice * qty;
+          productProfitabilityMap[key].cogs += unitCost * qty;
+        };
+
+        // A. Process POS Sales
+        allSales.forEach(s => {
+          if (!isDateInFinancialPeriod(s.date)) return;
+          grossRevenue += Number(s.total_amount) || 0;
+
+          const saleItems = allSaleItems.filter(x => x.sale_id === s.id);
+          saleItems.forEach(item => {
+            const qty = Number(item.qty) || 1;
+            const price = Number(item.price) || 0;
+            const unitCost = getItemUnitCostDzd(item.product_id, item.variant);
+            totalCOGS += unitCost * qty;
+
+            const inv = inventoryItems.find(x => x.id === item.product_id);
+            const label = inv ? `${inv.brand || ''} ${inv.name}`.trim() : (item.product_id || "POS Item");
+            trackItemProfitability(label, qty, price, unitCost);
           });
         });
 
-        const totalExpInDzdEquivalent = totalExpDzd + (totalExpEur * 250);
-        const netProfit = combinedRevenue - totalCOGS - totalExpInDzdEquivalent;
+        // B. Process Online Orders
+        _dashOrders.forEach(o => {
+          if (!isDateInFinancialPeriod(o.created_at || o.date)) return;
+          grossRevenue += Number(o.total || o.total_amount || 0);
 
-        document.getElementById("stat-revenue-total").textContent = fmtRevenue(combinedRevenue);
-        if (document.getElementById("stat-total-expenses")) {
-          document.getElementById("stat-total-expenses").textContent = `${totalExpDzd.toLocaleString()} DA + ${totalExpEur.toFixed(2)} €`;
-        }
-        if (document.getElementById("stat-net-profit")) {
-          document.getElementById("stat-net-profit").textContent = netProfit.toLocaleString() + " DA";
-          if (netProfit < 0) {
-            document.getElementById("stat-net-profit").style.color = "var(--red)";
-          } else {
-            document.getElementById("stat-net-profit").style.color = "var(--green)";
+          (o.items || []).forEach(item => {
+            const qty = Number(item.qty) || 1;
+            const price = Number(item.price) || 0;
+            const unitCost = getItemUnitCostDzd(item.productId || item.id, item.variantName || item.variant);
+            totalCOGS += unitCost * qty;
+
+            const label = item.name || item.productId || "Online Item";
+            trackItemProfitability(label, qty, price, unitCost);
+          });
+        });
+
+        // C. Process Pre-Orders (Fulfilled)
+        allPreorders.filter(p => p.status === "fulfilled").forEach(p => {
+          if (!isDateInFinancialPeriod(p.date)) return;
+          grossRevenue += Number(p.total_amount) || 0;
+
+          const preItems = allPreorderItems.filter(x => x.pre_order_id === p.id);
+          preItems.forEach(item => {
+            const qty = Number(item.qty) || 1;
+            const inv = inventoryItems.find(x => x.id === item.product_id);
+            const price = inv ? Number(inv.retail_dzd) || 0 : 0;
+            const unitCost = getItemUnitCostDzd(item.product_id, item.variant);
+            totalCOGS += unitCost * qty;
+
+            const label = item.product_name || (inv ? `${inv.brand || ''} ${inv.name}`.trim() : "Pre-order Item");
+            trackItemProfitability(label, qty, price, unitCost);
+          });
+        });
+
+        // 3. Compute Gross & Net Profits & Margins
+        const grossProfit = grossRevenue - totalCOGS;
+        const grossMarginPct = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
+
+        const netProfit = grossProfit - totalOpexDzd;
+        const netMarginPct = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
+
+        // 4. Stock Valuation (Warehouse Asset Values)
+        let stockTotalCostEur = 0;
+        let stockTotalCostDzd = 0;
+        let stockTotalRetailDzd = 0;
+        inventoryItems.forEach(inv => {
+          const stk = Number(inv.stock) || 0;
+          if (stk > 0) {
+            const rate = Number(inv.rate) || eurRate;
+            const pEur = Number(inv.price_eur) || 0;
+            const delDzd = Number(inv.delivery_dzd) || 0;
+            const landedUnit = (pEur * rate) + delDzd;
+
+            stockTotalCostEur += pEur * stk;
+            stockTotalCostDzd += landedUnit * stk;
+            stockTotalRetailDzd += (Number(inv.retail_dzd) || 0) * stk;
           }
+        });
+
+        // 5. Update KPI Cards UI
+        const elRev = document.getElementById("stat-revenue-total");
+        if (elRev) elRev.textContent = fmtRevenue(grossRevenue);
+
+        const elCogs = document.getElementById("stat-cogs-total");
+        if (elCogs) {
+          const cogsEur = totalCOGS / eurRate;
+          elCogs.textContent = `${Math.round(totalCOGS).toLocaleString()} DA (${cogsEur.toFixed(2)} €)`;
         }
+
+        const elGrossProfit = document.getElementById("stat-gross-profit");
+        const badgeGrossMargin = document.getElementById("badge-gross-margin");
+        if (elGrossProfit) elGrossProfit.textContent = `${Math.round(grossProfit).toLocaleString()} DA`;
+        if (badgeGrossMargin) {
+          badgeGrossMargin.textContent = `${grossMarginPct.toFixed(1)}%`;
+          badgeGrossMargin.className = `fin-badge ${grossProfit >= 0 ? 'positive' : 'negative'}`;
+        }
+
+        const elExpenses = document.getElementById("stat-total-expenses");
+        if (elExpenses) {
+          elExpenses.textContent = `${Math.round(totalOpexDzd).toLocaleString()} DA (${totalExpEur.toFixed(2)} €)`;
+        }
+
+        const elNetProfit = document.getElementById("stat-net-profit");
+        const badgeNetMargin = document.getElementById("badge-net-margin");
+        if (elNetProfit) {
+          elNetProfit.textContent = `${Math.round(netProfit).toLocaleString()} DA`;
+          elNetProfit.style.color = netProfit >= 0 ? "var(--green)" : "var(--red)";
+        }
+        if (badgeNetMargin) {
+          badgeNetMargin.textContent = `${netMarginPct.toFixed(1)}%`;
+          badgeNetMargin.className = `fin-badge ${netProfit >= 0 ? 'positive' : 'negative'}`;
+        }
+
+        const elStockVal = document.getElementById("stat-stock-valuation");
+        if (elStockVal) {
+          elStockVal.textContent = `${Math.round(stockTotalCostDzd).toLocaleString()} DA (${stockTotalCostEur.toFixed(2)} €)`;
+        }
+
+        // 6. Render Product Profitability Breakdown Table
+        renderFinancialProfitabilityTable(productProfitabilityMap);
+
         renderLowStockAlerts();
+      }
+
+      function renderFinancialProfitabilityTable(profitabilityMap) {
+        const tbody = document.getElementById("financial-profitability-tbody");
+        if (!tbody) return;
+
+        const items = Object.values(profitabilityMap);
+        if (items.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--g400); padding:20px;">No sales recorded for this period.</td></tr>`;
+          return;
+        }
+
+        items.sort((a, b) => b.revenue - a.revenue);
+
+        tbody.innerHTML = items.slice(0, 10).map(item => {
+          const profit = item.revenue - item.cogs;
+          const marginPct = item.revenue > 0 ? (profit / item.revenue) * 100 : 0;
+          const marginColor = profit >= 0 ? "var(--green)" : "var(--red)";
+
+          return `
+            <tr>
+              <td style="font-weight:600; color:var(--black);">${item.name}</td>
+              <td style="text-align:center; font-weight:700;">${item.qty}</td>
+              <td style="text-align:right;">${Math.round(item.revenue).toLocaleString()} DA</td>
+              <td style="text-align:right; color:var(--g600);">${Math.round(item.cogs).toLocaleString()} DA</td>
+              <td style="text-align:right; font-weight:700; color:${marginColor};">${Math.round(profit).toLocaleString()} DA</td>
+              <td style="text-align:center;">
+                <span class="fin-badge ${profit >= 0 ? 'positive' : 'negative'}">${marginPct.toFixed(1)}%</span>
+              </td>
+            </tr>
+          `;
+        }).join("");
       }
 
       let lowStockViewAll = false;
@@ -5118,6 +5266,7 @@
         tbody.innerHTML = pageItems.map(item => {
           const landed = (Number(item.price_eur) * Number(item.rate)) + Number(item.delivery_dzd);
           const margin = Number(item.retail_dzd) - landed;
+          const marginPct = Number(item.retail_dzd) > 0 ? ((margin / Number(item.retail_dzd)) * 100).toFixed(1) : "0.0";
           const marginColor = margin >= 0 ? "var(--green)" : "var(--red)";
           
           if (inventorySpreadsheetMode) {
@@ -5138,7 +5287,10 @@
                 <td><input type="number" value="${item.delivery_dzd}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'delivery_dzd')" /></td>
                 <td><span style="font-weight:600; color:var(--g600); font-size:12px;">${Math.round(landed).toLocaleString()} DZD</span></td>
                 <td><input type="number" value="${item.retail_dzd}" class="spreadsheet-input" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'retail_dzd')" /></td>
-                <td><span style="font-weight:600; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DZD</span></td>
+                <td>
+                  <span style="font-weight:700; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span>
+                  <div style="font-size:10.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
+                </td>
                 <td><input type="number" value="${item.stock}" class="spreadsheet-input" style="font-weight: 700; color: var(--black);" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'stock')" /></td>
                 <td style="text-align:center;">
                   <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:4px 8px; font-size:11px;">Delete</button>
@@ -5157,7 +5309,10 @@
                 <td>${Number(item.delivery_dzd).toLocaleString()} DA</td>
                 <td><span style="font-weight:600; color:var(--g600); font-size:12px;">${Math.round(landed).toLocaleString()} DA</span></td>
                 <td>${Number(item.retail_dzd).toLocaleString()} DA</td>
-                <td><span style="font-weight:600; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span></td>
+                <td>
+                  <span style="font-weight:700; color:${marginColor}; font-size:12px;">${Math.round(margin).toLocaleString()} DA</span>
+                  <div style="font-size:10.5px; color:${marginColor}; font-weight:600;">${marginPct}%</div>
+                </td>
                 <td><strong style="color:var(--black); font-size:13px;">${item.stock}</strong></td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:4px; justify-content:center;">
@@ -5178,6 +5333,7 @@
             cardsContainer.innerHTML = pageItems.map(item => {
               const landed = (Number(item.price_eur) * Number(item.rate)) + Number(item.delivery_dzd);
               const margin = Number(item.retail_dzd) - landed;
+              const marginPct = Number(item.retail_dzd) > 0 ? ((margin / Number(item.retail_dzd)) * 100).toFixed(1) : "0.0";
               const marginColor = margin >= 0 ? "#16a34a" : "#dc2626";
               const stockBadge = Number(item.stock) > 2 
                 ? `<span class="badge" style="background:#dcfce7;color:#15803d;font-weight:700;">Stock: ${item.stock}</span>`
@@ -5211,7 +5367,7 @@
                     </div>
                     <div>
                       <span style="font-size:10px; color:var(--g400); text-transform:uppercase; font-weight:700;">Margin</span><br>
-                      <strong style="font-size:13px; color:${marginColor};">${Math.round(margin).toLocaleString()} DA</strong>
+                      <strong style="font-size:13px; color:${marginColor};">${Math.round(margin).toLocaleString()} DA (${marginPct}%)</strong>
                     </div>
                   </div>
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:2px;">

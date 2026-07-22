@@ -2926,3 +2926,41 @@
         background: var(--g50);
         color: var(--red) !important;
       }
+
+      /* Finance Manager Period Selector & Badges */
+      .fin-period-btn {
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--g600);
+        border-radius: 6px;
+        background: transparent;
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+      .fin-period-btn:hover {
+        color: var(--black);
+        background: rgba(0, 0, 0, 0.04);
+      }
+      .fin-period-btn.active {
+        color: var(--white);
+        background: var(--red);
+        box-shadow: 0 2px 6px rgba(173, 0, 0, 0.25);
+      }
+      .fin-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .fin-badge.positive {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      .fin-badge.negative {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
