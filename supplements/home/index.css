@@ -1059,6 +1059,14 @@ textarea {
   background: #0a7c3e;
   color: var(--white);
 }
+.badge-lowstock {
+  background: linear-gradient(135deg, #e11d48, #be123c) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  font-weight: 800 !important;
+  letter-spacing: 0.6px;
+}
 .badge-promo {
   background: var(--red);
   color: var(--white);

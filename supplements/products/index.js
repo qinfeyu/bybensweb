@@ -266,7 +266,7 @@
       function computeBadge(p, bundleId, topSoldIds) {
         const stock = Number(p.stock);
         if (stock <= 0) return { type:'oos', label:'OUT OF STOCK' };
-        if (stock > 0 && stock <= 3) return { type:'lowstock', label:`ONLY ${stock} LEFT` };
+        if (stock > 0 && stock <= 3) return { type:'lowstock', label:`🔥 ONLY ${stock} LEFT` };
         if (topSoldIds && topSoldIds.includes(p.id)) return { type:'hot', label:'HOT' };
         if (bundleId && p.id === bundleId) return { type:'bundle', label:'BUNDLE' };
         if (p.createdAt) { const c=new Date(p.createdAt),n=new Date(); if(c.toDateString()===n.toDateString()) return { type:'new', label:'NEW' }; }
