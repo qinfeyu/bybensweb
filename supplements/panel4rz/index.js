@@ -3177,37 +3177,61 @@
         return true;
       }
 
-      function getItemUnitCostDzd(productId, variantName) {
-        if (!productId) return 0;
+      function getProductPricingAndCost(productId, variantName, fallbackPrice = 0) {
         const eurRate = parseFloat(settings.budget_rate) || 250;
-        
-        // 1. Check Inventory Items by ID or SKU or Name
-        const inv = inventoryItems.find(x => 
-          x.id === productId || 
-          (x.name && x.name.toLowerCase() === String(productId).toLowerCase())
-        );
+        let retailPrice = Number(fallbackPrice) || 0;
+        let unitCost = 0;
+        let productName = "";
+
+        const pIdStr = String(productId || "").toLowerCase().trim();
+        const vNameStr = String(variantName || "").toLowerCase().trim();
+
+        // 1. Try finding in inventoryItems by ID, SKU, or Name match
+        let inv = inventoryItems.find(x => String(x.id || "").toLowerCase().trim() === pIdStr);
+        if (!inv && pIdStr) {
+          inv = inventoryItems.find(x => String(x.name || "").toLowerCase().trim() === pIdStr);
+        }
+        if (!inv && pIdStr) {
+          inv = inventoryItems.find(x => {
+            const full = `${x.brand || ''} ${x.name || ''}`.toLowerCase().trim();
+            return full.includes(pIdStr) || pIdStr.includes(full);
+          });
+        }
+
         if (inv) {
           const rate = Number(inv.rate) || eurRate;
           const pEur = Number(inv.price_eur) || 0;
           const del = Number(inv.delivery_dzd) || 0;
-          return (pEur * rate) + del;
-        }
+          unitCost = (pEur * rate) + del;
+          if (Number(inv.retail_dzd)) {
+            retailPrice = Number(inv.retail_dzd);
+          }
+          productName = `${inv.brand ? inv.brand + ' - ' : ''}${inv.name}${inv.variant_spec ? ' (' + inv.variant_spec + ')' : ''}`;
+        } else {
+          // 2. Try finding in products catalog
+          const prod = products.find(p => String(p.id || "").toLowerCase() === pIdStr || String(p.name || "").toLowerCase() === pIdStr);
+          if (prod) {
+            productName = `${prod.brand ? prod.brand + ' - ' : ''}${prod.name}`;
+            if (prod.variants && prod.variants.length > 0) {
+              const v = prod.variants.find(x => {
+                const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
+                return label === vNameStr || !vNameStr;
+              }) || prod.variants[0];
 
-        // 2. Check Product Variants by Product ID
-        const prod = products.find(p => p.id === productId || p.name?.toLowerCase() === String(productId).toLowerCase());
-        if (prod && prod.variants && prod.variants.length > 0) {
-          const vName = String(variantName || "").trim().toLowerCase();
-          const v = prod.variants.find(x => {
-            const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-            return label === vName || !vName;
-          });
-          if (v) {
-            if (Number(v.cost)) return Number(v.cost);
-            if (Number(v.cost_eur)) return Number(v.cost_eur) * eurRate;
-            if (Number(v.price)) return Number(v.price) * 0.7; // Fallback 30% margin default
+              if (v) {
+                if (Number(v.price)) retailPrice = Number(v.price);
+                if (Number(v.cost)) unitCost = Number(v.cost);
+                else if (Number(v.cost_eur)) unitCost = Number(v.cost_eur) * eurRate;
+              }
+            }
           }
         }
-        return 0;
+
+        if (!productName) productName = String(productId || "Unknown Item");
+        if (!retailPrice && fallbackPrice) retailPrice = Number(fallbackPrice);
+        if (!unitCost && retailPrice) unitCost = retailPrice * 0.7; // default 30% margin fallback if cost missing
+
+        return { productName, retailPrice, unitCost };
       }
 
       function computeBusinessDashboard() {
@@ -3240,67 +3264,99 @@
         let totalCOGS = 0;
         const productProfitabilityMap = {};
 
-        const trackItemProfitability = (skuOrName, qty, retailPrice, unitCost) => {
+        const trackItemProfitability = (skuOrName, qty, itemRevenue, itemCogs) => {
           if (!skuOrName) return;
           const key = skuOrName;
           if (!productProfitabilityMap[key]) {
             productProfitabilityMap[key] = { name: skuOrName, qty: 0, revenue: 0, cogs: 0 };
           }
           productProfitabilityMap[key].qty += qty;
-          productProfitabilityMap[key].revenue += retailPrice * qty;
-          productProfitabilityMap[key].cogs += unitCost * qty;
+          productProfitabilityMap[key].revenue += itemRevenue;
+          productProfitabilityMap[key].cogs += itemCogs;
         };
 
         // A. Process POS Sales
         allSales.forEach(s => {
           if (!isDateInFinancialPeriod(s.date)) return;
-          grossRevenue += Number(s.total_amount) || 0;
 
           const saleItems = allSaleItems.filter(x => x.sale_id === s.id);
-          saleItems.forEach(item => {
-            const qty = Number(item.qty) || 1;
-            const price = Number(item.price) || 0;
-            const unitCost = getItemUnitCostDzd(item.product_id, item.variant);
-            totalCOGS += unitCost * qty;
+          if (saleItems.length > 0) {
+            saleItems.forEach(item => {
+              const qty = Number(item.qty) || 1;
+              const fallbackP = Number(item.price) || (s.total_amount ? Number(s.total_amount) / saleItems.length : 0);
+              const info = getProductPricingAndCost(item.product_id, item.variant, fallbackP);
+              
+              const itemRev = info.retailPrice * qty;
+              const itemCogs = info.unitCost * qty;
 
-            const inv = inventoryItems.find(x => x.id === item.product_id);
-            const label = inv ? `${inv.brand || ''} ${inv.name}`.trim() : (item.product_id || "POS Item");
-            trackItemProfitability(label, qty, price, unitCost);
-          });
+              grossRevenue += itemRev;
+              totalCOGS += itemCogs;
+
+              trackItemProfitability(info.productName, qty, itemRev, itemCogs);
+            });
+          } else {
+            const saleRev = Number(s.total_amount) || 0;
+            grossRevenue += saleRev;
+            const saleCogs = saleRev * 0.7;
+            totalCOGS += saleCogs;
+            trackItemProfitability("POS Sale", 1, saleRev, saleCogs);
+          }
         });
 
         // B. Process Online Orders
         _dashOrders.forEach(o => {
-          if (!isDateInFinancialPeriod(o.created_at || o.date)) return;
-          grossRevenue += Number(o.total || o.total_amount || 0);
+          const rawDate = o.createdAt || o.created_at || o.date;
+          if (!isDateInFinancialPeriod(rawDate)) return;
 
-          (o.items || []).forEach(item => {
-            const qty = Number(item.qty) || 1;
-            const price = Number(item.price) || 0;
-            const unitCost = getItemUnitCostDzd(item.productId || item.id, item.variantName || item.variant);
-            totalCOGS += unitCost * qty;
+          const orderItems = o.items || [];
+          if (orderItems.length > 0) {
+            orderItems.forEach(item => {
+              const qty = Number(item.qty) || 1;
+              const fallbackP = Number(item.price) || 0;
+              const info = getProductPricingAndCost(item.productId || item.id || item.name, item.variantName || item.variant, fallbackP);
 
-            const label = item.name || item.productId || "Online Item";
-            trackItemProfitability(label, qty, price, unitCost);
-          });
+              const itemRev = info.retailPrice * qty;
+              const itemCogs = info.unitCost * qty;
+
+              grossRevenue += itemRev;
+              totalCOGS += itemCogs;
+
+              trackItemProfitability(info.productName || item.name || "Online Order Item", qty, itemRev, itemCogs);
+            });
+          } else {
+            const orderRev = Number(o.total || o.total_amount) || 0;
+            grossRevenue += orderRev;
+            const orderCogs = orderRev * 0.7;
+            totalCOGS += orderCogs;
+            trackItemProfitability("Online Order", 1, orderRev, orderCogs);
+          }
         });
 
         // C. Process Pre-Orders (Fulfilled)
         allPreorders.filter(p => p.status === "fulfilled").forEach(p => {
           if (!isDateInFinancialPeriod(p.date)) return;
-          grossRevenue += Number(p.total_amount) || 0;
 
           const preItems = allPreorderItems.filter(x => x.pre_order_id === p.id);
-          preItems.forEach(item => {
-            const qty = Number(item.qty) || 1;
-            const inv = inventoryItems.find(x => x.id === item.product_id);
-            const price = inv ? Number(inv.retail_dzd) || 0 : 0;
-            const unitCost = getItemUnitCostDzd(item.product_id, item.variant);
-            totalCOGS += unitCost * qty;
+          if (preItems.length > 0) {
+            preItems.forEach(item => {
+              const qty = Number(item.qty) || 1;
+              const info = getProductPricingAndCost(item.product_id || item.product_name, item.variant, 0);
 
-            const label = item.product_name || (inv ? `${inv.brand || ''} ${inv.name}`.trim() : "Pre-order Item");
-            trackItemProfitability(label, qty, price, unitCost);
-          });
+              const itemRev = info.retailPrice * qty;
+              const itemCogs = info.unitCost * qty;
+
+              grossRevenue += itemRev;
+              totalCOGS += itemCogs;
+
+              trackItemProfitability(item.product_name || info.productName, qty, itemRev, itemCogs);
+            });
+          } else {
+            const preRev = Number(p.total_amount) || 0;
+            grossRevenue += preRev;
+            const preCogs = preRev * 0.7;
+            totalCOGS += preCogs;
+            trackItemProfitability("Pre-Order", 1, preRev, preCogs);
+          }
         });
 
         // 3. Compute Gross & Net Profits & Margins
@@ -3383,7 +3439,8 @@
           return;
         }
 
-        items.sort((a, b) => b.revenue - a.revenue);
+        // Sort by Gross Profit descending
+        items.sort((a, b) => (b.revenue - b.cogs) - (a.revenue - a.cogs));
 
         tbody.innerHTML = items.slice(0, 10).map(item => {
           const profit = item.revenue - item.cogs;
