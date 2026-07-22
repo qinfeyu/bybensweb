@@ -4629,19 +4629,24 @@
         }
 
         const itemsRows = items.map(itm => {
-          const invItem = inventoryItems.find(x => x.id === itm.product_id);
-          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
           const qty = Number(itm.qty) || 1;
+          const fallbackPrice = Number(itm.unit_price || itm.price || itm.unitPrice) || 0;
+          const info = getProductPricingAndCost(
+            itm.product_id || itm.product_name || itm.name,
+            itm.variant || itm.variant_spec,
+            fallbackPrice
+          );
+          const price = fallbackPrice || info.retailPrice || 0;
           const lineTotal = price * qty;
 
           return `
             <tr>
-              <td><strong style="color:var(--black);">${itm.product_name}</strong></td>
+              <td><strong style="color:var(--black);">${itm.product_name || info.productName || '—'}</strong></td>
               <td>${itm.variant || '—'}</td>
               <td>${itm.flavor || '—'}</td>
               <td style="text-align:center; font-weight:700;">${qty}</td>
-              <td style="text-align:right;">${price ? price.toLocaleString() + ' DA' : '—'}</td>
-              <td style="text-align:right; font-weight:700;">${lineTotal ? lineTotal.toLocaleString() + ' DA' : '—'}</td>
+              <td style="text-align:right;">${price ? Math.round(price).toLocaleString() + ' DA' : '—'}</td>
+              <td style="text-align:right; font-weight:700;">${lineTotal ? Math.round(lineTotal).toLocaleString() + ' DA' : '—'}</td>
             </tr>
           `;
         }).join("");
