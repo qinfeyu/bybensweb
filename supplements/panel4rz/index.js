@@ -2888,18 +2888,23 @@
 
       function calculateOrderProfit(o) {
         if (!o) return 0;
-        const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
         const total = Number(o.total || o.total_amount) || 0;
-        const netRev = Math.max(0, total - delCost);
+        const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
+        const netRev = Number(o.subtotal) > 0 ? Number(o.subtotal) : Math.max(0, total - delCost);
         
         const items = o.items || [];
         if (items.length > 0) {
           let totalCogs = 0;
+          const totalQty = items.reduce((s, i) => s + (Number(i.qty) || 1), 0);
+          const avgItemPrice = totalQty > 0 ? (netRev / totalQty) : 0;
+
           items.forEach(it => {
             const qty = Number(it.qty) || 1;
-            const fallbackP = Number(it.unitPrice || it.price) || 0;
-            const info = getProductPricingAndCost(it.productId || it.id || it.name, it.variantName || it.variant, fallbackP);
-            totalCogs += (info.unitCost || (fallbackP * 0.7)) * qty;
+            const itemPrice = Number(it.unitPrice || it.price) || avgItemPrice;
+            const info = getProductPricingAndCost(it.productId || it.id || it.name, it.variantName || it.variant, itemPrice);
+            
+            const effectiveUnitCost = (info.unitCost > 0) ? info.unitCost : (itemPrice * 0.70);
+            totalCogs += effectiveUnitCost * qty;
           });
           return netRev - totalCogs;
         } else {
@@ -3325,7 +3330,14 @@
           const rate = Number(inv.rate) || eurRate;
           const pEur = Number(inv.price_eur) || 0;
           const del = Number(inv.delivery_dzd) || 0;
-          unitCost = (pEur * rate) + del;
+          const landedCalc = (pEur * rate) + del;
+
+          if (landedCalc > 0) {
+            unitCost = landedCalc;
+          } else if (Number(inv.retail_dzd) > 0) {
+            unitCost = Number(inv.retail_dzd) * 0.7;
+          }
+
           if (Number(inv.retail_dzd)) {
             retailPrice = Number(inv.retail_dzd);
           }
@@ -3335,9 +3347,12 @@
         if (!productName) productName = String(productId || "Unknown Item");
         if (!retailPrice && fallbackPrice) retailPrice = Number(fallbackPrice);
 
-        // Fallback: If unit cost is still missing and retailPrice > 0
-        if (!unitCost && retailPrice) {
-          unitCost = retailPrice * 0.7;
+        // Fallback: If unit cost is still 0, derive from retailPrice or fallbackPrice
+        if (!unitCost) {
+          const refP = retailPrice || Number(fallbackPrice) || 0;
+          if (refP > 0) {
+            unitCost = refP * 0.7;
+          }
         }
 
         return { productName, retailPrice, unitCost };
@@ -4586,25 +4601,36 @@
       function calculatePreorderProfit(p) {
         if (!p) return 0;
         const items = allPreorderItems.filter(x => x.pre_order_id === p.id);
-        const subtotalFromItems = items.reduce((sum, itm) => {
-          const invItem = inventoryItems.find(x => x.id === itm.product_id);
-          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
-          return sum + (price * (Number(itm.qty) || 1));
-        }, 0);
-        const netRev = subtotalFromItems > 0 ? subtotalFromItems : (Number(p.total_amount) || 0);
+        const totalAmt = Number(p.total_amount) || 0;
+
+        let itemSubtotal = 0;
+        items.forEach(itm => {
+          const invItem = inventoryItems.find(x => x.id === itm.product_id || x.name === itm.product_name);
+          const price = Number(itm.price || itm.unit_price) || (invItem ? Number(invItem.retail_dzd) : 0);
+          itemSubtotal += price * (Number(itm.qty) || 1);
+        });
+
+        const netRev = totalAmt > 0 ? totalAmt : itemSubtotal;
 
         if (items.length > 0) {
           let totalCogs = 0;
+          const totalQty = items.reduce((s, i) => s + (Number(i.qty) || 1), 0);
+          const avgItemPrice = totalQty > 0 ? (netRev / totalQty) : 0;
+
           items.forEach(itm => {
             const qty = Number(itm.qty) || 1;
-            const info = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, 0);
-            totalCogs += (info.unitCost || (info.retailPrice * 0.7)) * qty;
+            const itemPrice = Number(itm.price || itm.unit_price) || avgItemPrice;
+            const info = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, itemPrice);
+            
+            const effectiveUnitCost = (info.unitCost > 0) ? info.unitCost : (itemPrice * 0.70);
+            totalCogs += effectiveUnitCost * qty;
           });
           return netRev - totalCogs;
         } else {
           return netRev * 0.30;
         }
       }
+      window.calculatePreorderProfit = calculatePreorderProfit;
       window.togglePreorderItemsRow = function(id, e) {
         if (e) e.stopPropagation();
         
