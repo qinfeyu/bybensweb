@@ -10,6 +10,15 @@
   window.SUPABASE_ANON_KEY = _KEY;
   window.supabase = supabase.createClient(_URL, _KEY);
 
+  // ── Global Error Telemetry & Exception Monitor ──
+  window.addEventListener("error", function (evt) {
+    console.warn("[ByBens Telemetry Error]", evt.message, "at", evt.filename, ":", evt.lineno);
+  });
+
+  window.addEventListener("unhandledrejection", function (evt) {
+    console.warn("[ByBens Unhandled Promise Rejection]", evt.reason);
+  });
+
   // ── Remapping helpers: snake_case (Supabase REST) → camelCase (app) ──
 
   function optimizeCloudinaryUrl(url) {
