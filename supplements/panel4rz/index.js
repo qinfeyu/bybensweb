@@ -23,6 +23,22 @@
       let editingSubCatId = null;
       let currentImageUrls = [];
       let editingBundleItems = [];
+
+      async function logAdminAuditAction(action, targetId = "", details = {}) {
+        try {
+          const adminEmail = localStorage.getItem("bb_admin_name") || "admin@bybens.com";
+          await sb.from("audit_logs").insert({
+            user_email: adminEmail,
+            action: action,
+            target_id: String(targetId),
+            details: details,
+            created_at: new Date().toISOString()
+          });
+        } catch(e) {
+          console.warn("Audit log notice:", e);
+        }
+      }
+      window.logAdminAuditAction = logAdminAuditAction;
       let categories = [],
         subCategories = [],
         products = [],
@@ -6300,6 +6316,7 @@
         localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
         
         showToast("Item deleted!");
+        logAdminAuditAction("INVENTORY_DELETE", id);
         
         // Sync any product variants that are linked to this SKU
         await syncAllLinkedProductsStock();
