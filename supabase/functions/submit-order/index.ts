@@ -89,7 +89,13 @@ async function adjustStock(items: any[], direction: number) {
       continue;
     }
 
-    // Fallback: old system
+    // Try atomic RPC deduction first
+    try {
+      const { data: rpcSuccess } = await sb.rpc("deduct_product_stock", { p_product_id: item.productId, p_qty: qty * (direction < 0 ? 1 : -1) });
+      if (rpcSuccess) continue;
+    } catch (_) { /* fallback to standard update */ }
+
+    // Fallback: standard system update
     let updatedFlavors = flavors;
     if (itemFlavor) {
       let changed = false;
