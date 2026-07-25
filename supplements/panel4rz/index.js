@@ -3411,7 +3411,7 @@
         try {
           const salesP = sb.from("sales").select("id,source,status,total,delivery_cost,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
           const saleItemsP = sb.from("sale_items").select("id,sale_id,product_id,product_name,variant,flavor,qty,price").then(r => r.data || []).catch(() => []);
-          const preP = sb.from("pre_orders").select("id,customer_name,customer_phone,total_amount,status,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const preP = sb.from("pre_orders").select("id,customer_name,customer_phone,notes,delivery_price,total_amount,status,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
           const preItemsP = sb.from("pre_order_items").select("id,pre_order_id,product_id,product_name,variant,flavor,qty").then(r => r.data || []).catch(() => []);
           const expP = sb.from("expenses").select("id,category,description,amount,currency,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
           const custP = sb.from("customers").select("id,name,first_name,last_name,phone,wilaya,commune,address,created_at").order("name", { ascending: true })
@@ -6904,7 +6904,8 @@
         }
         
         const items = allPreorderItems.filter(x => x.pre_order_id === id);
-        const { notes, deliveryPrice } = parsePreorderNotes(p.notes);
+        const { notes, deliveryPrice: parsedDelPrice } = parsePreorderNotes(p.notes);
+        const deliveryPrice = Number(p.delivery_price || p.delivery_cost || parsedDelPrice) || 0;
         const totalQty = items.reduce((s, itm) => s + Number(itm.qty || 0), 0);
         
         let totalVal = 0;
