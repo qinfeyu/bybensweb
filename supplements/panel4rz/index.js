@@ -1654,29 +1654,21 @@
             const row = variantRows[vi];
             const skuSelect = row ? row.querySelector(".variant-sku-select") : null;
             const sku = skuSelect ? skuSelect.value : "";
-            let isReadOnly = false;
             let invStock = 0;
             if (sku) {
               const inv = inventoryItems.find(x => x.id === sku);
-              invStock = inv ? inv.stock : 0;
-              isReadOnly = true;
+              invStock = inv ? Number(inv.stock) || 0 : 0;
             }
 
-            body += `<tr><td>${label}</td>`;
+            body += `<tr><td>${label}${sku ? `<div style="font-size:10px; color:var(--green); font-weight:600;">SKU [${sku}]: ${invStock}</div>` : ""}</td>`;
             let rowTotal = 0;
             flavors.forEach(fn => {
               const key = `${vi}_${fn}`;
-              let val = 0;
-              if (isReadOnly) {
-                // If linked to single SKU but we have flavors, let first cell hold inventory stock and others 0
-                val = flavors.indexOf(fn) === 0 ? invStock : 0;
-              } else {
-                val = matrixVals[key] !== undefined ? matrixVals[key] : (fs[fn] !== undefined ? Number(fs[fn]) : 0);
-              }
+              const val = matrixVals[key] !== undefined ? matrixVals[key] : (fs[fn] !== undefined ? Number(fs[fn]) : 0);
               rowTotal += val;
-              body += `<td><input type="number" class="form-control matrix-cell" min="0" value="${val}" data-vi="${vi}" data-fn="${fn}" ${isReadOnly ? "readonly disabled style='background:var(--g50); opacity:0.75; cursor:not-allowed;'" : "oninput='updateMatrixTotals()'"} /></td>`;
+              body += `<td><input type="number" class="form-control matrix-cell" min="0" value="${val}" data-vi="${vi}" data-fn="${fn}" oninput="updateMatrixTotals()" /></td>`;
             });
-            body += `<td class="matrix-total" id="mrt-${vi}">${isReadOnly ? invStock : rowTotal}</td></tr>`;
+            body += `<td class="matrix-total" id="mrt-${vi}">${rowTotal}</td></tr>`;
           });
           document.getElementById("stock-matrix-body").innerHTML = body;
           updateMatrixTotals();
@@ -1693,21 +1685,18 @@
             
             const skuSelect = row.querySelector(".variant-sku-select");
             const sku = skuSelect ? skuSelect.value : "";
-            let stock = 0;
-            let isReadOnly = false;
+            let stock = vstockVals[String(vi)] !== undefined ? vstockVals[String(vi)] : (parseInt(row.dataset.varStock) || 0);
+            let invStock = 0;
             if (sku) {
               const inv = inventoryItems.find(x => x.id === sku);
-              stock = inv ? inv.stock : 0;
-              isReadOnly = true;
-            } else {
-              stock = vstockVals[String(vi)] !== undefined ? vstockVals[String(vi)] : (parseInt(row.dataset.varStock) || 0);
+              invStock = inv ? Number(inv.stock) || 0 : 0;
             }
 
             return `
               <div class="vstock-row" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
                 <span class="vstock-label" style="min-width:60px;">${label}</span>
-                <input type="number" class="form-control vstock-input" data-vi="${vi}" value="${stock}" min="0" placeholder="0" ${isReadOnly ? "readonly disabled style='background:var(--g50); opacity:0.75; cursor:not-allowed;'" : "oninput='refreshStockTotal()'"} />
-                ${isReadOnly ? `<span style="font-size:11.5px; color:var(--green); font-weight:600; font-family:var(--font-b);">✓ Linked to SKU [${sku}]</span>` : ""}
+                <input type="number" class="form-control vstock-input" data-vi="${vi}" value="${stock}" min="0" placeholder="0" oninput="refreshStockTotal()" />
+                ${sku ? `<span style="font-size:11.5px; color:var(--green); font-weight:600; font-family:var(--font-b);">✓ Linked to SKU [${sku}] (SKU Stock: ${invStock})</span>` : ""}
               </div>`;
           }).join("");
           refreshStockTotal();
@@ -1729,15 +1718,18 @@
           const vRow = variantRows[vi];
           const skuSelect = vRow ? vRow.querySelector(".variant-sku-select") : null;
           const sku = skuSelect ? skuSelect.value : "";
-          let sum = 0;
-          if (sku) {
-            const inv = inventoryItems.find(x => x.id === sku);
-            sum = inv ? inv.stock : 0;
-          } else {
-            sum = Array.from(row.querySelectorAll("input")).reduce((s, i) => s + (parseInt(i.value) || 0), 0);
-          }
+          const sum = Array.from(row.querySelectorAll("input")).reduce((s, i) => s + (parseInt(i.value) || 0), 0);
           const cell = document.getElementById(`mrt-${vi}`);
-          if (cell) cell.textContent = sum;
+          if (cell) {
+            if (sku) {
+              const inv = inventoryItems.find(x => x.id === sku);
+              const invStock = inv ? Number(inv.stock) || 0 : 0;
+              const matches = sum === invStock;
+              cell.innerHTML = `${sum} <span style="font-size:10px; font-weight:600; color:${matches ? 'var(--green)' : 'var(--red)'}; display:block;">(SKU: ${invStock})</span>`;
+            } else {
+              cell.textContent = sum;
+            }
+          }
           grand += sum;
         });
         document.getElementById("pm-stock").value = grand;
@@ -1745,18 +1737,8 @@
 
       function refreshStockTotal() {
         let total = 0;
-        const variantRows = Array.from(document.querySelectorAll("#variants-list .variant-row"));
         document.querySelectorAll("#variant-stock-list .vstock-input").forEach((inp) => {
-          const vi = parseInt(inp.dataset.vi);
-          const vRow = variantRows[vi];
-          const skuSelect = vRow ? vRow.querySelector(".variant-sku-select") : null;
-          const sku = skuSelect ? skuSelect.value : "";
-          if (sku) {
-            const inv = inventoryItems.find(x => x.id === sku);
-            total += inv ? inv.stock : 0;
-          } else {
-            total += parseInt(inp.value) || 0;
-          }
+          total += (parseInt(inp.value) || 0);
         });
         document.getElementById("pm-stock").value = total;
       }
@@ -1947,6 +1929,26 @@
           status: document.getElementById("pm-status").value,
           bundleItems,
         };
+        // Validate that variant stock matches linked SKU stock
+        if (!isBundle && variants.length > 0) {
+          for (let vi = 0; vi < variants.length; vi++) {
+            const v = variants[vi];
+            if (v.sku) {
+              const inv = inventoryItems.find(x => String(x.id).toLowerCase().trim() === String(v.sku).toLowerCase().trim());
+              const skuStock = inv ? (Number(inv.stock) || 0) : 0;
+              const vLabel = v.weight ? `${v.weight}${v.unit || ""}` : `Variant ${vi + 1}`;
+              const enteredStock = Number(v.stock) || 0;
+
+              if (enteredStock !== skuStock) {
+                showToast(`Error: Total stock for variant '${vLabel}' (${enteredStock}) does not match linked SKU [${v.sku}] stock (${skuStock})!`, "error");
+                const btn = document.getElementById("pm-save-btn");
+                if (btn) btn.disabled = false;
+                return;
+              }
+            }
+          }
+        }
+
         document.getElementById("pm-save-btn").disabled = true;
         showLoading("Saving product…");
         try {
@@ -3400,7 +3402,7 @@
           variant_spec: item.variant_spec || item.variant || null,
           size: item.size || null,
           price_eur: Number(item.price_eur) || 0,
-          rate: Number(item.rate) || 250,
+          rate: Number(item.rate) || 280,
           delivery_dzd: Number(item.delivery_dzd) || 0,
           retail_dzd: Number(item.retail_dzd) || 0,
           stock: Number(item.stock) || 0
@@ -3555,7 +3557,7 @@
       }
 
       function getProductPricingAndCost(productId, variantName, fallbackPrice = 0) {
-        const eurRate = parseFloat(settings.budget_rate) || 250;
+        const eurRate = parseFloat(settings.budget_rate) || 280;
         let retailPrice = Number(fallbackPrice) || 0;
         let unitCost = 0;
         let productName = "";
@@ -3635,7 +3637,7 @@
       }
 
       function computeBusinessDashboard() {
-        const eurRate = parseFloat(settings.budget_rate) || 250;
+        const eurRate = parseFloat(settings.budget_rate) || 280;
 
         // 1. Compute filtered expenses total
         let totalExpDzd = 0;
@@ -3823,7 +3825,7 @@
 
         const elCogs = document.getElementById("stat-cogs-total");
         if (elCogs) {
-          const cogsEur = totalCOGS / eurRate;
+          const cogsEur = totalCOGS / 280;
           elCogs.textContent = `${Math.round(totalCOGS).toLocaleString()} DA (${cogsEur.toFixed(2)} €)`;
         }
 
@@ -3853,7 +3855,7 @@
 
         const elStockVal = document.getElementById("stat-stock-valuation");
         if (elStockVal) {
-          elStockVal.textContent = `${Math.round(stockTotalCostDzd).toLocaleString()} DA (${stockTotalCostEur.toFixed(2)} €)`;
+          elStockVal.textContent = `${Math.round(stockTotalRetailDzd).toLocaleString()} DA (${stockTotalCostEur.toFixed(2)} €)`;
         }
 
         // 6. Render Product Profitability Breakdown Table
@@ -3912,6 +3914,7 @@
 
         // 1. Check Inventory Items (Sellable Algeria Stock)
         inventoryItems.forEach(inv => {
+          if (inv.type === "snack") return; // Exclude snacks from Low Stock Alerts
           const dzStock = Number(inv.stock) || 0;
           if (dzStock <= lowStockThreshold) {
             const label = `${inv.brand ? inv.brand + ' - ' : ''}${inv.name}${inv.variant_spec ? ' (' + inv.variant_spec + ')' : ''}`;
@@ -3926,6 +3929,11 @@
         // 2. Check Catalog Product Variants
         products.forEach(p => {
           if (p.status !== "active") return;
+          const isSnackCategory = (p.categoryIds || []).some(catId => {
+            const cat = categories.find(c => c.id === catId);
+            return cat && (cat.name || "").toLowerCase().includes("snack");
+          });
+          if (isSnackCategory) return;
 
           (p.variants || []).forEach((v, vi) => {
             const variantLabel = v.weight ? `${v.weight}${v.unit || ""}`.trim() : `V${vi+1}`;
@@ -3933,6 +3941,7 @@
             let realStock = 0;
             if (v.sku) {
               const inv = inventoryItems.find(x => x.id === v.sku);
+              if (inv && inv.type === "snack") return;
               if (inv) realStock = Number(inv.stock) || 0;
               else realStock = v.stock !== undefined ? v.stock : (p.stock || 0);
             } else {
@@ -6407,9 +6416,13 @@
           return;
         }
         
+        const existingItem = inventoryItems.find(x => x.id === id);
+        const itemType = (existingItem ? existingItem.type : activeInventoryTab) || "supplement";
+        
         showLoading("Saving changes…");
         try {
           const payload = {
+            type: itemType,
             brand,
             name,
             variant_spec: variant,
