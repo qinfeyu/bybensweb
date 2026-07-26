@@ -3422,13 +3422,13 @@
             });
           const preItemsP = sb.from("pre_order_items").select("id,pre_order_id,product_id,product_name,variant,flavor,qty").then(r => r.data || []).catch(() => []);
           const expP = sb.from("expenses").select("id,category,description,amount,currency,date,created_at").order("date", { ascending: false }).then(r => r.data || []).catch(() => []);
-          const custP = sb.from("customers").select("id,name,first_name,last_name,phone,wilaya,commune,address,created_at").order("name", { ascending: true })
+          const custP = sb.from("customers").select("id,name,first_name,last_name,phone,wilaya,commune,address,group_type,group,created_at").order("name", { ascending: true })
             .then(r => {
               if (r.error) throw r.error;
               return r.data || [];
             })
             .catch(async () => {
-              const res = await sb.from("customers").select("id,name,first_name,last_name,phone,wilaya,commune,address,created_at");
+              const res = await sb.from("customers").select("*");
               return res.data || [];
             });
           const delCustP = sb.from("deleted_customers").select("phone").then(r => r.data || []).catch(() => []);
@@ -5071,7 +5071,7 @@
           ledger[phone] = {
             name: cName,
             phone,
-            group: c.group_type || 'public',
+            group: c.group_type || c.group || 'public',
             ordersCount: 0,
             totalSpent: 0,
             history: []
