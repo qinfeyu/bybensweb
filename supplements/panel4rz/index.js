@@ -1966,6 +1966,7 @@
               const newProduct = { ...payload, id: r.id || ("tmp_" + Date.now()) };
               products.unshift(newProduct);
             }
+            _invalidateStaticCache();
             renderProducts();
             renderBundleList(document.getElementById("bundle-search")?.value || "");
             updateDashboard();
@@ -2070,6 +2071,7 @@
             } else {
               categories.push({ id: r.id || ("tmp_cat_" + Date.now()), name: payload.name, description: payload.description });
             }
+            _invalidateStaticCache();
             renderCats();
             updateDashboard();
           } else showToast("Error: " + (r.error || "Unknown"), "error");
@@ -2097,6 +2099,7 @@
             const sIdx = subCategories.findIndex(s => s.id === editingSubCatId);
             if (sIdx >= 0) subCategories[sIdx] = { ...subCategories[sIdx], name };
             editingSubCatId = null;
+            _invalidateStaticCache();
             renderCats();
           } else showToast("Error: " + (r.error || "Unknown"), "error");
         } catch (e) {
@@ -2233,6 +2236,7 @@
             } else {
               promos.push({ ...payload, id: r.id || ("tmp_promo_" + Date.now()), uses: 0 });
             }
+            _invalidateStaticCache();
             renderPromos();
             updateDashboard();
           } else showToast("Error: " + (r.error || "Unknown"), "error");
@@ -2464,6 +2468,7 @@
                 await Promise.all([_fetchDashOrders(), _fetchOrdersPage()]);
                 renderOrders();
               }
+              _invalidateStaticCache();
               updateDashboard();
             } else showToast("Error: " + (r.error || "Unknown"), "error");
           } catch (e) {

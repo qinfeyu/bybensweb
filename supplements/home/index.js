@@ -514,7 +514,7 @@ function renderProductListToContainer(containerId, productList, lang) {
       const badge = computeBadge(p, _bundleId, _topSoldIds);
 
       // Flavor label
-      const flavorLabel = p.flavors && p.flavors.length > 0 ? p.flavors[0].name : "";
+      const flavorLabel = p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
 
       // Image
       const _imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
@@ -670,7 +670,7 @@ function handleSearch(query) {
 
   dropdown.innerHTML = matches.map((p) => {
     const price = getProductPrice(p);
-    const flavorLabel = p.flavors && p.flavors.length > 0 ? p.flavors[0].name : "";
+    const flavorLabel = p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
     const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
     const thumb = _t0
       ? `<img src="${_t0}" alt="${p.name}" />`
@@ -962,7 +962,7 @@ function handleMobileSearch(query) {
     .map(
       (p) => {
         const price = getProductPrice(p);
-        const flavorLabel = p.flavors && p.flavors.length > 0 ? p.flavors[0].name : "";
+        const flavorLabel = p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
         const _i0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
         const imgEl = _i0
           ? `<img src="${_i0}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`

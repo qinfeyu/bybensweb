@@ -721,7 +721,7 @@
             const badge = oos ? { type: "oos", label: "OUT OF STOCK" } : computeBadge(p, _bundleId, _topSoldIds);
 
             const flavorLabel =
-              p.flavors && p.flavors.length > 0 ? p.flavors[0].name : "";
+              p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
             const _imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
             const imgEl = _imgs[0]
               ? `<img src="${_imgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" />${_imgs[1] ? `<img src="${_imgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" />` : ""}`
