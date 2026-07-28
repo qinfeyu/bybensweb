@@ -3148,36 +3148,44 @@
 
       function calculateOrderProfit(o) {
         if (!o) return 0;
-        const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
-        const total = Number(o.total || o.total_amount) || 0;
-        
         const items = o.items || [];
+        
+        let itemRevenue = 0;
+        let totalCogs = 0;
+
         if (items.length > 0) {
-          let grossItemTotal = 0;
-          const itemInfos = items.map(it => {
+          items.forEach(it => {
             const qty = Number(it.qty) || 1;
-            const fallbackP = Number(it.unitPrice || it.unit_price || it.price) || 0;
+            const unitP = Number(it.unitPrice || it.unit_price || it.price) || 0;
             const info = getProductPricingAndCost(
               it.productId || it.product_id || it.id || it.name || it.product_name, 
               it.variantName || it.variant || it.variant_spec, 
-              fallbackP
+              unitP
             );
-            const undiscountedPrice = fallbackP || info.retailPrice || 0;
-            grossItemTotal += undiscountedPrice * qty;
-            return { qty, undiscountedPrice, info };
+            const actualUnitP = unitP || info.retailPrice || 0;
+            itemRevenue += actualUnitP * qty;
+            totalCogs += (info.unitCost || (actualUnitP * 0.7)) * qty;
           });
-
-          let totalCogs = 0;
-          itemInfos.forEach(({ qty, undiscountedPrice, info }) => {
-            totalCogs += (info.unitCost || (undiscountedPrice * 0.7)) * qty;
-          });
-
-          const revenue = total > 0 ? (total - delCost) : grossItemTotal;
-          return revenue - totalCogs;
-        } else {
-          const netRev = Math.max(0, total - delCost);
-          return netRev * 0.30;
         }
+
+        const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
+        const rawTotal = Number(o.total || o.total_amount) || 0;
+        const rawSubtotal = Number(o.subtotal) || 0;
+
+        let netRev = 0;
+        if (itemRevenue > 0) {
+          netRev = itemRevenue;
+        } else if (rawSubtotal > 0) {
+          netRev = rawSubtotal;
+        } else if (rawTotal > 0) {
+          netRev = Math.max(0, rawTotal - delCost);
+        }
+
+        if (totalCogs <= 0 && netRev > 0) {
+          totalCogs = netRev * 0.70;
+        }
+
+        return netRev - totalCogs;
       }
       window.calculateOrderProfit = calculateOrderProfit;
 
@@ -4917,24 +4925,27 @@
       function calculatePreorderProfit(p) {
         if (!p) return 0;
         const items = allPreorderItems.filter(x => x.pre_order_id === p.id);
-        const subtotalFromItems = items.reduce((sum, itm) => {
-          const invItem = inventoryItems.find(x => x.id === itm.product_id);
-          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
-          return sum + (price * (Number(itm.qty) || 1));
-        }, 0);
-        const netRev = subtotalFromItems > 0 ? subtotalFromItems : (Number(p.total_amount) || 0);
+        
+        let itemRevenue = 0;
+        let totalCogs = 0;
 
         if (items.length > 0) {
-          let totalCogs = 0;
           items.forEach(itm => {
             const qty = Number(itm.qty) || 1;
-            const info = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, 0);
-            totalCogs += (info.unitCost || (info.retailPrice * 0.7)) * qty;
+            const fallbackPrice = Number(itm.unit_price || itm.price || itm.unitPrice) || 0;
+            const info = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, fallbackPrice);
+            const price = fallbackPrice || info.retailPrice || 0;
+            itemRevenue += price * qty;
+            totalCogs += (info.unitCost || (price * 0.7)) * qty;
           });
-          return netRev - totalCogs;
-        } else {
-          return netRev * 0.30;
         }
+
+        const netRev = itemRevenue > 0 ? itemRevenue : (Number(p.total_amount) || 0);
+        if (totalCogs <= 0 && netRev > 0) {
+          totalCogs = netRev * 0.70;
+        }
+
+        return netRev - totalCogs;
       }
       window.viewPreorderItemsModal = function(id) {
         const p = allPreorders.find(x => x.id === id);
