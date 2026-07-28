@@ -3150,14 +3150,13 @@
         if (!o) return 0;
         const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
         const total = Number(o.total || o.total_amount) || 0;
-        const netRev = Math.max(0, total - delCost);
         
         const items = o.items || [];
         if (items.length > 0) {
           let grossItemTotal = 0;
           const itemInfos = items.map(it => {
             const qty = Number(it.qty) || 1;
-            const fallbackP = Number(it.unitPrice || it.price || it.unit_price) || 0;
+            const fallbackP = Number(it.unitPrice || it.unit_price || it.price) || 0;
             const info = getProductPricingAndCost(
               it.productId || it.product_id || it.id || it.name || it.product_name, 
               it.variantName || it.variant || it.variant_spec, 
@@ -3172,8 +3171,11 @@
           itemInfos.forEach(({ qty, undiscountedPrice, info }) => {
             totalCogs += (info.unitCost || (undiscountedPrice * 0.7)) * qty;
           });
-          return netRev - totalCogs;
+
+          const revenue = total > 0 ? (total - delCost) : grossItemTotal;
+          return revenue - totalCogs;
         } else {
+          const netRev = Math.max(0, total - delCost);
           return netRev * 0.30;
         }
       }
@@ -3256,14 +3258,18 @@
         const safeId = id.replace(/'/g, "\\'");
         const itemsHtml = (o.items || [])
           .map(
-            (it) => `<tr>
-            <td>${it.name || "—"}</td>
-            <td>${it.flavor || "—"}</td>
-            <td>${it.variant || "—"}</td>
-            <td style="text-align:center">${it.qty || 1}</td>
-            <td>${Number(it.unitPrice || 0).toLocaleString("fr-DZ")} DA</td>
-            <td><strong>${Number(it.lineTotal || 0).toLocaleString("fr-DZ")} DA</strong></td>
-          </tr>`,
+            (it) => {
+              const uPrice = Number(it.unitPrice || it.unit_price || it.price || 0);
+              const lTotal = Number(it.lineTotal || it.line_total || (it.qty * uPrice) || 0);
+              return `<tr>
+                <td>${it.name || "—"}</td>
+                <td>${it.flavor || "—"}</td>
+                <td>${it.variant || "—"}</td>
+                <td style="text-align:center">${it.qty || 1}</td>
+                <td>${uPrice.toLocaleString("fr-DZ")} DA</td>
+                <td><strong>${lTotal.toLocaleString("fr-DZ")} DA</strong></td>
+              </tr>`;
+            }
           )
           .join("");
 
@@ -5391,22 +5397,34 @@
         let subtotalVal = 0;
         
         for (const item of items) {
-          const invItem = inventoryItems.find(x => x.id === item.product_id);
-          const price = invItem ? (Number(invItem.retail_dzd) || 0) : 0;
+          const fallbackPrice = Number(item.unit_price || item.price || item.unitPrice) || 0;
+          const pricing = getProductPricingAndCost(
+            item.product_id || item.product_name,
+            item.variant || item.variant_spec,
+            fallbackPrice
+          );
+          const price = fallbackPrice || pricing.retailPrice || 0;
+          const qty = Number(item.qty) || 1;
+          const lineTotal = price * qty;
           
           orderItems.push({
-            id: item.product_id, // SKU
-            name: item.product_name,
+            id: item.product_id || ("item_" + Date.now()),
+            productId: item.product_id || "",
+            name: item.product_name || pricing.productName || "Pre-Order Item",
             flavor: item.flavor || "",
             variant: item.variant || "",
-            qty: Number(item.qty) || 1,
-            price: price
+            qty: qty,
+            price: price,
+            unitPrice: price,
+            unit_price: price,
+            lineTotal: lineTotal,
+            line_total: lineTotal
           });
-          subtotalVal += price * item.qty;
+          subtotalVal += lineTotal;
         }
         
         const deliveryCost = Number(notesMeta.deliveryPrice) || 0;
-        const totalVal = subtotalVal; // Delivery price excluded from order total as requested
+        const totalVal = (Number(pre.total_amount) > 0) ? Number(pre.total_amount) : subtotalVal;
 
         const { error: orderErr } = await sb.from("orders").insert({
           id: orderId,
