@@ -6115,7 +6115,6 @@
                 <td><input type="number" value="${item.stock || 0}" class="spreadsheet-input" style="font-weight: 700; color: #16a34a;" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'stock')" title="Stock in Algeria (Sellable)" /></td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:2px; justify-content:center;">
-                    <button class="btn-secondary" onclick="openRestockEurModal('${item.id}')" style="padding:2px 5px; font-size:10px; color:#16a34a; border-color:#bbf7d0; background:#f0fdf4;" title="Add EU stock at custom/discounted EUR price">💶 +EUR</button>
                     <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:2px 5px; font-size:10px; color:#2563eb; border-color:#bfdbfe;" title="Move stock from Europe to Algeria">🚚 Move</button>
                     <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:2px 5px; font-size:10px;">Del</button>
                   </div>
@@ -6142,7 +6141,6 @@
                 <td style="text-align:center;"><span class="stock-badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'} padding:2px 5px; font-size:10.5px;">DZ: ${item.stock || 0}</span></td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:2px; justify-content:center; align-items:center; flex-wrap:nowrap;">
-                    <button class="btn-secondary" onclick="openRestockEurModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; color:#16a34a; border-color:#bbf7d0; background:#f0fdf4; flex-shrink:0;" title="Add EU stock at custom/discounted EUR price">💶 +EUR</button>
                     <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; flex-shrink:0;" title="Move stock from Europe to Algeria">🚚 Move</button>
                     <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; flex-shrink:0;">Edit</button>
                     <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; flex-shrink:0;">Del</button>
@@ -6209,116 +6207,243 @@
         }
       };
 
-      window.openRestockEurModal = function(sku) {
-        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
-        if (!item) {
-          showToast("Inventory item not found!", "error");
+      let bulkRestockList = [];
+
+      window.openBulkRestockEurModal = function() {
+        bulkRestockList = [];
+        const searchInput = document.getElementById("bulk-restock-search");
+        if (searchInput) searchInput.value = "";
+        const resultsEl = document.getElementById("bulk-restock-search-results");
+        if (resultsEl) resultsEl.style.display = "none";
+
+        renderBulkRestockTable();
+        openModal("bulk-restock-eur-modal");
+      };
+
+      window.onBulkRestockSearchInput = function() {
+        const query = (document.getElementById("bulk-restock-search")?.value || "").toLowerCase().trim();
+        const resultsEl = document.getElementById("bulk-restock-search-results");
+        if (!resultsEl) return;
+
+        if (!query) {
+          resultsEl.style.display = "none";
+          resultsEl.innerHTML = "";
           return;
         }
 
-        document.getElementById("restock-eur-sku").value = item.id;
-        document.getElementById("restock-eur-prod-name").textContent = `${item.brand ? item.brand + ' - ' : ''}${item.name}${item.variant_spec ? ' (' + item.variant_spec + ')' : ''}`;
-        document.getElementById("restock-eur-sku-lbl").textContent = item.id;
+        const matches = inventoryItems.filter(item => {
+          return (item.id || "").toLowerCase().includes(query) ||
+                 (item.name || "").toLowerCase().includes(query) ||
+                 (item.brand || "").toLowerCase().includes(query) ||
+                 (item.variant_spec || "").toLowerCase().includes(query);
+        }).slice(0, 10);
 
-        const curStock = Number(item.stock_eu) || 0;
-        const curPrice = Number(item.price_eur) || 0;
+        if (!matches.length) {
+          resultsEl.innerHTML = `<div style="padding:12px; font-size:12.5px; color:var(--g500); text-align:center;">No matching products found</div>`;
+          resultsEl.style.display = "block";
+          return;
+        }
 
-        document.getElementById("restock-eur-cur-stock").textContent = curStock;
-        document.getElementById("restock-eur-cur-price").textContent = "€ " + curPrice.toFixed(2);
+        resultsEl.innerHTML = matches.map(item => {
+          const euStock = Number(item.stock_eu) || 0;
+          const dzStock = Number(item.stock) || 0;
+          const priceEur = Number(item.price_eur) || 0;
+          const isAdded = bulkRestockList.some(r => r.sku === item.id);
 
-        document.getElementById("restock-eur-qty").value = 1;
-        document.getElementById("restock-eur-price").value = curPrice.toFixed(2);
+          return `
+            <div onclick="addBulkRestockItem('${item.id}')" style="padding:10px 14px; border-bottom:1px solid var(--g100); cursor:${isAdded ? 'default' : 'pointer'}; background:${isAdded ? '#f8fafc' : '#fff'}; display:flex; justify-content:space-between; align-items:center; opacity:${isAdded ? 0.6 : 1};">
+              <div>
+                <strong style="font-size:12px; color:var(--black);">${item.id}</strong> — <span style="font-weight:600; font-size:12.5px;">${item.brand ? item.brand + ' ' : ''}${item.name}</span>
+                ${item.variant_spec ? `<span style="font-size:11.5px; color:var(--g500);"> (${item.variant_spec})</span>` : ''}
+              </div>
+              <div style="font-size:11.5px; color:var(--g600); text-align:right;">
+                <span>Stock: EU:${euStock} DZ:${dzStock}</span> | <strong style="color:var(--black);">€${priceEur.toFixed(2)}</strong>
+                ${isAdded ? `<span style="margin-left:8px; font-size:10.5px; color:#16a34a; font-weight:700;">✓ Added</span>` : ''}
+              </div>
+            </div>`;
+        }).join("");
 
-        recalcRestockEurPreview();
-        openModal("restock-eur-modal");
+        resultsEl.style.display = "block";
       };
 
-      window.recalcRestockEurPreview = function() {
-        const sku = document.getElementById("restock-eur-sku")?.value;
-        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
+      window.addBulkRestockItem = function(sku) {
+        const item = inventoryItems.find(x => x.id === sku);
         if (!item) return;
 
-        const curStock = Number(item.stock_eu) || 0;
-        const curPrice = Number(item.price_eur) || 0;
-
-        const addedQty = parseInt(document.getElementById("restock-eur-qty")?.value) || 0;
-        const newPrice = parseFloat(document.getElementById("restock-eur-price")?.value) || 0;
-
-        const totalStock = curStock + Math.max(0, addedQty);
-        let avgPrice = curPrice;
-
-        if (totalStock > 0) {
-          avgPrice = ((curStock * curPrice) + (Math.max(0, addedQty) * newPrice)) / totalStock;
-        } else {
-          avgPrice = newPrice;
-        }
-
-        const previewQtyEl = document.getElementById("restock-eur-preview-qty");
-        if (previewQtyEl) previewQtyEl.textContent = totalStock;
-
-        const previewAvgEl = document.getElementById("restock-eur-preview-avg");
-        if (previewAvgEl) previewAvgEl.textContent = "€ " + avgPrice.toFixed(2);
-      };
-
-      window.saveRestockEur = async function() {
-        const sku = document.getElementById("restock-eur-sku")?.value;
-        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
-        if (!item) {
-          showToast("Item not found!", "error");
+        if (bulkRestockList.some(r => r.sku === item.id)) {
+          showToast(`[${sku}] is already in the restock list`, "error");
           return;
         }
 
-        const addedQty = parseInt(document.getElementById("restock-eur-qty")?.value) || 0;
-        const newPrice = parseFloat(document.getElementById("restock-eur-price")?.value) || 0;
-
-        if (addedQty <= 0) {
-          showToast("Please enter a valid added quantity greater than 0", "error");
-          return;
-        }
-        if (newPrice < 0) {
-          showToast("Please enter a valid purchase price", "error");
-          return;
-        }
-
-        const curStock = Number(item.stock_eu) || 0;
-        const curPrice = Number(item.price_eur) || 0;
-
-        const totalStock = curStock + addedQty;
-        const weightedAvgPrice = parseFloat((((curStock * curPrice) + (addedQty * newPrice)) / totalStock).toFixed(2));
-
-        showLoading("Updating inventory & calculating average price...");
-
-        try {
-          // Update database
-          const { error } = await sb.from("inventory_items").update({
-            stock_eu: totalStock,
-            price_eur: weightedAvgPrice
-          }).eq("id", item.id);
-
-          if (error) throw error;
-        } catch (e) {
-          console.warn("Supabase update error:", e);
-        }
-
-        // Local cache mutation
-        item.stock_eu = totalStock;
-        item.price_eur = weightedAvgPrice;
-        localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
-
-        _invalidateStaticCache();
-        closeModal("restock-eur-modal");
-        showToast(`Restocked +${addedQty} EU units! New Avg Price: €${weightedAvgPrice.toFixed(2)}`);
-
-        logAdminAuditAction("INVENTORY_RESTOCK_EUR", item.id, {
-          addedQty,
-          newPriceEur: newPrice,
-          weightedPriceEur: weightedAvgPrice,
-          totalEuStock: totalStock
+        bulkRestockList.push({
+          sku: item.id,
+          brand: item.brand || "",
+          name: item.name || "",
+          variant_spec: item.variant_spec || "",
+          stock_eu: Number(item.stock_eu) || 0,
+          stock_dz: Number(item.stock) || 0,
+          price_eur: Number(item.price_eur) || 0,
+          rate: Number(item.rate) || 280,
+          delivery_dzd: Number(item.delivery_dzd) || 0,
+          addedQty: 1,
+          newPriceEur: Number(item.price_eur) || 0
         });
 
-        await syncAllLinkedProductsStock();
-        renderInventoryList();
-        updateDashboard();
+        const searchInput = document.getElementById("bulk-restock-search");
+        if (searchInput) searchInput.value = "";
+        const resultsEl = document.getElementById("bulk-restock-search-results");
+        if (resultsEl) resultsEl.style.display = "none";
+
+        renderBulkRestockTable();
+      };
+
+      window.removeBulkRestockItem = function(sku) {
+        bulkRestockList = bulkRestockList.filter(r => r.sku !== sku);
+        renderBulkRestockTable();
+      };
+
+      window.updateBulkRestockRow = function(sku, field, value) {
+        const rowData = bulkRestockList.find(r => r.sku === sku);
+        if (!rowData) return;
+
+        if (field === "addedQty") rowData.addedQty = Math.max(0, parseInt(value) || 0);
+        if (field === "newPriceEur") rowData.newPriceEur = Math.max(0, parseFloat(value) || 0);
+
+        renderBulkRestockTable();
+      };
+
+      window.renderBulkRestockTable = function() {
+        const tbody = document.getElementById("bulk-restock-table-body");
+        const totalItemsEl = document.getElementById("bulk-restock-total-items");
+        if (!tbody) return;
+
+        if (totalItemsEl) totalItemsEl.textContent = bulkRestockList.length;
+
+        if (!bulkRestockList.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align:center; padding:30px; color:var(--g400);">
+                Search for products above to add them to your EU restock list.
+              </td>
+            </tr>`;
+          return;
+        }
+
+        tbody.innerHTML = bulkRestockList.map((row) => {
+          const currentTotalStock = row.stock_eu + row.stock_dz;
+          const newTotalStock = currentTotalStock + row.addedQty;
+
+          let weightedAvgPrice = row.price_eur;
+          if (newTotalStock > 0) {
+            weightedAvgPrice = ((currentTotalStock * row.price_eur) + (row.addedQty * row.newPriceEur)) / newTotalStock;
+          } else {
+            weightedAvgPrice = row.newPriceEur;
+          }
+
+          const formattedAvgPrice = weightedAvgPrice.toFixed(2);
+          const isPriceLower = row.newPriceEur < row.price_eur;
+          const isPriceHigher = row.newPriceEur > row.price_eur;
+          const priceChangeColor = isPriceLower ? "#16a34a" : (isPriceHigher ? "#dc2626" : "var(--black)");
+
+          return `
+            <tr style="vertical-align:middle;">
+              <td>
+                <strong style="color:var(--black); font-size:12px;">${row.sku}</strong>
+                <div style="font-weight:600; font-size:12px;">${row.brand ? row.brand + ' - ' : ''}${row.name}</div>
+                ${row.variant_spec ? `<div style="font-size:11px; color:var(--g500);">${row.variant_spec}</div>` : ''}
+              </td>
+              <td style="text-align:center;">
+                <div style="font-size:11px; color:var(--g600);">EU: <strong style="color:#2563eb;">${row.stock_eu}</strong> | DZ: <strong style="color:#16a34a;">${row.stock_dz}</strong></div>
+                <div style="font-size:11px; font-weight:700; color:var(--black);">Current: €${row.price_eur.toFixed(2)}</div>
+              </td>
+              <td style="text-align:center;">
+                <input type="number" min="1" value="${row.addedQty}" class="form-control" style="width:75px; text-align:center; font-weight:700; color:#2563eb; margin:0 auto;" oninput="updateBulkRestockRow('${row.sku}', 'addedQty', this.value)" />
+              </td>
+              <td style="text-align:center;">
+                <div style="display:flex; align-items:center; justify-content:center; gap:2px;">
+                  <span style="font-weight:700; color:var(--g600);">€</span>
+                  <input type="number" step="0.01" value="${row.newPriceEur}" class="form-control" style="width:85px; font-weight:700; margin:0 auto;" oninput="updateBulkRestockRow('${row.sku}', 'newPriceEur', this.value)" />
+                </div>
+              </td>
+              <td style="text-align:center;">
+                <div style="font-size:14px; font-weight:800; color:${priceChangeColor};">€ ${formattedAvgPrice}</div>
+                <div style="font-size:10px; color:var(--g500);">New Total Stock: ${newTotalStock}</div>
+              </td>
+              <td style="text-align:center;">
+                <button class="btn-rem-sub" onclick="removeBulkRestockItem('${row.sku}')" style="color:#dc2626; border-color:#fecaca; background:#fef2f2; width:26px; height:26px; border-radius:50%; font-weight:700; cursor:pointer;" title="Remove product">×</button>
+              </td>
+            </tr>`;
+        }).join("");
+      };
+
+      window.saveBulkRestockEur = async function() {
+        if (!bulkRestockList.length) {
+          showToast("Please add at least one product to restock", "error");
+          return;
+        }
+
+        for (const r of bulkRestockList) {
+          if (r.addedQty <= 0) {
+            showToast(`[${r.sku}] requires a valid added quantity greater than 0`, "error");
+            return;
+          }
+          if (r.newPriceEur < 0) {
+            showToast(`[${r.sku}] requires a valid purchase price`, "error");
+            return;
+          }
+        }
+
+        showLoading(`Restocking ${bulkRestockList.length} product(s) & calculating average prices...`);
+
+        try {
+          const updatePromises = bulkRestockList.map(async (row) => {
+            const item = inventoryItems.find(x => x.id === row.sku);
+            if (!item) return;
+
+            const currentTotalStock = (Number(item.stock_eu) || 0) + (Number(item.stock) || 0);
+            const addedQty = row.addedQty;
+            const newTotalStockEu = (Number(item.stock_eu) || 0) + addedQty;
+            const newTotalStockOverall = currentTotalStock + addedQty;
+
+            let weightedAvgPrice = Number(item.price_eur) || 0;
+            if (newTotalStockOverall > 0) {
+              weightedAvgPrice = parseFloat((((currentTotalStock * (Number(item.price_eur) || 0)) + (addedQty * row.newPriceEur)) / newTotalStockOverall).toFixed(2));
+            } else {
+              weightedAvgPrice = parseFloat(row.newPriceEur.toFixed(2));
+            }
+
+            // Update database
+            await sb.from("inventory_items").update({
+              stock_eu: newTotalStockEu,
+              price_eur: weightedAvgPrice
+            }).eq("id", item.id);
+
+            // Local cache mutation
+            item.stock_eu = newTotalStockEu;
+            item.price_eur = weightedAvgPrice;
+
+            logAdminAuditAction("INVENTORY_RESTOCK_EUR", item.id, {
+              addedQty,
+              newPriceEur: row.newPriceEur,
+              weightedPriceEur: weightedAvgPrice,
+              totalEuStock: newTotalStockEu,
+              totalStockOverall: newTotalStockOverall
+            });
+          });
+
+          await Promise.all(updatePromises);
+
+          localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+          _invalidateStaticCache();
+          closeModal("bulk-restock-eur-modal");
+          showToast(`Successfully restocked ${bulkRestockList.length} product(s) in EU!`);
+
+          await syncAllLinkedProductsStock();
+          renderInventoryList();
+          updateDashboard();
+        } catch (e) {
+          showToast("Error updating restocks: " + e.message, "error");
+        }
         hideLoading();
       };
 

@@ -614,6 +614,10 @@
                 <option value="low">Low Stock (≤ 2)</option>
                 <option value="out">Out of Stock (0)</option>
               </select>
+              <button class="btn-primary" onclick="openBulkRestockEurModal()" style="gap: 5px; background:#16a34a; border-color:#16a34a;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                💶 Bulk EU Restock
+              </button>
               <button class="btn-secondary" id="btn-inv-spreadsheet" onclick="toggleInventorySpreadsheetMode()" style="gap: 5px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
                 Spreadsheet Mode
@@ -2143,58 +2147,65 @@
       </div>
     </div>
 
-    <!-- RESTOCK EUR (EU STOCK & WEIGHTED AVERAGE PRICE) MODAL -->
-    <div class="modal-overlay" id="restock-eur-modal">
-      <div class="modal" style="max-width: 480px;">
+    <!-- BULK RESTOCK EUR (MULTI-PRODUCT RESTOCK & WEIGHTED AVERAGE PRICE) MODAL -->
+    <div class="modal-overlay" id="bulk-restock-eur-modal">
+      <div class="modal" style="max-width: 880px; width: 94%;">
         <div class="modal-header">
-          <div class="modal-title" id="restock-eur-title">💶 Restock EU Stock (Discounted / Custom € Price)</div>
-          <button class="modal-close" onclick="closeModal('restock-eur-modal')">
+          <div class="modal-title">💶 Bulk EU Restock (Purchase in €)</div>
+          <button class="modal-close" onclick="closeModal('bulk-restock-eur-modal')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
-        <div class="modal-body">
-          <input type="hidden" id="restock-eur-sku" />
-          
-          <div style="background:var(--g50); padding:12px 14px; border-radius:8px; border:1px solid var(--g200); margin-bottom:16px;">
-            <div style="font-size:11px; color:var(--g400); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Target Inventory Item</div>
-            <div id="restock-eur-prod-name" style="font-size:14px; font-weight:700; color:var(--black); margin-top:2px;">—</div>
-            <div style="font-size:11.5px; color:var(--g600); margin-top:4px; display:flex; gap:14px; flex-wrap:wrap;">
-              <span>SKU: <strong id="restock-eur-sku-lbl">—</strong></span>
-              <span>Current EU Stock: <strong id="restock-eur-cur-stock" style="color:#2563eb;">0</strong></span>
-              <span>Current Price: <strong id="restock-eur-cur-price">€ 0.00</strong></span>
+        <div class="modal-body" style="padding:20px;">
+          <!-- Product Search to Select Items -->
+          <div style="position:relative; margin-bottom:20px;">
+            <label style="font-weight:700; font-size:13px; margin-bottom:6px; display:block; color:var(--black);">
+              🔍 Search &amp; Add Products to Restock
+            </label>
+            <input type="text" id="bulk-restock-search" class="form-control" placeholder="Search by SKU, Brand, or Product Name..." oninput="onBulkRestockSearchInput()" style="font-size:13.5px; padding:10px 14px;" />
+            <div id="bulk-restock-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--g200); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); z-index:100; max-height:240px; overflow-y:auto; margin-top:4px;"></div>
+          </div>
+
+          <!-- Selected Products Restock Table -->
+          <div style="overflow-x:auto; border:1px solid var(--g200); border-radius:8px; margin-bottom:20px;">
+            <table class="table" style="margin:0; min-width:760px; font-size:12.5px;">
+              <thead>
+                <tr style="background:var(--g100);">
+                  <th style="width:230px;">Product &amp; SKU</th>
+                  <th style="width:140px; text-align:center;">Current Stock (EU+DZ) &amp; €</th>
+                  <th style="width:110px; text-align:center;">+ New EU Qty</th>
+                  <th style="width:125px; text-align:center;">Purchase € Price</th>
+                  <th style="width:140px; text-align:center;">New Avg Price (€)</th>
+                  <th style="width:50px; text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="bulk-restock-table-body">
+                <tr>
+                  <td colspan="6" style="text-align:center; padding:30px; color:var(--g400);">
+                    Search for products above to add them to your EU restock list.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Formula Info & Summary Footer -->
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-size:12px; font-weight:700; color:#15803d;">Weighted Average Formula (Includes EU + DZ Stock):</div>
+              <div style="font-size:11px; color:#475569; margin-top:2px;">
+                <code>((Current Total Stock [EU+DZ] × Current €) + (New EU Qty × Purchase €)) ÷ (Current Total Stock + New EU Qty)</code>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:12px; color:#64748b;">Selected Products: <strong id="bulk-restock-total-items" style="color:var(--black);">0</strong></span>
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom:15px;">
-            <div class="form-group" style="margin:0;">
-              <label style="font-weight:600;">+ New EU Quantity</label>
-              <input type="number" id="restock-eur-qty" class="form-control" value="1" min="1" oninput="recalcRestockEurPreview()" style="font-weight:700; color:#2563eb;" />
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label style="font-weight:600;">Purchase Price (€)</label>
-              <input type="number" step="0.01" id="restock-eur-price" class="form-control" placeholder="0.00" oninput="recalcRestockEurPreview()" style="font-weight:700;" />
-            </div>
-          </div>
-
-          <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:8px; padding:12px 14px; margin-bottom:18px;">
-            <div style="font-size:11px; color:#15803d; text-transform:uppercase; font-weight:800; letter-spacing:0.5px; margin-bottom:6px;">📈 Calculation Preview</div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:4px;">
-              <span style="color:#334155;">New Total EU Quantity:</span>
-              <strong id="restock-eur-preview-qty" style="color:#2563eb; font-size:15px;">0</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:4px;">
-              <span style="color:#334155;">New Weighted Average Price:</span>
-              <strong id="restock-eur-preview-avg" style="color:#16a34a; font-size:16px;">€ 0.00</strong>
-            </div>
-            <div style="font-size:11px; color:#64748b; margin-top:6px; border-top:1px dashed #cbd5e1; padding-top:6px;">
-              * Formula: <code>((Current Qty × Current €) + (New Qty × New €)) ÷ Total Qty</code>
-            </div>
-          </div>
-
-          <button class="btn-primary" style="width:100%; justify-content:center; background:#16a34a; border-color:#16a34a;" onclick="saveRestockEur()">
-            Confirm Restock &amp; Update Average Price
+          <button class="btn-primary" style="width:100%; justify-content:center; background:#16a34a; border-color:#16a34a; padding:12px; font-size:14px;" onclick="saveBulkRestockEur()">
+            Confirm All Restocks &amp; Update Average Prices
           </button>
         </div>
       </div>
