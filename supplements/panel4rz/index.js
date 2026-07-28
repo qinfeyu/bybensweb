@@ -3281,6 +3281,20 @@
         const detailProfitColor = detailProfit >= 0 ? "var(--green)" : "var(--red)";
         const detailProfitSign = detailProfit >= 0 ? "+" : "";
 
+        const isPreOrder = (o.source || "").toLowerCase().includes("pre order") || (o.source || "").toLowerCase().includes("preorder");
+
+        const summaryHtml = isPreOrder ? `
+          <div class="summary-row"><span>Subtotal (Items + Delivery)</span><span>${Number(o.total || o.subtotal || 0).toLocaleString("fr-DZ")} DA</span></div>
+          ${promoRow}
+          ${Number(o.deliveryCost || 0) > 0 ? `<div class="summary-row" style="font-size:12px; color:var(--g500);"><span>Delivery Fee</span><span>${Number(o.deliveryCost || 0).toLocaleString("fr-DZ")} DA (Included)</span></div>` : ''}
+          <div class="summary-row total-row"><span>Total</span><strong>${Number(o.total || o.subtotal || 0).toLocaleString("fr-DZ")} DA</strong></div>
+        ` : `
+          <div class="summary-row"><span>Subtotal</span><span>${Number(o.subtotal || 0).toLocaleString("fr-DZ")} DA</span></div>
+          ${promoRow}
+          <div class="summary-row"><span>Delivery (${o.deliveryType === "home" ? "Home" : "Office"})</span><span>${Number(o.deliveryCost || 0).toLocaleString("fr-DZ")} DA</span></div>
+          <div class="summary-row total-row"><span>Total</span><strong>${Number(o.total || 0).toLocaleString("fr-DZ")} DA</strong></div>
+        `;
+
         document.getElementById("order-detail-body").innerHTML = `
           <div class="order-detail-section">
             <div class="order-detail-title">Customer Info</div>
@@ -3309,10 +3323,7 @@
           <div class="order-detail-section">
             <div class="order-detail-title">Summary</div>
             <div class="order-detail-summary">
-              <div class="summary-row"><span>Subtotal</span><span>${Number(o.subtotal || 0).toLocaleString("fr-DZ")} DA</span></div>
-              ${promoRow}
-              <div class="summary-row"><span>Delivery (${o.deliveryType === "home" ? "Home" : "Office"})</span><span>${Number(o.deliveryCost || 0).toLocaleString("fr-DZ")} DA</span></div>
-              <div class="summary-row total-row"><span>Total</span><strong>${Number(o.total || 0).toLocaleString("fr-DZ")} DA</strong></div>
+              ${summaryHtml}
               <div class="summary-row" style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--g200); font-weight:600;"><span>Estimated Benefit</span><strong style="color:${detailProfitColor}">${detailProfitSign}${Math.round(detailProfit).toLocaleString("fr-DZ")} DA</strong></div>
             </div>
           </div>
@@ -3416,7 +3427,8 @@
           rate: Number(item.rate) || 280,
           delivery_dzd: Number(item.delivery_dzd) || 0,
           retail_dzd: Number(item.retail_dzd) || 0,
-          stock: Number(item.stock) || 0
+          stock: Number(item.stock) || 0,
+          stock_eu: Number(item.stock_eu) || 0
         };
       }
 
@@ -3445,7 +3457,15 @@
               return res.data || [];
             });
           const delCustP = sb.from("deleted_customers").select("phone").then(r => r.data || []).catch(() => []);
-          const invP = sb.from("inventory_items").select("id,type,brand,name,variant_spec,size,price_eur,rate,delivery_dzd,retail_dzd,stock,created_at").order("created_at", { ascending: false }).then(r => r.data || []).catch(() => []);
+          const invP = sb.from("inventory_items").select("id,type,brand,name,variant_spec,size,price_eur,rate,delivery_dzd,retail_dzd,stock,stock_eu,created_at").order("created_at", { ascending: false })
+            .then(r => {
+              if (r.error) throw r.error;
+              return r.data || [];
+            })
+            .catch(async () => {
+              const res = await sb.from("inventory_items").select("*");
+              return res.data || [];
+            });
 
           const [sales, saleItems, pre, preItems, exp, cust, delCust, inv] = await Promise.all([
             salesP, saleItemsP, preP, preItemsP, expP, custP, delCustP, invP
