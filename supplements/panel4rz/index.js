@@ -3493,16 +3493,24 @@
           } catch(e){}
 
           const mergedInv = {};
-          inv.forEach(item => { if (item.id) mergedInv[item.id] = item; });
-
-          // Re-sync any local items not yet in Supabase
-          const unsyncedLocals = [];
           localInv.forEach(item => {
             if (item.id) {
-              if (!mergedInv[item.id]) {
-                mergedInv[item.id] = item;
-                unsyncedLocals.push(_toDbInventoryPayload(item));
-              }
+              mergedInv[item.id] = { ...item };
+            }
+          });
+
+          inv.forEach(cloudItem => {
+            if (cloudItem.id) {
+              const existingLocal = mergedInv[cloudItem.id];
+              const localStockEu = existingLocal ? (Number(existingLocal.stock_eu) || 0) : 0;
+              const cloudStockEu = (cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null) ? (Number(cloudItem.stock_eu) || 0) : 0;
+              const finalStockEu = cloudStockEu > 0 ? cloudStockEu : localStockEu;
+
+              mergedInv[cloudItem.id] = {
+                ...existingLocal,
+                ...cloudItem,
+                stock_eu: finalStockEu
+              };
             }
           });
 
