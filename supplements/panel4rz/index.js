@@ -6115,6 +6115,7 @@
                 <td><input type="number" value="${item.stock || 0}" class="spreadsheet-input" style="font-weight: 700; color: #16a34a;" onchange="updateInventorySpreadsheetItem(this, '${item.id}', 'stock')" title="Stock in Algeria (Sellable)" /></td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:2px; justify-content:center;">
+                    <button class="btn-secondary" onclick="openRestockEurModal('${item.id}')" style="padding:2px 5px; font-size:10px; color:#16a34a; border-color:#bbf7d0; background:#f0fdf4;" title="Add EU stock at custom/discounted EUR price">💶 +EUR</button>
                     <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:2px 5px; font-size:10px; color:#2563eb; border-color:#bfdbfe;" title="Move stock from Europe to Algeria">🚚 Move</button>
                     <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:2px 5px; font-size:10px;">Del</button>
                   </div>
@@ -6141,6 +6142,7 @@
                 <td style="text-align:center;"><span class="stock-badge" style="${Number(item.stock) > 0 ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#b91c1c;'} padding:2px 5px; font-size:10.5px;">DZ: ${item.stock || 0}</span></td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:2px; justify-content:center; align-items:center; flex-wrap:nowrap;">
+                    <button class="btn-secondary" onclick="openRestockEurModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; color:#16a34a; border-color:#bbf7d0; background:#f0fdf4; flex-shrink:0;" title="Add EU stock at custom/discounted EUR price">💶 +EUR</button>
                     <button class="btn-secondary" onclick="openTransferStockModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; color:#2563eb; border-color:#bfdbfe; background:#eff6ff; flex-shrink:0;" title="Move stock from Europe to Algeria">🚚 Move</button>
                     <button class="btn-primary" onclick="openEditInventoryModal('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; flex-shrink:0;">Edit</button>
                     <button class="btn-danger" onclick="deleteInventoryItem('${item.id}')" style="padding:2px 4px; font-size:10px; height:auto; flex-shrink:0;">Del</button>
@@ -6205,6 +6207,119 @@
             }).join("");
           }
         }
+      };
+
+      window.openRestockEurModal = function(sku) {
+        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
+        if (!item) {
+          showToast("Inventory item not found!", "error");
+          return;
+        }
+
+        document.getElementById("restock-eur-sku").value = item.id;
+        document.getElementById("restock-eur-prod-name").textContent = `${item.brand ? item.brand + ' - ' : ''}${item.name}${item.variant_spec ? ' (' + item.variant_spec + ')' : ''}`;
+        document.getElementById("restock-eur-sku-lbl").textContent = item.id;
+
+        const curStock = Number(item.stock_eu) || 0;
+        const curPrice = Number(item.price_eur) || 0;
+
+        document.getElementById("restock-eur-cur-stock").textContent = curStock;
+        document.getElementById("restock-eur-cur-price").textContent = "€ " + curPrice.toFixed(2);
+
+        document.getElementById("restock-eur-qty").value = 1;
+        document.getElementById("restock-eur-price").value = curPrice.toFixed(2);
+
+        recalcRestockEurPreview();
+        openModal("restock-eur-modal");
+      };
+
+      window.recalcRestockEurPreview = function() {
+        const sku = document.getElementById("restock-eur-sku")?.value;
+        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
+        if (!item) return;
+
+        const curStock = Number(item.stock_eu) || 0;
+        const curPrice = Number(item.price_eur) || 0;
+
+        const addedQty = parseInt(document.getElementById("restock-eur-qty")?.value) || 0;
+        const newPrice = parseFloat(document.getElementById("restock-eur-price")?.value) || 0;
+
+        const totalStock = curStock + Math.max(0, addedQty);
+        let avgPrice = curPrice;
+
+        if (totalStock > 0) {
+          avgPrice = ((curStock * curPrice) + (Math.max(0, addedQty) * newPrice)) / totalStock;
+        } else {
+          avgPrice = newPrice;
+        }
+
+        const previewQtyEl = document.getElementById("restock-eur-preview-qty");
+        if (previewQtyEl) previewQtyEl.textContent = totalStock;
+
+        const previewAvgEl = document.getElementById("restock-eur-preview-avg");
+        if (previewAvgEl) previewAvgEl.textContent = "€ " + avgPrice.toFixed(2);
+      };
+
+      window.saveRestockEur = async function() {
+        const sku = document.getElementById("restock-eur-sku")?.value;
+        const item = inventoryItems.find(x => String(x.id).toLowerCase() === String(sku).toLowerCase());
+        if (!item) {
+          showToast("Item not found!", "error");
+          return;
+        }
+
+        const addedQty = parseInt(document.getElementById("restock-eur-qty")?.value) || 0;
+        const newPrice = parseFloat(document.getElementById("restock-eur-price")?.value) || 0;
+
+        if (addedQty <= 0) {
+          showToast("Please enter a valid added quantity greater than 0", "error");
+          return;
+        }
+        if (newPrice < 0) {
+          showToast("Please enter a valid purchase price", "error");
+          return;
+        }
+
+        const curStock = Number(item.stock_eu) || 0;
+        const curPrice = Number(item.price_eur) || 0;
+
+        const totalStock = curStock + addedQty;
+        const weightedAvgPrice = parseFloat((((curStock * curPrice) + (addedQty * newPrice)) / totalStock).toFixed(2));
+
+        showLoading("Updating inventory & calculating average price...");
+
+        try {
+          // Update database
+          const { error } = await sb.from("inventory_items").update({
+            stock_eu: totalStock,
+            price_eur: weightedAvgPrice
+          }).eq("id", item.id);
+
+          if (error) throw error;
+        } catch (e) {
+          console.warn("Supabase update error:", e);
+        }
+
+        // Local cache mutation
+        item.stock_eu = totalStock;
+        item.price_eur = weightedAvgPrice;
+        localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+
+        _invalidateStaticCache();
+        closeModal("restock-eur-modal");
+        showToast(`Restocked +${addedQty} EU units! New Avg Price: €${weightedAvgPrice.toFixed(2)}`);
+
+        logAdminAuditAction("INVENTORY_RESTOCK_EUR", item.id, {
+          addedQty,
+          newPriceEur: newPrice,
+          weightedPriceEur: weightedAvgPrice,
+          totalEuStock: totalStock
+        });
+
+        await syncAllLinkedProductsStock();
+        renderInventoryList();
+        updateDashboard();
+        hideLoading();
       };
 
       window.openTransferStockModal = function(sku) {
