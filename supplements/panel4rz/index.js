@@ -1085,6 +1085,7 @@
       }
 
       function openProductModal(id = null) {
+        window._isOpeningProductModal = true;
         editingProductId = id;
         currentImageUrls = [];
         editingBundleItems = [];
@@ -1093,6 +1094,9 @@
           : "Add Product";
         document.getElementById("variants-list").innerHTML = "";
         document.getElementById("flavors-list").innerHTML = "";
+        if (document.getElementById("stock-matrix-head")) document.getElementById("stock-matrix-head").innerHTML = "";
+        if (document.getElementById("stock-matrix-body")) document.getElementById("stock-matrix-body").innerHTML = "";
+        if (document.getElementById("variant-stock-list")) document.getElementById("variant-stock-list").innerHTML = "";
         renderImageGrid();
 
         if (id) {
@@ -1192,6 +1196,7 @@
         }
         togglePromoSection();
         openModal("product-modal");
+        window._isOpeningProductModal = false;
       }
 
       window.toggleBundleSection = function() {
@@ -1610,15 +1615,18 @@
         const hasFlavors  = flavors.length > 0;
         const showMatrix  = hasVariants && hasFlavors;
 
-        // Preserve current values before re-render
+        // Preserve current values before re-render ONLY if editing within the active modal session
         const matrixVals = {};
-        document.querySelectorAll("#stock-matrix-body input").forEach(inp => {
-          matrixVals[`${inp.dataset.vi}_${inp.dataset.fn}`] = parseInt(inp.value) || 0;
-        });
         const vstockVals = {};
-        document.querySelectorAll("#variant-stock-list .vstock-input").forEach(inp => {
-          vstockVals[String(inp.dataset.vi)] = parseInt(inp.value) || 0;
-        });
+
+        if (!window._isOpeningProductModal) {
+          document.querySelectorAll("#stock-matrix-body input").forEach(inp => {
+            matrixVals[`${inp.dataset.vi}_${inp.dataset.fn}`] = parseInt(inp.value) || 0;
+          });
+          document.querySelectorAll("#variant-stock-list .vstock-input").forEach(inp => {
+            vstockVals[String(inp.dataset.vi)] = parseInt(inp.value) || 0;
+          });
+        }
         // If switching matrix→variant-only: seed variant stocks from matrix row totals
         if (!Object.keys(vstockVals).length && Object.keys(matrixVals).length) {
           document.querySelectorAll("#stock-matrix-body tr").forEach((row, vi) => {
