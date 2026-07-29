@@ -3493,6 +3493,8 @@
           } catch(e){}
 
           const mergedInv = {};
+          const unsyncedLocals = [];
+
           localInv.forEach(item => {
             if (item.id) {
               mergedInv[item.id] = { ...item };
@@ -3506,16 +3508,50 @@
               const cloudStockEu = (cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null) ? (Number(cloudItem.stock_eu) || 0) : 0;
               const finalStockEu = cloudStockEu > 0 ? cloudStockEu : localStockEu;
 
+              const localStock = existingLocal ? (Number(existingLocal.stock) || 0) : undefined;
+              const cloudStock = (cloudItem.stock !== undefined && cloudItem.stock !== null) ? Number(cloudItem.stock) : 0;
+              
+              let finalStock = cloudStock;
+
+              // If local item has a recent timestamp, compare and preserve local stock if newer or if cloud data reverted to 0
+              if (existingLocal && existingLocal._lastUpdated) {
+                const localTime = new Date(existingLocal._lastUpdated).getTime();
+                const cloudTime = cloudItem.created_at ? new Date(cloudItem.created_at).getTime() : 0;
+                
+                if (localTime > cloudTime || (localStock !== undefined && cloudStock !== localStock)) {
+                  finalStock = localStock;
+                  unsyncedLocals.push(_toDbInventoryPayload({ ...cloudItem, ...existingLocal, stock: finalStock, stock_eu: finalStockEu }));
+                }
+              } else if (localStock !== undefined && localStock !== cloudStock) {
+                finalStock = localStock;
+              }
+
               mergedInv[cloudItem.id] = {
                 ...existingLocal,
                 ...cloudItem,
+                stock: finalStock,
                 stock_eu: finalStockEu
               };
             }
           });
 
+          // Include local-only items not yet in cloud
+          localInv.forEach(item => {
+            if (item.id && !inv.some(c => c.id === item.id)) {
+              mergedInv[item.id] = item;
+              unsyncedLocals.push(_toDbInventoryPayload(item));
+            }
+          });
+
           inventoryItems = Object.values(mergedInv);
           localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
+
+          if (unsyncedLocals.length > 0) {
+            sb.from("inventory_items").upsert(unsyncedLocals, { onConflict: "id" }).then((res) => {
+              if (res && res.error) console.warn("Supabase background sync notice:", res.error.message);
+              else console.log(`Successfully synced ${unsyncedLocals.length} local inventory items to Supabase cloud!`);
+            }).catch(err => console.warn("Background sync notice:", err));
+          }
 
           if (unsyncedLocals.length > 0) {
             sb.from("inventory_items").upsert(unsyncedLocals, { onConflict: "id" }).then((res) => {
@@ -6734,13 +6770,18 @@
             delivery_dzd,
             retail_dzd,
             stock_eu,
-            stock
+            stock,
+            _lastUpdated: new Date().toISOString()
           };
           
           try {
             const dbPayload = _toDbInventoryPayload({ id, ...payload });
             delete dbPayload.id;
-            await sb.from("inventory_items").update(dbPayload).eq("id", id);
+            const { error: updErr } = await sb.from("inventory_items").update(dbPayload).eq("id", id);
+            if (updErr) {
+              console.warn("Supabase update notice:", updErr.message);
+              await sb.from("inventory_items").upsert(_toDbInventoryPayload({ id, ...payload }), { onConflict: "id" });
+            }
           } catch (err) {
             console.warn("Supabase update notice:", err);
           }
@@ -6794,6 +6835,10 @@
           .catch(e => console.warn("Failed batched spreadsheet upsert:", e));
       }
 
+      window.addEventListener("beforeunload", () => {
+        _flushSpreadsheetUpserts();
+      });
+
       window.updateInventorySpreadsheetItem = async function(el, itemId, field) {
         const item = inventoryItems.find(x => x.id === itemId);
         if (!item) return;
@@ -6806,12 +6851,13 @@
         }
         
         item[field] = val;
+        item._lastUpdated = new Date().toISOString();
         
         localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
         
         _pendingSpreadsheetUpserts.set(itemId, item);
         clearTimeout(_spreadsheetUpsertTimer);
-        _spreadsheetUpsertTimer = setTimeout(_flushSpreadsheetUpserts, 1000);
+        _spreadsheetUpsertTimer = setTimeout(_flushSpreadsheetUpserts, 300);
         
         const row = el.closest("tr");
         if (row) {
