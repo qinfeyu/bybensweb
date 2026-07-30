@@ -120,6 +120,17 @@
           .filter(Boolean);
       }
 
+      // Safely parse a JSON object field (dict) — may arrive as string or already parsed
+      function parseObjectField(val) {
+        if (!val) return {};
+        if (typeof val === "object" && !Array.isArray(val)) return val;
+        try {
+          const parsed = JSON.parse(String(val));
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+        } catch (e) {}
+        return {};
+      }
+
       function getProductPrice(p, variantIndex) {
         const idx = variantIndex != null ? variantIndex : 0;
         const variants = parseField(p.variants);
@@ -328,11 +339,12 @@
       function renderProduct() {
         const p = selectedProduct;
 
-        // Normalise all array fields
+        // Normalise all array/object fields
         p.variants = parseField(p.variants);
         p.flavors = parseField(p.flavors);
         p.categoryIds = parseField(p.categoryIds);
         p.subCategoryIds = parseField(p.subCategoryIds);
+        p.flavorImages = parseObjectField(p.flavorImages);
 
         document.title = `${p.name} – ByBens`;
         document.getElementById("breadcrumbName").textContent = p.name;
@@ -637,8 +649,11 @@
         let found = false;
 
         // 1. Check p.flavorImages dict (URL-keyed by flavor name) — set by admin panel
+        // parseObjectField already called in renderProduct, so this is always a plain object
         if (selectedFlavor && p.flavorImages && typeof p.flavorImages === "object") {
-          const directUrl = p.flavorImages[selectedFlavor];
+          // Try exact match first, then case-insensitive
+          const directUrl = p.flavorImages[selectedFlavor]
+            || p.flavorImages[Object.keys(p.flavorImages).find(k => k.trim().toLowerCase() === selectedFlavor.trim().toLowerCase())];
           if (directUrl) {
             targetUrl = directUrl;
             found = true;
@@ -675,17 +690,30 @@
         const finalUrl = targetUrl || imgs[targetImgIdx];
         if (finalUrl) {
           const thumbs = document.querySelectorAll(".gallery-thumb");
-          // Find the thumb whose inner img matches finalUrl
+
+          // Resolve both to absolute URLs for safe comparison
+          const resolveUrl = (u) => { try { return new URL(u, location.href).href; } catch(e) { return u; } };
+          const finalResolved = resolveUrl(finalUrl);
+
+          // 1. Try matching by src (normalised)
           const matchingThumb = Array.from(thumbs).find(t => {
             const inner = t.querySelector("img");
-            return inner && (inner.src === finalUrl || inner.getAttribute("src") === finalUrl);
+            if (!inner) return false;
+            return resolveUrl(inner.src) === finalResolved || resolveUrl(inner.getAttribute("src") || "") === finalResolved;
           });
+
           if (matchingThumb) {
             switchProductImg(finalUrl, matchingThumb);
           } else {
-            // No gallery thumb matches — swap main image directly (e.g. flavor image not in gallery)
-            const mainImg = document.getElementById("productMainImg");
-            if (mainImg) mainImg.src = finalUrl;
+            // 2. No gallery thumb match — find which index in imgs array this url corresponds to
+            const imgIdx = imgs.findIndex(u => resolveUrl(u) === finalResolved);
+            if (imgIdx >= 0 && thumbs[imgIdx]) {
+              switchProductImg(finalUrl, thumbs[imgIdx]);
+            } else {
+              // 3. Swap main image directly (flavor image not in gallery)
+              const mainImg = document.getElementById("productMainImg");
+              if (mainImg) mainImg.src = finalUrl;
+            }
           }
         }
       }
