@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "https://uogwlzuiemxwsnpigydg.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiZXpycnptY29zeGRvb3Jicmd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTcxODExOSwiZXhwIjoyMDk1Mjk0MTE5fQ.TJLVdjwyNCKhS0vyFlUnRW6LQLvotuuFqxUj6H2-JGs";
+  Deno.env.get("SUPABASE_ANON_KEY") ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZ3dsenVpZW14d3NucGlneWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTA3MDMsImV4cCI6MjA5ODgyNjcwM30.3IrYmHPKPUwki-hmkysLw3EAEcr_h8wLHZmRphDiOpI";
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "8597076283:AAEcCim85KCQZQC-5ik4SLXdS8xPvOJg__o";
 const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID") || "-1003790940322";
 
@@ -70,10 +71,10 @@ async function adjustStock(items: any[], direction: number) {
     }
 
     let linkedSku = "";
+    let matchedFlavorKey = "";
 
     if (matchedIdx >= 0 && variants[matchedIdx]) {
       const v = variants[matchedIdx];
-      let matchedFlavorKey = "";
       if (rawFlavor && v.flavorStock) {
         matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase()) || "";
       }
@@ -112,12 +113,30 @@ async function adjustStock(items: any[], direction: number) {
     }
 
     // ── DEDUCT / RESTORE INVENTORY ITEM SKU STOCK ──
-    if (linkedSku) {
+    if (linkedSku && linkedSku.trim()) {
       try {
-        const { data: inv } = await sb.from("inventory_items").select("stock").eq("id", linkedSku).single();
-        if (inv) {
-          const newInvStock = Math.max(0, (Number(inv.stock) || 0) + direction * qty);
-          await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", linkedSku);
+        const targetSku = linkedSku.trim();
+        const { data: invRows } = await sb.from("inventory_items").select("*").ilike("id", targetSku).limit(1);
+        if (invRows && invRows.length > 0) {
+          const curStock = Number(invRows[0].stock) || 0;
+          const newInvStock = Math.max(0, curStock + direction * qty);
+          await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", invRows[0].id);
+        } else {
+          // If SKU row is not in inventory_items yet, create/upsert it with updated stock!
+          const v = (matchedIdx >= 0 && variants[matchedIdx]) ? variants[matchedIdx] : null;
+          const currentFStock = (v && matchedFlavorKey && v.flavorStock) ? Number(v.flavorStock[matchedFlavorKey]) : (v ? Number(v.stock) : 0);
+          const newInvStock = Math.max(0, (Number(currentFStock) || 0) + direction * qty);
+          await sb.from("inventory_items").upsert({
+            id: targetSku,
+            name: `${prod.name}${rawFlavor ? ' (' + rawFlavor + ')' : ''}`,
+            brand: prod.brand || '',
+            stock: newInvStock,
+            price_eur: 0,
+            rate: 280,
+            delivery_dzd: 0,
+            retail_dzd: (v ? Number(v.price) : 0) || 0,
+            type: 'supplement'
+          }, { onConflict: 'id' });
         }
       } catch (err) {
         console.error("Error updating SKU inventory stock:", err);

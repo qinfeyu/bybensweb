@@ -503,7 +503,7 @@ export default function App() {
 
     let updatedInventory = [...inventoryItems];
     let updatedProducts = [...products];
-    const invUpdates: { id: string; stock: number }[] = [];
+    const invUpdates: { id: string; stock: number; fullItem?: InventoryItem }[] = [];
     const prodUpdates: { id: string; variants: any[]; stock: number }[] = [];
 
     for (const item of items) {
@@ -555,25 +555,52 @@ export default function App() {
         prod.stock = newGlobalStock;
         prodUpdates.push({ id: prod.id, variants, stock: newGlobalStock });
 
-        if (linkedSku) {
-          const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === linkedSku.toLowerCase());
+        if (linkedSku && linkedSku.trim()) {
+          const skuClean = linkedSku.trim();
+          const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === skuClean.toLowerCase());
           if (invIdx >= 0) {
             const invItem = { ...updatedInventory[invIdx] };
             const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
             invItem.stock = newInvStock;
             updatedInventory[invIdx] = invItem;
             invUpdates.push({ id: invItem.id, stock: newInvStock });
+          } else {
+            const v = variants[matchedIdx];
+            const curFStock = (matchedFlavorKey && v.flavorStock) ? Number(v.flavorStock[matchedFlavorKey]) : Number(v.stock);
+            const newInvStock = Math.max(0, (Number(curFStock) || 0) + direction * qty);
+            const newInvItem: InventoryItem = {
+              id: skuClean,
+              name: `${prod.name}${itemFlavor ? ' (' + itemFlavor + ')' : ''}`,
+              brand: prod.brand || '',
+              stock: newInvStock,
+              stock_eu: 0,
+              price_eur: 0,
+              rate: 280,
+              delivery_dzd: 0,
+              retail_dzd: Number(v.price) || 0,
+              type: 'supplement'
+            };
+            updatedInventory.push(newInvItem);
+            invUpdates.push({ id: newInvItem.id, stock: newInvStock, fullItem: newInvItem });
           }
         }
       }
     }
 
-    if (invUpdates.length > 0) setInventoryItems(updatedInventory);
+    if (invUpdates.length > 0) {
+      setInventoryItems([...updatedInventory]);
+      localStorage.setItem('bb_inventory_items', JSON.stringify(updatedInventory));
+    }
     if (prodUpdates.length > 0) setProducts(updatedProducts);
 
     try {
       for (const u of invUpdates) {
-        await supabase.from('inventory_items').update({ stock: u.stock }).eq('id', u.id);
+        if ((u as any).fullItem) {
+          const { stock_eu, _lastUpdated, ...cleanObj } = (u as any).fullItem;
+          await supabase.from('inventory_items').upsert(cleanObj, { onConflict: 'id' });
+        } else {
+          await supabase.from('inventory_items').update({ stock: u.stock }).eq('id', u.id);
+        }
       }
       for (const u of prodUpdates) {
         await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
