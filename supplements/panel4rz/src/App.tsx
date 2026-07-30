@@ -829,6 +829,7 @@ export default function App() {
                 products={products}
                 expenses={expenses}
                 eurRate={eurRate}
+                customers={customers}
               />
             )}
 
