@@ -32,22 +32,39 @@ interface ProductsPageProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-// ── RICH TEXT EDITOR COMPONENT ──
+// ── RICH TEXT EDITOR COMPONENT WITH CLOUDINARY IMAGE INSERTION ──
 const RichTextEditor: React.FC<{
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
 }> = ({ value, onChange, placeholder }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const [isUploadingImg, setIsUploadingImg] = useState(false);
 
   const format = (cmd: string, arg?: string) => {
     document.execCommand(cmd, false, arg);
     if (editorRef.current) onChange(editorRef.current.innerHTML);
   };
 
+  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImg(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      format('insertImage', url);
+    } catch (err: any) {
+      alert("Image upload error: " + err.message);
+    } finally {
+      setIsUploadingImg(false);
+      e.target.value = "";
+    }
+  };
+
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-red-600/20">
-      <div className="flex items-center gap-1 bg-slate-100 p-1.5 border-b border-slate-200 text-xs">
+      <div className="flex items-center gap-1 bg-slate-100 p-1.5 border-b border-slate-200 text-xs flex-wrap">
         <button type="button" onClick={() => format('bold')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 font-bold" title="Bold">
           <Bold className="w-3.5 h-3.5" />
         </button>
@@ -64,13 +81,19 @@ const RichTextEditor: React.FC<{
         <button type="button" onClick={() => format('removeFormat')} className="p-1.5 hover:bg-slate-200 rounded text-slate-500" title="Clear Formatting">
           <RemoveFormatting className="w-3.5 h-3.5" />
         </button>
+        <div className="w-px h-4 bg-slate-300 mx-1" />
+        <label className="p-1.5 hover:bg-slate-200 rounded text-slate-700 cursor-pointer flex items-center gap-1 font-semibold" title="Upload Image to Cloudinary and Insert">
+          {isUploadingImg ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" /> : <Upload className="w-3.5 h-3.5 text-blue-600" />}
+          <span>Insert Image</span>
+          <input type="file" accept="image/*" className="hidden" onChange={handleInlineImageUpload} disabled={isUploadingImg} />
+        </label>
       </div>
       <div
         ref={editorRef}
         contentEditable
         onInput={(e) => onChange(e.currentTarget.innerHTML)}
         dangerouslySetInnerHTML={{ __html: value || '' }}
-        className="p-3 text-xs text-slate-900 min-h-[90px] focus:outline-none"
+        className="p-3 text-xs text-slate-900 min-h-[90px] max-h-[300px] overflow-y-auto focus:outline-none space-y-2 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:shadow-sm [&_img]:my-2"
       />
     </div>
   );
@@ -128,6 +151,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [flavors, setFlavors] = useState<string[]>([]);
   const [flavorStockMatrix, setFlavorStockMatrix] = useState<Record<string, number>>({});
+  const [previewVariantImgIdx, setPreviewVariantImgIdx] = useState<number | null>(null);
 
   const filteredProducts = products.filter(p => {
     if (!searchQuery.trim()) return true;
@@ -158,6 +182,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         cost: Number(v.cost) || 0,
         stock: Number(v.stock) || 0,
         sku: v.sku || '',
+        imageIndex: v.imageIndex !== undefined ? Number(v.imageIndex) : 0,
         flavorStock: v.flavorStock || {}
       }));
 
@@ -202,6 +227,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       setFlavorStockMatrix({});
     }
 
+    setPreviewVariantImgIdx(null);
     setModalTab('basic');
     setIsModalOpen(true);
   };
@@ -226,6 +252,30 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       showToast("Upload error: " + err.message, "error");
     } finally {
       setIsUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleVariantImageUpload = async (vIdx: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const url = await uploadToCloudinary(file);
+      setImageUrls(prev => {
+        const nextImgs = [...prev, url];
+        const newImgIdx = nextImgs.length - 1;
+        setVariants(vPrev => {
+          const nextV = [...vPrev];
+          nextV[vIdx].imageIndex = newImgIdx;
+          return nextV;
+        });
+        return nextImgs;
+      });
+      showToast("✓ Variant image uploaded and linked!");
+    } catch (err: any) {
+      showToast("Upload error: " + err.message, "error");
+    } finally {
       event.target.value = "";
     }
   };
@@ -374,7 +424,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
     await onSaveProduct(payload);
     setIsModalOpen(false);
-    showToast("✓ Product saved successfully and synced to storefront!");
+    showToast("✓ Product saved successfully!");
   };
 
   return (
@@ -489,10 +539,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             </div>
 
             {/* Sub-navigation Tabs */}
-            <div className="flex border-b border-slate-200 bg-slate-100/60 px-5 gap-1 text-xs font-bold">
+            <div className="flex border-b border-slate-200 bg-slate-100/60 px-5 gap-1 text-xs font-bold overflow-x-auto">
               <button
                 onClick={() => setModalTab('basic')}
-                className={`py-3 px-4 border-b-2 transition-all ${
+                className={`py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
                   modalTab === 'basic' ? 'border-red-700 text-red-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -500,7 +550,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
               </button>
               <button
                 onClick={() => setModalTab('images')}
-                className={`py-3 px-4 border-b-2 transition-all ${
+                className={`py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
                   modalTab === 'images' ? 'border-red-700 text-red-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -508,7 +558,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
               </button>
               <button
                 onClick={() => setModalTab('categories')}
-                className={`py-3 px-4 border-b-2 transition-all ${
+                className={`py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
                   modalTab === 'categories' ? 'border-red-700 text-red-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -516,7 +566,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
               </button>
               <button
                 onClick={() => setModalTab(isBundle ? 'bundle' : 'variants')}
-                className={`py-3 px-4 border-b-2 transition-all ${
+                className={`py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
                   (modalTab === 'variants' || modalTab === 'bundle') ? 'border-red-700 text-red-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -552,37 +602,40 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     </div>
                   </div>
 
-                  {/* RICH TEXT EDITOR DESCRIPTION */}
+                  {/* RICH TEXT EDITOR: DESCRIPTION */}
                   <div>
                     <label className="font-bold text-slate-700 mb-1 block">Description (Rich Text Editor)</label>
                     <RichTextEditor
                       value={editingProduct?.description || ''}
                       onChange={(html) => setEditingProduct({ ...editingProduct, description: html })}
-                      placeholder="Enter detailed description..."
+                      placeholder="Enter detailed product description..."
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="font-bold text-slate-700">Nutritional Facts</label>
-                      <textarea
-                        rows={2}
-                        value={editingProduct?.nutritionalFacts || ''}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, nutritionalFacts: e.target.value })}
-                        placeholder="Protein: 24g, BCAAs: 5.5g..."
-                        className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-slate-700">Benefits & Highlights</label>
-                      <textarea
-                        rows={2}
-                        value={editingProduct?.benefits || ''}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, benefits: e.target.value })}
-                        placeholder="Fast absorption, muscle recovery..."
-                        className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900"
-                      />
-                    </div>
+                  {/* RICH TEXT EDITOR: NUTRITIONAL FACTS */}
+                  <div>
+                    <label className="font-bold text-slate-700 mb-1 block flex items-center justify-between">
+                      <span>Nutritional Facts (Rich Text Editor — Supports Images)</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Supports tables, bold labels, & Cloudinary images</span>
+                    </label>
+                    <RichTextEditor
+                      value={editingProduct?.nutritionalFacts || ''}
+                      onChange={(html) => setEditingProduct({ ...editingProduct, nutritionalFacts: html })}
+                      placeholder="Nutritional Facts table or image..."
+                    />
+                  </div>
+
+                  {/* RICH TEXT EDITOR: BENEFITS & HIGHLIGHTS (OPTIONAL) */}
+                  <div>
+                    <label className="font-bold text-slate-700 mb-1 block flex items-center justify-between">
+                      <span>Benefits & Highlights (Rich Text Editor — Optional)</span>
+                      <span className="text-[10px] text-emerald-600 font-semibold">Optional</span>
+                    </label>
+                    <RichTextEditor
+                      value={editingProduct?.benefits || ''}
+                      onChange={(html) => setEditingProduct({ ...editingProduct, benefits: html })}
+                      placeholder="Optional product benefits & highlights..."
+                    />
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
@@ -790,76 +843,119 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                   {/* Variants Row Builder */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Variants</h4>
+                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Variants & Picture Linkage</h4>
                       <button
-                        onClick={() => setVariants([...variants, { weight: '', unit: 'kg', price: 0, stock: 0 }])}
+                        onClick={() => setVariants([...variants, { weight: '', unit: 'kg', price: 0, stock: 0, imageIndex: 0 }])}
                         className="text-xs font-semibold text-red-700 hover:text-red-800 flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" /> + Add Variant
                       </button>
                     </div>
 
-                    {variants.map((v, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-                        <input
-                          type="text"
-                          placeholder="Weight/Size"
-                          value={typeof v.weight === 'string' ? v.weight : ''}
-                          onChange={(e) => {
-                            const next = [...variants];
-                            next[idx].weight = e.target.value;
-                            setVariants(next);
-                          }}
-                          className="w-24 bg-white border border-slate-200 rounded p-1.5"
-                        />
-                        <select
-                          value={v.unit || 'kg'}
-                          onChange={(e) => {
-                            const next = [...variants];
-                            next[idx].unit = e.target.value;
-                            setVariants(next);
-                          }}
-                          className="bg-white border border-slate-200 rounded p-1.5 text-xs font-semibold"
-                        >
-                          <option value="g">g</option>
-                          <option value="kg">kg</option>
-                          <option value="caps">caps</option>
-                          <option value="ml">ml</option>
-                          <option value="pcs">pcs</option>
-                        </select>
-                        <input
-                          type="number"
-                          placeholder="Price DA"
-                          value={v.price}
-                          onChange={(e) => {
-                            const next = [...variants];
-                            next[idx].price = parseFloat(e.target.value) || 0;
-                            setVariants(next);
-                          }}
-                          className="w-24 bg-white border border-slate-200 rounded p-1.5 font-bold"
-                        />
-                        {/* SKU Link Dropdown */}
-                        <select
-                          value={v.sku || ''}
-                          onChange={(e) => {
-                            const next = [...variants];
-                            next[idx].sku = e.target.value;
-                            setVariants(next);
-                          }}
-                          className="bg-white border border-slate-200 rounded p-1.5 text-xs font-semibold text-emerald-700 flex-1"
-                        >
-                          <option value="">-- Link Inventory SKU --</option>
-                          {inventoryItems.map(inv => (
-                            <option key={inv.id} value={inv.id}>
-                              [{inv.id}] {inv.brand ? inv.brand + ' - ' : ''}{inv.name} (Stock: {inv.stock})
-                            </option>
-                          ))}
-                        </select>
-                        <button onClick={() => setVariants(variants.filter((_, i) => i !== idx))} className="text-rose-600 p-1">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                    {variants.map((v, idx) => {
+                      const linkedImgUrl = imageUrls[v.imageIndex || 0] || imageUrls[0];
+
+                      return (
+                        <div key={idx} className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs flex-wrap sm:flex-nowrap">
+                          {/* Image Thumbnail & Selector */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div
+                              onClick={() => setPreviewVariantImgIdx(v.imageIndex || 0)}
+                              className="w-10 h-10 bg-slate-200 rounded-lg overflow-hidden border border-slate-300 cursor-pointer flex items-center justify-center relative group"
+                              title="Click to preview linked picture"
+                            >
+                              {linkedImgUrl ? (
+                                <img src={linkedImgUrl} alt="Variant" className="w-full h-full object-cover" />
+                              ) : (
+                                <ImageIcon className="w-4 h-4 text-slate-400" />
+                              )}
+                            </div>
+
+                            <select
+                              value={v.imageIndex || 0}
+                              onChange={(e) => {
+                                const next = [...variants];
+                                next[idx].imageIndex = parseInt(e.target.value) || 0;
+                                setVariants(next);
+                              }}
+                              className="bg-white border border-slate-200 rounded p-1 text-[11px] font-medium max-w-[100px]"
+                            >
+                              {imageUrls.map((_, i) => (
+                                <option key={i} value={i}>Image {i + 1}</option>
+                              ))}
+                            </select>
+
+                            <label className="p-1 bg-white border border-slate-200 rounded hover:bg-slate-100 cursor-pointer" title="Upload new image for this variant">
+                              <Upload className="w-3.5 h-3.5 text-blue-600" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleVariantImageUpload(idx, e)}
+                              />
+                            </label>
+                          </div>
+
+                          <input
+                            type="text"
+                            placeholder="Weight/Size"
+                            value={typeof v.weight === 'string' ? v.weight : ''}
+                            onChange={(e) => {
+                              const next = [...variants];
+                              next[idx].weight = e.target.value;
+                              setVariants(next);
+                            }}
+                            className="w-24 bg-white border border-slate-200 rounded p-1.5"
+                          />
+                          <select
+                            value={v.unit || 'kg'}
+                            onChange={(e) => {
+                              const next = [...variants];
+                              next[idx].unit = e.target.value;
+                              setVariants(next);
+                            }}
+                            className="bg-white border border-slate-200 rounded p-1.5 text-xs font-semibold"
+                          >
+                            <option value="g">g</option>
+                            <option value="kg">kg</option>
+                            <option value="caps">caps</option>
+                            <option value="ml">ml</option>
+                            <option value="pcs">pcs</option>
+                          </select>
+                          <input
+                            type="number"
+                            placeholder="Price DA"
+                            value={v.price}
+                            onChange={(e) => {
+                              const next = [...variants];
+                              next[idx].price = parseFloat(e.target.value) || 0;
+                              setVariants(next);
+                            }}
+                            className="w-24 bg-white border border-slate-200 rounded p-1.5 font-bold"
+                          />
+                          {/* SKU Link Dropdown */}
+                          <select
+                            value={v.sku || ''}
+                            onChange={(e) => {
+                              const next = [...variants];
+                              next[idx].sku = e.target.value;
+                              setVariants(next);
+                            }}
+                            className="bg-white border border-slate-200 rounded p-1.5 text-xs font-semibold text-emerald-700 flex-1 min-w-[140px]"
+                          >
+                            <option value="">-- Link Inventory SKU --</option>
+                            {inventoryItems.map(inv => (
+                              <option key={inv.id} value={inv.id}>
+                                [{inv.id}] {inv.brand ? inv.brand + ' - ' : ''}{inv.name} (Stock: {inv.stock})
+                              </option>
+                            ))}
+                          </select>
+                          <button onClick={() => setVariants(variants.filter((_, i) => i !== idx))} className="text-rose-600 p-1">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Flavors Row Builder */}
@@ -895,15 +991,15 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Stock Matrix Grid */}
+                  {/* Stock Matrix Grid & Picture Linkage Preview */}
                   {variants.length > 0 && flavors.length > 0 && (
                     <div className="space-y-2 pt-2">
-                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Stock per Variant & Flavor</h4>
+                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Stock per Variant & Flavor (Click Row to Preview Picture)</h4>
                       <div className="border border-slate-200 rounded-xl overflow-x-auto">
                         <table className="w-full text-xs text-left">
                           <thead className="bg-slate-100 font-bold text-slate-600">
                             <tr>
-                              <th className="p-2.5">Variant</th>
+                              <th className="p-2.5">Variant & Picture</th>
                               {flavors.map((f, i) => (
                                 <th key={i} className="p-2.5 text-center">{typeof f === 'object' ? (f as any).name : String(f)}</th>
                               ))}
@@ -917,9 +1013,24 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                 return s + (flavorStockMatrix[`${vIdx}_${fName}`] || 0);
                               }, 0);
 
+                              const vImgUrl = imageUrls[v.imageIndex || 0] || imageUrls[0];
+
                               return (
-                                <tr key={vIdx}>
-                                  <td className="p-2.5 font-bold">{v.weight || `Variant ${vIdx + 1}`}</td>
+                                <tr key={vIdx} className="hover:bg-slate-50/80">
+                                  <td className="p-2.5 font-bold flex items-center gap-2">
+                                    <div
+                                      onClick={() => setPreviewVariantImgIdx(v.imageIndex || 0)}
+                                      className="w-7 h-7 bg-slate-200 rounded overflow-hidden border border-slate-300 cursor-pointer shrink-0"
+                                      title="Click to view picture"
+                                    >
+                                      {vImgUrl ? (
+                                        <img src={vImgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <ImageIcon className="w-3.5 h-3.5 text-slate-400 m-auto mt-1.5" />
+                                      )}
+                                    </div>
+                                    <span>{v.weight || `Variant ${vIdx + 1}`}</span>
+                                  </td>
                                   {flavors.map((f, fIdx) => {
                                     const fName = typeof f === 'object' ? (f as any).name : String(f);
 
@@ -1040,6 +1151,21 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 <Check className="w-4 h-4" />
                 <span>Save Product</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VARIANT IMAGE PREVIEW MODAL ── */}
+      {previewVariantImgIdx !== null && imageUrls[previewVariantImgIdx] && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewVariantImgIdx(null)}>
+          <div className="bg-white p-3 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setPreviewVariantImgIdx(null)} className="absolute top-4 right-4 bg-slate-900/60 text-white p-1.5 rounded-full hover:bg-slate-900">
+              <X className="w-5 h-5" />
+            </button>
+            <img src={imageUrls[previewVariantImgIdx]} alt="Variant Preview" className="w-full h-auto rounded-xl max-h-[70vh] object-contain" />
+            <div className="p-3 text-center text-xs font-bold text-slate-700">
+              Linked Variant Picture (Image #{previewVariantImgIdx + 1})
             </div>
           </div>
         </div>
