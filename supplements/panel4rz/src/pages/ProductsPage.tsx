@@ -145,6 +145,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const [flavors, setFlavors] = useState<string[]>([]);
   const [flavorImages, setFlavorImages] = useState<Record<string, string>>({});
   const [flavorStockMatrix, setFlavorStockMatrix] = useState<Record<string, number>>({});
+  const [flavorSkuMatrix, setFlavorSkuMatrix] = useState<Record<string, string>>({});
   const [previewVariantImgIdx, setPreviewVariantImgIdx] = useState<number | null>(null);
 
   const filteredProducts = products.filter(p => {
@@ -189,7 +190,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         stock: Number(v.stock) || 0,
         sku: v.sku || '',
         imageIndex: v.imageIndex !== undefined ? Number(v.imageIndex) : 0,
-        flavorStock: v.flavorStock || {}
+        flavorStock: v.flavorStock || {},
+        flavorSkus: v.flavorSkus || {}
       }));
 
       const initialFlavors = (prod.flavors || []).map((f: any) => 
@@ -205,16 +207,23 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         try { const p2 = JSON.parse(String(fi)); return (p2 && typeof p2 === 'object' && !Array.isArray(p2)) ? p2 : {}; } catch(e) { return {}; }
       })());
 
-      // Reconstruct matrix values from variant flavorStock
+      // Reconstruct matrix values from variant flavorStock & flavorSkus
       const matrix: Record<string, number> = {};
+      const skuMatrix: Record<string, string> = {};
       initialVariants.forEach((v: ProductVariant, vIdx: number) => {
         if (v.flavorStock) {
           Object.entries(v.flavorStock).forEach(([flv, qty]) => {
             matrix[`${vIdx}_${flv}`] = Number(qty) || 0;
           });
         }
+        if (v.flavorSkus) {
+          Object.entries(v.flavorSkus).forEach(([flv, sCode]) => {
+            skuMatrix[`${vIdx}_${flv}`] = String(sCode || '');
+          });
+        }
       });
       setFlavorStockMatrix(matrix);
+      setFlavorSkuMatrix(skuMatrix);
     } else {
       setEditingProduct({
         id: `prod_${Date.now()}`,
@@ -238,6 +247,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       setVariants([]);
       setFlavors([]);
       setFlavorStockMatrix({});
+      setFlavorSkuMatrix({});
     }
 
     setPreviewVariantImgIdx(null);
@@ -405,12 +415,24 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
     } else {
       updatedVariants = variants.map((v, vIdx) => {
         const fStock: Record<string, number> = {};
+        const fSkus: Record<string, string> = {};
         let varTotalStock = 0;
 
         if (flavors.length > 0) {
           flavors.forEach(f => {
-            const qty = flavorStockMatrix[`${vIdx}_${f}`] || 0;
-            fStock[f] = qty;
+            const fName = typeof f === 'object' ? (f as any).name : String(f);
+            const cellKey = `${vIdx}_${fName}`;
+            let qty = flavorStockMatrix[cellKey];
+            const linkedSku = (flavorSkuMatrix[cellKey] || '').trim();
+
+            if ((qty === undefined || qty === null) && linkedSku) {
+              const matchedInv = inventoryItems.find(i => String(i.id).trim().toLowerCase() === linkedSku.toLowerCase());
+              if (matchedInv) qty = Number(matchedInv.stock) || 0;
+            }
+            qty = Number(qty) || 0;
+
+            fStock[fName] = qty;
+            if (linkedSku) fSkus[fName] = linkedSku;
             varTotalStock += qty;
           });
         } else {
@@ -420,7 +442,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         return {
           ...v,
           stock: varTotalStock,
-          flavorStock: flavors.length > 0 ? fStock : undefined
+          flavorStock: flavors.length > 0 ? fStock : undefined,
+          flavorSkus: flavors.length > 0 && Object.keys(fSkus).length > 0 ? fSkus : undefined
         };
       });
 
@@ -1126,10 +1149,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Stock Matrix Grid & Picture Linkage Preview */}
+                  {/* Stock Matrix Grid & SKU / Picture Linkage Preview */}
                   {variants.length > 0 && flavors.length > 0 && (
                     <div className="space-y-2 pt-2">
-                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Stock per Variant & Flavor</h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Stock per Variant & Flavor</h4>
+                        <span className="text-[10px] text-slate-500 font-medium">Link Inventory SKUs to auto-sync stock levels</span>
+                      </div>
                       <div className="border border-slate-200 rounded-xl overflow-x-auto">
                         <table className="w-full text-xs text-left">
                           <thead className="bg-slate-100 font-bold text-slate-600">
@@ -1140,7 +1166,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                 const fImg = flavorImages[fName] || imageUrls[0] || '';
 
                                 return (
-                                  <th key={i} className="p-2.5 text-center">
+                                  <th key={i} className="p-2.5 text-center min-w-[150px]">
                                     <div className="flex flex-col items-center gap-1">
                                       <div
                                         onClick={() => {
@@ -1191,26 +1217,94 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                   </td>
                                   {flavors.map((f, fIdx) => {
                                     const fName = typeof f === 'object' ? (f as any).name : String(f);
+                                    const cellKey = `${vIdx}_${fName}`;
+                                    const currentSku = flavorSkuMatrix[cellKey] || '';
+                                    const currentStock = flavorStockMatrix[cellKey] || 0;
+                                    const matchedInv = inventoryItems.find(item => String(item.id).trim().toLowerCase() === currentSku.trim().toLowerCase());
 
                                     return (
-                                      <td key={fIdx} className="p-2 text-center">
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          value={flavorStockMatrix[`${vIdx}_${fName}`] || 0}
-                                          onChange={(e) => {
-                                            const val = parseInt(e.target.value) || 0;
-                                            setFlavorStockMatrix({
-                                              ...flavorStockMatrix,
-                                              [`${vIdx}_${fName}`]: val
-                                            });
-                                          }}
-                                          className="w-14 text-center bg-slate-50 border border-slate-200 rounded p-1 text-xs font-bold"
-                                        />
+                                      <td key={fIdx} className="p-2 text-center align-top">
+                                        <div className="flex flex-col items-center gap-1 bg-slate-50/70 p-2 rounded-lg border border-slate-200/60">
+                                          {/* SKU Link Selector */}
+                                          <div className="w-full">
+                                            <input
+                                              type="text"
+                                              list={`sku-list-${vIdx}-${fIdx}`}
+                                              value={currentSku}
+                                              placeholder="Link SKU..."
+                                              onChange={(e) => {
+                                                const newSku = e.target.value;
+                                                setFlavorSkuMatrix({
+                                                  ...flavorSkuMatrix,
+                                                  [cellKey]: newSku
+                                                });
+                                                const found = inventoryItems.find(item => String(item.id).trim().toLowerCase() === newSku.trim().toLowerCase());
+                                                if (found) {
+                                                  setFlavorStockMatrix({
+                                                    ...flavorStockMatrix,
+                                                    [cellKey]: Number(found.stock) || 0
+                                                  });
+                                                }
+                                              }}
+                                              className="w-full text-center text-[10px] font-mono font-bold bg-white border border-slate-300 rounded px-1 py-0.5 text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-red-500 focus:outline-none"
+                                            />
+                                            <datalist id={`sku-list-${vIdx}-${fIdx}`}>
+                                              {inventoryItems.map(inv => (
+                                                <option key={inv.id} value={inv.id}>
+                                                  {inv.id} - {inv.name} ({inv.stock} DZ)
+                                                </option>
+                                              ))}
+                                            </datalist>
+                                          </div>
+
+                                          {/* Stock Quantity Input */}
+                                          <div className="flex items-center gap-1 mt-0.5">
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase">Qty:</span>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              value={currentStock}
+                                              onChange={(e) => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                setFlavorStockMatrix({
+                                                  ...flavorStockMatrix,
+                                                  [cellKey]: val
+                                                });
+                                              }}
+                                              className="w-14 text-center bg-white border border-slate-300 rounded p-0.5 text-xs font-black text-slate-900 focus:ring-1 focus:ring-red-500 focus:outline-none"
+                                            />
+                                          </div>
+
+                                          {/* Inventory Linkage Status Badge */}
+                                          {matchedInv ? (
+                                            <div className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded font-medium flex items-center justify-between w-full mt-0.5">
+                                              <span className="truncate">✓ Inv: {matchedInv.stock}</span>
+                                              {matchedInv.stock !== currentStock && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setFlavorStockMatrix({
+                                                      ...flavorStockMatrix,
+                                                      [cellKey]: Number(matchedInv.stock) || 0
+                                                    });
+                                                  }}
+                                                  className="text-[9px] font-bold text-emerald-800 hover:underline shrink-0 ml-1"
+                                                  title="Sync stock from inventory"
+                                                >
+                                                  Sync
+                                                </button>
+                                              )}
+                                            </div>
+                                          ) : currentSku ? (
+                                            <div className="text-[9px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded text-center w-full mt-0.5 truncate">
+                                              Custom SKU
+                                            </div>
+                                          ) : null}
+                                        </div>
                                       </td>
                                     );
                                   })}
-                                  <td className="p-2.5 text-center font-black text-slate-900">{rowTotal}</td>
+                                  <td className="p-2.5 text-center font-black text-slate-900 align-middle">{rowTotal}</td>
                                 </tr>
                               );
                             })}

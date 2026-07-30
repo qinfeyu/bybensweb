@@ -29,6 +29,7 @@ export interface ProductVariant {
   sku?: string;
   imageIndex?: number;
   flavorStock?: Record<string, number>;
+  flavorSkus?: Record<string, string>;
 }
 
 export interface BundleItem {
