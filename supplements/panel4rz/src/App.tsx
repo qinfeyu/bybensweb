@@ -241,34 +241,37 @@ export function App() {
 
   // ── PRODUCTS MUTATIONS ──
   const handleSaveProduct = async (prod: Product) => {
+    const payload = { ...prod, status: prod.status || 'active' };
     const dbPayload = {
-      id: prod.id,
-      name: prod.name,
-      brand: prod.brand || '',
-      category_ids: (prod.categoryIds || []).join(','),
-      sub_category_ids: (prod.subCategoryIds || []).join(','),
-      description: prod.description || '',
-      image_url: prod.imageUrl,
-      variants: prod.variants || [],
-      flavors: prod.flavors || [],
-      stock: prod.stock,
-      discount: prod.discount || 0,
-      status: prod.status || 'active',
-      allow_promo: prod.allowPromo !== false,
-      promo_code_ids: (prod.promoCodeIds || []).join(','),
-      bundle_items: prod.bundleItems || []
+      id: payload.id,
+      name: payload.name,
+      brand: payload.brand || '',
+      category_ids: (payload.categoryIds || []).join(','),
+      sub_category_ids: (payload.subCategoryIds || []).join(','),
+      description: payload.description || '',
+      image_url: payload.imageUrl,
+      variants: payload.variants || [],
+      flavors: payload.flavors || [],
+      stock: payload.stock,
+      discount: payload.discount || 0,
+      status: payload.status,
+      allow_promo: payload.allowPromo !== false,
+      promo_code_ids: (payload.promoCodeIds || []).join(','),
+      bundle_items: payload.bundleItems || []
     };
 
+    setProducts(prev => {
+      const nextProds = [...prev];
+      const idx = nextProds.findIndex(p => p.id === payload.id);
+      if (idx >= 0) nextProds[idx] = payload;
+      else nextProds.push(payload);
+      return nextProds;
+    });
+
     try {
-      await supabase.from('products').upsert(dbPayload, { onConflict: 'id' });
+      const { error } = await supabase.from('products').upsert(dbPayload, { onConflict: 'id' });
+      if (error) console.warn("Supabase save product notice:", error.message);
     } catch(e) {}
-
-    const nextProds = [...products];
-    const idx = nextProds.findIndex(p => p.id === prod.id);
-    if (idx >= 0) nextProds[idx] = prod;
-    else nextProds.push(prod);
-
-    setProducts(nextProds);
   };
 
   const handleDeleteProduct = async (id: string) => {

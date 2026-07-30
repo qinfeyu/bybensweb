@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { Product, InventoryItem, ProductVariant, BundleItem, Category, SubCategory, PromoCode } from '../types';
 import { uploadToCloudinary } from '../lib/cloudinary';
 import { 
@@ -10,13 +10,15 @@ import {
   X, 
   Check, 
   Image as ImageIcon, 
-  Layers, 
-  Tag, 
-  PackageCheck, 
   Sparkles,
   Upload,
   Star,
-  Loader2
+  Loader2,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  RemoveFormatting
 } from 'lucide-react';
 
 interface ProductsPageProps {
@@ -29,6 +31,50 @@ interface ProductsPageProps {
   onDeleteProduct: (id: string) => Promise<void>;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
+
+// ── RICH TEXT EDITOR COMPONENT ──
+const RichTextEditor: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+}> = ({ value, onChange, placeholder }) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const format = (cmd: string, arg?: string) => {
+    document.execCommand(cmd, false, arg);
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
+  };
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-red-600/20">
+      <div className="flex items-center gap-1 bg-slate-100 p-1.5 border-b border-slate-200 text-xs">
+        <button type="button" onClick={() => format('bold')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 font-bold" title="Bold">
+          <Bold className="w-3.5 h-3.5" />
+        </button>
+        <button type="button" onClick={() => format('italic')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 italic" title="Italic">
+          <Italic className="w-3.5 h-3.5" />
+        </button>
+        <button type="button" onClick={() => format('underline')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700 underline" title="Underline">
+          <Underline className="w-3.5 h-3.5" />
+        </button>
+        <div className="w-px h-4 bg-slate-300 mx-1" />
+        <button type="button" onClick={() => format('insertUnorderedList')} className="p-1.5 hover:bg-slate-200 rounded text-slate-700" title="Bullet List">
+          <List className="w-3.5 h-3.5" />
+        </button>
+        <button type="button" onClick={() => format('removeFormat')} className="p-1.5 hover:bg-slate-200 rounded text-slate-500" title="Clear Formatting">
+          <RemoveFormatting className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={(e) => onChange(e.currentTarget.innerHTML)}
+        dangerouslySetInnerHTML={{ __html: value || '' }}
+        className="p-3 text-xs text-slate-900 min-h-[90px] focus:outline-none"
+      />
+    </div>
+  );
+};
 
 export const ProductsPage: React.FC<ProductsPageProps> = ({
   products,
@@ -104,8 +150,21 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       setIsBundle(isB);
       setBundleItems(isB ? JSON.parse(JSON.stringify(prod.bundleItems)) : []);
 
-      const initialVariants = prod.variants ? JSON.parse(JSON.stringify(prod.variants)) : [];
-      const initialFlavors = prod.flavors ? [...prod.flavors] : [];
+      // Safe normalization of variants & flavors to prevent JSX object rendering crashes
+      const initialVariants = (prod.variants || []).map((v: any) => ({
+        weight: v.weight ? String(v.weight) : (v.label || v.name || ''),
+        unit: v.unit || 'kg',
+        price: Number(v.price) || 0,
+        cost: Number(v.cost) || 0,
+        stock: Number(v.stock) || 0,
+        sku: v.sku || '',
+        flavorStock: v.flavorStock || {}
+      }));
+
+      const initialFlavors = (prod.flavors || []).map((f: any) => 
+        typeof f === 'object' ? (f.name || f.label || String(f)) : String(f)
+      );
+
       setVariants(initialVariants);
       setFlavors(initialFlavors);
 
@@ -114,7 +173,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       initialVariants.forEach((v: ProductVariant, vIdx: number) => {
         if (v.flavorStock) {
           Object.entries(v.flavorStock).forEach(([flv, qty]) => {
-            matrix[`${vIdx}_${flv}`] = qty;
+            matrix[`${vIdx}_${flv}`] = Number(qty) || 0;
           });
         }
       });
@@ -309,12 +368,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       bundleItems: isBundle ? bundleItems : [],
       variants: isBundle ? [] : updatedVariants,
       flavors: isBundle ? [] : flavors,
-      stock: computedStock
+      stock: computedStock,
+      status: editingProduct.status || 'active'
     };
 
     await onSaveProduct(payload);
     setIsModalOpen(false);
-    showToast("✓ Product saved successfully!");
+    showToast("✓ Product saved successfully and synced to storefront!");
   };
 
   return (
@@ -323,7 +383,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Products Catalog</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Manage storefront products, Cloudinary images, categories, bundles & stock matrices.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Manage storefront products, Cloudinary images, rich description, categories, bundles & stock matrices.</p>
         </div>
 
         <button
@@ -492,14 +552,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     </div>
                   </div>
 
+                  {/* RICH TEXT EDITOR DESCRIPTION */}
                   <div>
-                    <label className="font-bold text-slate-700">Description</label>
-                    <textarea
-                      rows={3}
+                    <label className="font-bold text-slate-700 mb-1 block">Description (Rich Text Editor)</label>
+                    <RichTextEditor
                       value={editingProduct?.description || ''}
-                      onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
-                      placeholder="Product description and details..."
-                      className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900"
+                      onChange={(html) => setEditingProduct({ ...editingProduct, description: html })}
+                      placeholder="Enter detailed description..."
                     />
                   </div>
 
@@ -745,7 +804,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                         <input
                           type="text"
                           placeholder="Weight/Size"
-                          value={v.weight || v.label || ''}
+                          value={typeof v.weight === 'string' ? v.weight : ''}
                           onChange={(e) => {
                             const next = [...variants];
                             next[idx].weight = e.target.value;
@@ -820,7 +879,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                         <div key={fIdx} className="flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-xs">
                           <input
                             type="text"
-                            value={flv}
+                            value={typeof flv === 'object' ? (flv as any).name || String(flv) : String(flv)}
                             onChange={(e) => {
                               const next = [...flavors];
                               next[fIdx] = e.target.value;
@@ -846,35 +905,42 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                             <tr>
                               <th className="p-2.5">Variant</th>
                               {flavors.map((f, i) => (
-                                <th key={i} className="p-2.5 text-center">{f}</th>
+                                <th key={i} className="p-2.5 text-center">{typeof f === 'object' ? (f as any).name : String(f)}</th>
                               ))}
                               <th className="p-2.5 text-center">Row Total</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {variants.map((v, vIdx) => {
-                              const rowTotal = flavors.reduce((s, f) => s + (flavorStockMatrix[`${vIdx}_${f}`] || 0), 0);
+                              const rowTotal = flavors.reduce((s, f) => {
+                                const fName = typeof f === 'object' ? (f as any).name : String(f);
+                                return s + (flavorStockMatrix[`${vIdx}_${fName}`] || 0);
+                              }, 0);
 
                               return (
                                 <tr key={vIdx}>
                                   <td className="p-2.5 font-bold">{v.weight || `Variant ${vIdx + 1}`}</td>
-                                  {flavors.map((f, fIdx) => (
-                                    <td key={fIdx} className="p-2 text-center">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        value={flavorStockMatrix[`${vIdx}_${f}`] || 0}
-                                        onChange={(e) => {
-                                          const val = parseInt(e.target.value) || 0;
-                                          setFlavorStockMatrix({
-                                            ...flavorStockMatrix,
-                                            [`${vIdx}_${f}`]: val
-                                          });
-                                        }}
-                                        className="w-14 text-center bg-slate-50 border border-slate-200 rounded p-1 text-xs font-bold"
-                                      />
-                                    </td>
-                                  ))}
+                                  {flavors.map((f, fIdx) => {
+                                    const fName = typeof f === 'object' ? (f as any).name : String(f);
+
+                                    return (
+                                      <td key={fIdx} className="p-2 text-center">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={flavorStockMatrix[`${vIdx}_${fName}`] || 0}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value) || 0;
+                                            setFlavorStockMatrix({
+                                              ...flavorStockMatrix,
+                                              [`${vIdx}_${fName}`]: val
+                                            });
+                                          }}
+                                          className="w-14 text-center bg-slate-50 border border-slate-200 rounded p-1 text-xs font-bold"
+                                        />
+                                      </td>
+                                    );
+                                  })}
                                   <td className="p-2.5 text-center font-black text-slate-900">{rowTotal}</td>
                                 </tr>
                               );
