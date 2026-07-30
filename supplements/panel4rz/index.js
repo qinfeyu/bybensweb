@@ -4342,32 +4342,39 @@
           const saleId = String(Date.now());
 
           // Insert Sales row
-          const { error: saleErr } = await sb.from("sales").insert({
-            id: saleId,
-            date: new Date().toISOString(),
-            total_amount: totalAmount,
-            discount: discount,
-            customer_name: custName || null,
-            customer_phone: custPhone || null,
-            operator: localStorage.getItem("bb_admin_name") || "Admin"
-          });
-
-          if (saleErr) throw saleErr;
+          try {
+            const { error: saleErr } = await sb.from("sales").insert({
+              id: saleId,
+              date: new Date().toISOString(),
+              total_amount: totalAmount,
+              discount: discount,
+              customer_name: custName || null,
+              customer_phone: custPhone || null,
+              operator: localStorage.getItem("bb_admin_name") || "Admin"
+            });
+            if (saleErr) console.warn("Supabase sales table notice:", saleErr.message);
+          } catch(err) {
+            console.warn("Notice inserting into sales table:", err);
+          }
 
           // Insert Sale items and decrement product stocks
           for (const item of posCart) {
             const itemId = String(Date.now()) + Math.random().toString(36).substr(2, 4);
-            const { error: itemErr } = await sb.from("sale_items").insert({
-              id: itemId,
-              sale_id: saleId,
-              product_id: item.productId,
-              product_name: item.name,
-              flavor: item.flavor || null,
-              variant: item.variant || null,
-              qty: item.qty,
-              price: item.price
-            });
-            if (itemErr) throw itemErr;
+            try {
+              const { error: itemErr } = await sb.from("sale_items").insert({
+                id: itemId,
+                sale_id: saleId,
+                product_id: item.productId,
+                product_name: item.name,
+                flavor: item.flavor || null,
+                variant: item.variant || null,
+                qty: item.qty,
+                price: item.price
+              });
+              if (itemErr) console.warn("Supabase sale_items notice:", itemErr.message);
+            } catch(err) {
+              console.warn("Notice inserting into sale_items table:", err);
+            }
 
             // Decrement stock in database
             const prod = products.find(p => p.id === item.productId);
