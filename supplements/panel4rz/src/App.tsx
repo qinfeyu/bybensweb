@@ -1,38 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import { supabase } from './lib/supabase';
+import type { 
   TabType, 
   InventoryItem, 
   Product, 
   Order, 
   PreOrder, 
+  PreOrderItem, 
   Expense, 
   Customer, 
-  AppSettings 
+  AppSettings,
+  Category,
+  SubCategory,
+  PromoCode
 } from './types';
-import { supabase } from './lib/supabase';
-import { getProductPricingAndCost } from './lib/calculations';
-import { Navbar } from './components/layout/Navbar';
-import { ToastContainer, ToastMessage } from './components/common/Toast';
-import { BudgetModal } from './components/common/BudgetModal';
 
+// Layout
+import { Sidebar } from './components/Sidebar';
+
+// Pages
 import { DashboardPage } from './pages/DashboardPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { CategoriesPage } from './pages/CategoriesPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PreordersPage } from './pages/PreordersPage';
 import { PosPage } from './pages/PosPage';
 import { ExpensesPage } from './pages/ExpensesPage';
+import { CustomersPage } from './pages/CustomersPage';
+import { SettingsPage } from './pages/SettingsPage';
 
-export function App() {
+export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Core Data Collections
+  // App Data States
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [preorders, setPreorders] = useState<PreOrder[]>([]);
-  const [preorderItems, setPreorderItems] = useState<any[]>([]);
+  const [preorderItems, setPreorderItems] = useState<PreOrderItem[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
     budget_dzd: '0',
@@ -40,13 +50,14 @@ export function App() {
     budget_rate: '280'
   });
 
-  // UI Modals & Toasts
-  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
+
+  const eurRate = parseFloat(settings.budget_rate) || 280;
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    const id = String(Date.now()) + Math.random().toString(36).substr(2, 4);
-    setToasts(prev => [...prev, { id, type, message }]);
+    const id = String(Date.now());
+    setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
@@ -79,7 +90,6 @@ export function App() {
       const invRes = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false });
       const cloudInv: InventoryItem[] = invRes.data || [];
 
-      // Local storage merge
       let localInv: InventoryItem[] = [];
       try {
         localInv = JSON.parse(localStorage.getItem('bb_inventory_items') || '[]');
@@ -118,7 +128,6 @@ export function App() {
         }
       });
 
-      // Preserving local-only items not present in cloudInv yet
       localInv.forEach(item => {
         if (item.id && !cloudInv.some(c => c.id === item.id)) {
           mergedInvMap.set(item.id, item);
@@ -129,46 +138,74 @@ export function App() {
       setInventoryItems(finalInv);
       localStorage.setItem('bb_inventory_items', JSON.stringify(finalInv));
 
-      // 2. Fetch Products
-      const prodRes = await supabase.from('products').select('*');
-      if (prodRes.data) {
-        setProducts(prodRes.data.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          brand: p.brand || '',
-          categoryIds: (p.category_ids || '').split(',').filter(Boolean),
-          subCategoryIds: (p.sub_category_ids || '').split(',').filter(Boolean),
-          description: p.description || '',
-          nutritionalFacts: p.nutritional_facts || '',
-          benefits: p.benefits || '',
-          imageUrl: Array.isArray(p.image_url) ? p.image_url : (p.image_url ? [p.image_url] : []),
-          variants: p.variants || [],
-          flavors: p.flavors || [],
-          stock: Number(p.stock) || 0,
-          discount: Number(p.discount) || 0,
-          status: p.status || 'active',
-          allowPromo: p.allow_promo === true || p.allow_promo === 'true',
-          promoCodeIds: (p.promo_code_ids || '').split(',').filter(Boolean),
-          bundleItems: p.bundle_items || []
+      // 2. Fetch Categories & Sub-Categories
+      const catRes = await supabase.from('categories').select('*').order('created_at', { ascending: true });
+      if (catRes.data) {
+        setCategories(catRes.data.map((c: any) => ({ id: String(c.id), name: c.name })));
+      }
+
+      const subRes = await supabase.from('sub_categories').select('*');
+      if (subRes.data) {
+        setSubCategories(subRes.data.map((s: any) => ({
+          id: String(s.id),
+          name: s.name,
+          categoryIds: (s.category_ids || '').split(',').filter(Boolean)
         })));
       }
 
-      // 3. Fetch Orders
+      // 3. Fetch Products
+      const prodRes = await supabase.from('products').select('*');
+      const cloudProds: Product[] = (prodRes.data || []).map((p: any) => ({
+        id: String(p.id),
+        name: p.name,
+        brand: p.brand || '',
+        categoryIds: (p.category_ids || '').split(',').filter(Boolean),
+        subCategoryIds: (p.sub_category_ids || '').split(',').filter(Boolean),
+        description: p.description || '',
+        nutritionalFacts: p.nutritional_facts || '',
+        benefits: p.benefits || '',
+        imageUrl: Array.isArray(p.image_url) ? p.image_url : (p.image_url ? [p.image_url] : []),
+        variants: p.variants || [],
+        flavors: p.flavors || [],
+        stock: Number(p.stock) || 0,
+        discount: Number(p.discount) || 0,
+        status: p.status || 'active',
+        hidden: p.hidden === true || p.hidden === 'true',
+        allowPromo: p.allow_promo === true || p.allow_promo === 'true',
+        promoCodeIds: (p.promo_code_ids || '').split(',').filter(Boolean),
+        bundleItems: p.bundle_items || []
+      }));
+
+      // Merge local products cache
+      let localProds: Product[] = [];
+      try {
+        localProds = JSON.parse(localStorage.getItem('bb_products_cache') || '[]');
+      } catch(e) {}
+
+      const mergedProdMap = new Map<string, Product>();
+      localProds.forEach(p => { if (p.id) mergedProdMap.set(p.id, p); });
+      cloudProds.forEach(p => { if (p.id) mergedProdMap.set(p.id, p); });
+
+      const finalProds = Array.from(mergedProdMap.values());
+      setProducts(finalProds);
+      localStorage.setItem('bb_products_cache', JSON.stringify(finalProds));
+
+      // 4. Fetch Orders
       const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (ordersRes.data) setOrders(ordersRes.data);
 
-      // 4. Fetch Pre-Orders & Pre-Order Items
+      // 5. Fetch Pre-Orders & Pre-Order Items
       const preRes = await supabase.from('pre_orders').select('*').order('date', { ascending: false });
       if (preRes.data) setPreorders(preRes.data);
 
       const preItemsRes = await supabase.from('pre_order_items').select('*');
       if (preItemsRes.data) setPreorderItems(preItemsRes.data);
 
-      // 5. Fetch Expenses
+      // 6. Fetch Expenses
       const expRes = await supabase.from('expenses').select('*').order('date', { ascending: false });
       if (expRes.data) setExpenses(expRes.data);
 
-      // 6. Fetch Settings
+      // 7. Fetch Settings
       const setRes = await supabase.from('settings').select('*');
       if (setRes.data) {
         const setMap: any = {};
@@ -241,9 +278,51 @@ export function App() {
     showToast("✓ Inventory item deleted!");
   };
 
+  // ── CATEGORIES MUTATIONS ──
+  const handleSaveCategory = async (cat: Category, subNames: string[]) => {
+    const dbCat = { id: cat.id, name: cat.name };
+
+    try {
+      await supabase.from('categories').upsert(dbCat, { onConflict: 'id' });
+
+      // Upsert subcategories
+      for (const subName of subNames) {
+        const existing = subCategories.find(s => s.name.toLowerCase() === subName.toLowerCase() && s.categoryIds.includes(cat.id));
+        if (!existing) {
+          await supabase.from('sub_categories').insert({
+            id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            name: subName,
+            category_ids: cat.id
+          });
+        }
+      }
+    } catch (e) {}
+
+    await refreshAllData();
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await supabase.from('sub_categories').delete().like('category_ids', `%${id}%`);
+      await supabase.from('categories').delete().eq('id', id);
+    } catch(e) {}
+
+    await refreshAllData();
+    showToast("✓ Category deleted!");
+  };
+
+  const handleDeleteSubCategory = async (subId: string) => {
+    try {
+      await supabase.from('sub_categories').delete().eq('id', subId);
+    } catch(e) {}
+
+    await refreshAllData();
+    showToast("✓ Sub-category deleted!");
+  };
+
   // ── PRODUCTS MUTATIONS ──
   const handleSaveProduct = async (prod: Product) => {
-    const payload = { ...prod, status: prod.status || 'active' };
+    const payload = { ...prod, status: prod.status || 'active', hidden: prod.hidden || false };
     const dbPayload = {
       id: payload.id,
       name: payload.name,
@@ -259,6 +338,7 @@ export function App() {
       stock: payload.stock,
       discount: payload.discount || 0,
       status: payload.status,
+      hidden: payload.hidden,
       allow_promo: payload.allowPromo !== false,
       promo_code_ids: (payload.promoCodeIds || []).join(','),
       bundle_items: payload.bundleItems || []
@@ -269,6 +349,7 @@ export function App() {
       const idx = nextProds.findIndex(p => p.id === payload.id);
       if (idx >= 0) nextProds[idx] = payload;
       else nextProds.push(payload);
+      localStorage.setItem('bb_products_cache', JSON.stringify(nextProds));
       return nextProds;
     });
 
@@ -283,18 +364,20 @@ export function App() {
       await supabase.from('products').delete().eq('id', id);
     } catch(e) {}
 
-    setProducts(products.filter(p => p.id !== id));
+    const nextProds = products.filter(p => p.id !== id);
+    setProducts(nextProds);
+    localStorage.setItem('bb_products_cache', JSON.stringify(nextProds));
     showToast("✓ Product deleted!");
   };
 
-  // ── ORDERS & PRE-ORDERS MUTATIONS ──
-  const handleUpdateOrderStatus = async (orderId: string, status: Order['status']) => {
+  // ── ORDER MUTATIONS ──
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
-      await supabase.from('orders').update({ status }).eq('id', orderId);
+      await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
     } catch(e) {}
 
-    setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o));
-    showToast(`✓ Order status updated to ${status}!`);
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    showToast(`✓ Order #${orderId.slice(-6)} updated to ${newStatus}`);
   };
 
   const handleDeleteOrder = async (orderId: string) => {
@@ -302,181 +385,93 @@ export function App() {
       await supabase.from('orders').delete().eq('id', orderId);
     } catch(e) {}
 
-    setOrders(orders.filter(o => o.id !== orderId));
+    setOrders(prev => prev.filter(o => o.id !== orderId));
     showToast("✓ Order deleted!");
   };
 
-  const handleTogglePreorderStatus = async (preId: string, currentStatus: PreOrder['status']) => {
-    const nextStatus: PreOrder['status'] = currentStatus === 'pending' ? 'fulfilled' : (currentStatus === 'fulfilled' ? 'cancelled' : 'pending');
-    
-    try {
-      await supabase.from('pre_orders').update({ status: nextStatus }).eq('id', preId);
-    } catch(e) {}
-
-    setPreorders(preorders.map(p => p.id === preId ? { ...p, status: nextStatus } : p));
-
-    // If marked as fulfilled, execute conversion to orders table
-    if (nextStatus === 'fulfilled') {
-      const pre = preorders.find(x => x.id === preId);
-      const items = preorderItems.filter(x => x.pre_order_id === preId);
-      if (pre && items.length > 0) {
-        const orderId = `pre-${preId}`;
-        const nameParts = (pre.customer_name || '').trim().split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-
-        const orderItems: any[] = [];
-        let subtotalVal = 0;
-
-        items.forEach(itm => {
-          const fallbackPrice = Number(itm.unit_price || itm.price || itm.unitPrice) || 0;
-          const pricing = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, fallbackPrice, inventoryItems, products, parseFloat(settings.budget_rate) || 280);
-          const price = fallbackPrice || pricing.retailPrice || 0;
-          const qty = Number(itm.qty) || 1;
-          const lineTotal = price * qty;
-
-          orderItems.push({
-            id: itm.product_id || ("item_" + Date.now()),
-            productId: itm.product_id || "",
-            name: itm.product_name || pricing.productName || "Pre-Order Item",
-            flavor: itm.flavor || "",
-            variant: itm.variant || "",
-            qty: qty,
-            price: price,
-            unitPrice: price,
-            unit_price: price,
-            lineTotal: lineTotal,
-            line_total: lineTotal
-          });
-          subtotalVal += lineTotal;
-        });
-
-        const totalVal = Number(pre.total_amount) > 0 ? Number(pre.total_amount) : subtotalVal;
-
-        const newOrder: Order = {
-          id: orderId,
-          source: 'pre order',
-          first_name: firstName,
-          last_name: lastName,
-          phone: pre.customer_phone,
-          address: pre.notes || '',
-          delivery_type: 'Home',
-          delivery_cost: 0,
-          items: orderItems,
-          subtotal: subtotalVal,
-          total: totalVal,
-          status: 'delivered',
-          created_at: new Date().toISOString()
-        };
-
-        try {
-          await supabase.from('orders').upsert(newOrder, { onConflict: 'id' });
-        } catch(e) {}
-
-        setOrders(prev => [newOrder, ...prev.filter(o => o.id !== orderId)]);
-      }
-    }
-
-    showToast(`✓ Pre-order status updated to ${nextStatus}!`);
-  };
-
-  const handleDeletePreorder = async (id: string) => {
-    try {
-      await supabase.from('pre_orders').delete().eq('id', id);
-    } catch(e) {}
-
-    setPreorders(preorders.filter(p => p.id !== id));
-    showToast("✓ Pre-order deleted!");
-  };
-
-  // ── POS CHECKOUT MUTATION ──
-  const handleCompletePosSale = async (saleData: {
-    cart: any[];
-    customerName: string;
-    customerPhone: string;
-    discount: number;
-    subtotal: number;
-    totalAmount: number;
-  }) => {
-    const saleId = String(Date.now());
-    const nameParts = (saleData.customerName || "POS Customer").trim().split(" ");
-    const firstName = nameParts[0] || "POS";
-    const lastName = nameParts.slice(1).join(" ") || "Customer";
-
-    // 1. Log Sales in Supabase (with RLS catch)
-    try {
-      await supabase.from('sales').insert({
-        id: saleId,
-        date: new Date().toISOString(),
-        total_amount: saleData.totalAmount,
-        discount: saleData.discount,
-        customer_name: saleData.customerName || null,
-        customer_phone: saleData.customerPhone || null,
-        operator: 'Admin'
-      });
-    } catch(e) {}
-
-    // 2. Insert into orders table for dashboard reporting & metrics
-    const orderId = `pos-${saleId}`;
-    const orderItems = saleData.cart.map(item => ({
-      id: item.productId,
-      productId: item.productId,
-      name: item.name,
-      flavor: item.flavor || "",
-      variant: item.variant || "",
-      qty: Number(item.qty) || 1,
-      price: Number(item.price) || 0,
-      unitPrice: Number(item.price) || 0,
-      lineTotal: (Number(item.price) || 0) * (Number(item.qty) || 1)
-    }));
-
-    const posOrder: Order = {
-      id: orderId,
-      source: 'POS Checkout',
-      first_name: firstName,
-      last_name: lastName,
-      phone: saleData.customerPhone || '0000000000',
-      address: 'In-Store POS Purchase',
-      delivery_type: 'In-Store',
-      delivery_cost: 0,
-      items: orderItems,
-      subtotal: saleData.subtotal,
-      total: saleData.totalAmount,
+  const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string }) => {
+    const id = `POS-${Date.now()}`;
+    const newOrder: Order = {
+      id,
+      source: 'POS',
+      firstName: orderData.firstName || 'POS',
+      lastName: 'Customer',
+      phone: orderData.phone || '0000000000',
+      address: 'Store Pickup',
+      wilaya: 'Alger',
+      commune: 'Alger',
+      deliveryType: 'store',
+      deliveryCost: 0,
+      items: orderData.items || [],
+      subtotal: orderData.subtotal || 0,
+      total: orderData.total || 0,
       status: 'delivered',
-      created_at: new Date().toISOString()
+      date: new Date().toISOString()
     };
 
     try {
-      await supabase.from('orders').upsert(posOrder, { onConflict: 'id' });
+      await supabase.from('orders').insert({
+        id: newOrder.id,
+        source: newOrder.source,
+        first_name: newOrder.firstName,
+        last_name: newOrder.lastName,
+        phone: newOrder.phone,
+        address: newOrder.address,
+        wilaya: newOrder.wilaya,
+        commune: newOrder.commune,
+        delivery_type: newOrder.deliveryType,
+        delivery_cost: newOrder.deliveryCost,
+        items: newOrder.items,
+        subtotal: newOrder.subtotal,
+        total: newOrder.total,
+        status: newOrder.status,
+        date: newOrder.date
+      });
     } catch(e) {}
 
-    setOrders(prev => [posOrder, ...prev]);
-
-    // 3. Update budget
-    const curDzd = parseFloat(settings.budget_dzd) || 0;
-    const newDzd = String(curDzd + saleData.totalAmount);
-    await handleSaveSettings({ ...settings, budget_dzd: newDzd });
-
-    showToast("✓ Sale recorded successfully!");
+    setOrders(prev => [newOrder, ...prev]);
+    showToast(`✓ POS Order #${id} recorded successfully!`);
   };
 
-  // ── EXPENSES & SETTINGS MUTATIONS ──
+  // ── PREORDER MUTATIONS ──
+  const handleTogglePreorderStatus = async (preorderId: string, currentStatus: PreOrder['status']) => {
+    const nextStatus = currentStatus === 'fulfilled' ? 'pending' : 'fulfilled';
+    try {
+      await supabase.from('pre_orders').update({ status: nextStatus }).eq('id', preorderId);
+    } catch(e) {}
+
+    setPreorders(prev => prev.map(p => p.id === preorderId ? { ...p, status: nextStatus } : p));
+    showToast(`✓ Pre-order status changed to ${nextStatus}`);
+  };
+
+  const handleDeletePreorder = async (preorderId: string) => {
+    try {
+      await supabase.from('pre_order_items').delete().eq('pre_order_id', preorderId);
+      await supabase.from('pre_orders').delete().eq('id', preorderId);
+    } catch(e) {}
+
+    setPreorders(prev => prev.filter(p => p.id !== preorderId));
+    setPreorderItems(prev => prev.filter(i => i.pre_order_id !== preorderId));
+    showToast("✓ Pre-order deleted!");
+  };
+
+  // ── EXPENSES MUTATIONS ──
   const handleAddExpense = async (exp: Partial<Expense>) => {
     const newExp: Expense = {
-      id: String(Date.now()),
-      category: exp.category || 'Other',
+      id: `exp_${Date.now()}`,
+      category: exp.category || 'General',
       description: exp.description || '',
       amount: Number(exp.amount) || 0,
       currency: exp.currency || 'DZD',
-      date: exp.date || new Date().toISOString()
+      date: exp.date || new Date().toISOString().split('T')[0]
     };
 
     try {
       await supabase.from('expenses').insert(newExp);
     } catch(e) {}
 
-    setExpenses([newExp, ...expenses]);
-    showToast("✓ Expense added!");
+    setExpenses(prev => [newExp, ...prev]);
+    showToast("✓ Expense recorded!");
   };
 
   const handleDeleteExpense = async (id: string) => {
@@ -484,48 +479,64 @@ export function App() {
       await supabase.from('expenses').delete().eq('id', id);
     } catch(e) {}
 
-    setExpenses(expenses.filter(e => e.id !== id));
+    setExpenses(prev => prev.filter(x => x.id !== id));
     showToast("✓ Expense deleted!");
   };
 
-  const handleSaveSettings = async (newSettings: AppSettings) => {
+  // ── SETTINGS MUTATIONS ──
+  const handleSaveSettings = async (newSet: AppSettings) => {
+    setSettings(newSet);
     try {
       await supabase.from('settings').upsert([
-        { key: 'budget_dzd', value: newSettings.budget_dzd },
-        { key: 'budget_eur', value: newSettings.budget_eur },
-        { key: 'budget_rate', value: newSettings.budget_rate }
-      ], { onConflict: 'key' });
+        { key: 'budget_dzd', value: newSet.budget_dzd },
+        { key: 'budget_eur', value: newSet.budget_eur },
+        { key: 'budget_rate', value: newSet.budget_rate }
+      ]);
     } catch(e) {}
-
-    setSettings(newSettings);
+    showToast("✓ Settings updated successfully!");
   };
 
-  const eurRate = parseFloat(settings.budget_rate) || 280;
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        settings={settings}
-        onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
-        onLogout={() => {
-          if (confirm("Log out of management portal?")) {
-            window.location.reload();
-          }
-        }}
-      />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-32">
-            <div className="flex flex-col items-center gap-3 text-slate-400 text-xs font-semibold animate-pulse">
-              <div className="w-8 h-8 border-3 border-red-700 border-t-transparent rounded-full animate-spin" />
-              <span>Loading management data from cloud...</span>
-            </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            onClick={() => dismissToast(toast.id)}
+            className={`pointer-events-auto p-4 rounded-xl shadow-lg border text-xs font-bold flex items-center justify-between gap-3 cursor-pointer transition-all animate-in fade-in slide-in-from-top-2 ${
+              toast.type === 'error'
+                ? 'bg-rose-900 text-white border-rose-800'
+                : toast.type === 'info'
+                ? 'bg-slate-900 text-white border-slate-800'
+                : 'bg-emerald-900 text-white border-emerald-800'
+            }`}
+          >
+            <span>{toast.message}</span>
+            <span className="opacity-60 text-[10px]">✕</span>
           </div>
-        ) : (
-          <>
+        ))}
+      </div>
+
+      {/* Main Layout Grid */}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isCollapsed={isSidebarCollapsed}
+          setIsCollapsed={setIsSidebarCollapsed}
+        />
+
+        {/* Content View Container */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            {isLoading && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl text-xs font-semibold flex items-center justify-between">
+                <span>Syncing live database with Supabase...</span>
+                <span className="animate-pulse">● Live</span>
+              </div>
+            )}
+
             {activeTab === 'dashboard' && (
               <DashboardPage
                 orders={orders}
@@ -553,8 +564,22 @@ export function App() {
               <ProductsPage
                 products={products}
                 inventoryItems={inventoryItems}
+                categories={categories}
+                subCategories={subCategories}
+                promoCodes={promoCodes}
                 onSaveProduct={handleSaveProduct}
                 onDeleteProduct={handleDeleteProduct}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === 'categories' && (
+              <CategoriesPage
+                categories={categories}
+                subCategories={subCategories}
+                onSaveCategory={handleSaveCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onDeleteSubCategory={handleDeleteSubCategory}
                 showToast={showToast}
               />
             )}
@@ -586,8 +611,16 @@ export function App() {
               <PosPage
                 products={products}
                 inventoryItems={inventoryItems}
-                onCompleteSale={handleCompletePosSale}
                 showToast={showToast}
+                onCompleteSale={async (data) => {
+                  await handleAddPosOrder({
+                    items: data.cart.map(c => ({ name: c.name, qty: c.qty, price: c.price, variant: c.variant, flavor: c.flavor })),
+                    subtotal: data.subtotal,
+                    total: data.totalAmount,
+                    firstName: data.customerName,
+                    phone: data.customerPhone
+                  });
+                }}
               />
             )}
 
@@ -599,21 +632,16 @@ export function App() {
                 eurRate={eurRate}
               />
             )}
-          </>
-        )}
-      </main>
 
-      <BudgetModal
-        isOpen={isBudgetModalOpen}
-        onClose={() => setIsBudgetModalOpen(false)}
-        settings={settings}
-        onSaveSettings={handleSaveSettings}
-        showToast={showToast}
-      />
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+            {activeTab === 'settings' && (
+              <SettingsPage
+                settings={settings}
+                onSaveSettings={handleSaveSettings}
+              />
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
-
-export default App;

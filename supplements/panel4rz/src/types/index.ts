@@ -1,4 +1,4 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'orders' | 'preorders' | 'pos' | 'expenses' | 'customers' | 'settings';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'orders' | 'preorders' | 'pos' | 'expenses' | 'customers' | 'settings';
 
 export interface InventoryItem {
   id: string; // SKU ID (e.g. SUP-8801)
@@ -71,6 +71,7 @@ export interface Product {
   discount?: number;
   stock: number;
   status: 'active' | 'draft' | 'archived';
+  hidden?: boolean;
   allowPromo?: boolean;
   promoCodeIds?: string[];
   bundleItems?: BundleItem[];

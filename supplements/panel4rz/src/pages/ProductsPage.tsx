@@ -18,7 +18,10 @@ import {
   Italic,
   Underline,
   List,
-  RemoveFormatting
+  RemoveFormatting,
+  Eye,
+  EyeOff,
+  Filter
 } from 'lucide-react';
 
 interface ProductsPageProps {
@@ -102,27 +105,17 @@ const RichTextEditor: React.FC<{
 export const ProductsPage: React.FC<ProductsPageProps> = ({
   products,
   inventoryItems,
-  categories = [
-    { id: 'cat_protein', name: 'Proteins' },
-    { id: 'cat_creatine', name: 'Creatine' },
-    { id: 'cat_preworkout', name: 'Pre-Workout' },
-    { id: 'cat_amino', name: 'Amino Acids' },
-    { id: 'cat_snacks', name: 'Snacks & Bars' }
-  ],
-  subCategories = [
-    { id: 'sub_whey_iso', name: 'Whey Isolate', categoryIds: ['cat_protein'] },
-    { id: 'sub_whey_conc', name: 'Whey Concentrate', categoryIds: ['cat_protein'] },
-    { id: 'sub_creatine_mono', name: 'Monohydrate', categoryIds: ['cat_creatine'] }
-  ],
-  promoCodes = [
-    { id: 'promo_bybens10', code: 'BYBENS10', status: 'active', applyToAll: true },
-    { id: 'promo_vip15', code: 'VIP15', status: 'active', applyToAll: false }
-  ],
+  categories = [],
+  subCategories = [],
+  promoCodes = [],
   onSaveProduct,
   onDeleteProduct,
   showToast
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'instock' | 'outstock'>('all');
+  const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'visible' | 'hidden'>('all');
+
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -154,9 +147,22 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const [previewVariantImgIdx, setPreviewVariantImgIdx] = useState<number | null>(null);
 
   const filteredProducts = products.filter(p => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
-    return p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
+    // Search Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const match = p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
+      if (!match) return false;
+    }
+
+    // Availability Filter
+    if (availabilityFilter === 'instock' && (Number(p.stock) || 0) <= 0) return false;
+    if (availabilityFilter === 'outstock' && (Number(p.stock) || 0) > 0) return false;
+
+    // Visibility Filter
+    if (visibilityFilter === 'visible' && p.hidden === true) return false;
+    if (visibilityFilter === 'hidden' && p.hidden !== true) return false;
+
+    return true;
   });
 
   const openEditor = (prod?: Product) => {
@@ -174,7 +180,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       setIsBundle(isB);
       setBundleItems(isB ? JSON.parse(JSON.stringify(prod.bundleItems)) : []);
 
-      // Safe normalization of variants & flavors to prevent JSX object rendering crashes
       const initialVariants = (prod.variants || []).map((v: any) => ({
         weight: v.weight ? String(v.weight) : (v.label || v.name || ''),
         unit: v.unit || 'kg',
@@ -214,6 +219,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         discount: 0,
         stock: 0,
         status: 'active',
+        hidden: false,
         allowPromo: true
       });
       setImageUrls([]);
@@ -230,6 +236,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
     setPreviewVariantImgIdx(null);
     setModalTab('basic');
     setIsModalOpen(true);
+  };
+
+  // Toggle Hide / Show Product on storefront
+  const handleToggleHideProduct = async (prod: Product) => {
+    const updated = { ...prod, hidden: !prod.hidden };
+    await onSaveProduct(updated);
+    showToast(updated.hidden ? "✓ Product hidden from storefront" : "✓ Product now visible on storefront");
   };
 
   // Image Gallery & Cloudinary Handlers
@@ -419,7 +432,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       variants: isBundle ? [] : updatedVariants,
       flavors: isBundle ? [] : flavors,
       stock: computedStock,
-      status: editingProduct.status || 'active'
+      status: editingProduct.status || 'active',
+      hidden: editingProduct.hidden || false
     };
 
     await onSaveProduct(payload);
@@ -433,7 +447,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Products Catalog</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Manage storefront products, Cloudinary images, rich description, categories, bundles & stock matrices.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Manage storefront products, hide/show items, stock matrices, categories & bundles.</p>
         </div>
 
         <button
@@ -445,9 +459,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         </button>
       </div>
 
-      {/* Search */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div className="relative max-w-md">
+      {/* Filter Toolbar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative max-w-xs w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
@@ -457,6 +471,35 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
           />
         </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs w-full sm:w-auto">
+          {/* Availability Filter */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <Filter className="w-3.5 h-3.5 text-slate-400 ml-1.5" />
+            <select
+              value={availabilityFilter}
+              onChange={(e) => setAvailabilityFilter(e.target.value as any)}
+              className="bg-transparent font-semibold text-slate-700 text-xs focus:outline-none pr-1"
+            >
+              <option value="all">All Availability</option>
+              <option value="instock">In Stock Only</option>
+              <option value="outstock">Out of Stock</option>
+            </select>
+          </div>
+
+          {/* Visibility Filter */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <select
+              value={visibilityFilter}
+              onChange={(e) => setVisibilityFilter(e.target.value as any)}
+              className="bg-transparent font-semibold text-slate-700 text-xs focus:outline-none px-1"
+            >
+              <option value="all">All Visibility</option>
+              <option value="visible">Visible Only</option>
+              <option value="hidden">Hidden Only</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Product Grid */}
@@ -465,7 +508,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
           const mainImg = Array.isArray(prod.imageUrl) ? prod.imageUrl[0] : prod.imageUrl;
 
           return (
-            <div key={prod.id} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow space-y-3">
+            <div key={prod.id} className={`bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition-shadow space-y-3 relative ${
+              prod.hidden ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200/80'
+            }`}>
               <div className="flex gap-3">
                 <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-slate-200">
                   {mainImg ? (
@@ -478,12 +523,17 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 <div className="flex-1 min-w-0">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{prod.brand || 'No Brand'}</span>
                   <h3 className="font-bold text-slate-900 text-sm truncate">{prod.name}</h3>
-                  <div className="flex items-center gap-1.5 mt-1">
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
                       prod.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
                     }`}>
                       {prod.status}
                     </span>
+                    {prod.hidden && (
+                      <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                        <EyeOff className="w-3 h-3" /> Hidden
+                      </span>
+                    )}
                     {prod.bundleItems && prod.bundleItems.length > 0 && (
                       <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
                         <Sparkles className="w-3 h-3" /> Bundle
@@ -497,27 +547,41 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 <div>
                   Variants: <strong className="text-slate-900">{prod.variants?.length || 0}</strong> | Flavors: <strong className="text-slate-900">{prod.flavors?.length || 0}</strong>
                 </div>
-                <div className="font-extrabold text-emerald-600">
+                <div className={`font-extrabold ${prod.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   Stock: {prod.stock}
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-1">
+              <div className="flex items-center justify-between pt-1">
+                {/* Hide / Show Storefront Toggle */}
                 <button
-                  onClick={() => openEditor(prod)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+                  onClick={() => handleToggleHideProduct(prod)}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    prod.hidden ? 'bg-amber-100 text-amber-900 hover:bg-amber-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                  title={prod.hidden ? "Click to show on storefront" : "Click to hide from storefront"}
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit Product</span>
+                  {prod.hidden ? <EyeOff className="w-3.5 h-3.5 text-amber-700" /> : <Eye className="w-3.5 h-3.5 text-slate-500" />}
+                  <span>{prod.hidden ? 'Hidden' : 'Visible'}</span>
                 </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Delete product [${prod.name}]?`)) onDeleteProduct(prod.id);
-                  }}
-                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => openEditor(prod)}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete product [${prod.name}]?`)) onDeleteProduct(prod.id);
+                    }}
+                    className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -638,7 +702,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
                       <label className="font-bold text-slate-700">Discount (DA)</label>
                       <input
@@ -661,8 +725,20 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                       </select>
                     </div>
                     <div>
+                      <label className="font-bold text-slate-700">Storefront Visibility</label>
+                      <label className="flex items-center gap-1.5 mt-2.5 cursor-pointer font-bold text-slate-900">
+                        <input
+                          type="checkbox"
+                          checked={editingProduct?.hidden === true}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, hidden: e.target.checked })}
+                          className="rounded text-amber-600"
+                        />
+                        <span>Hide from Storefront</span>
+                      </label>
+                    </div>
+                    <div>
                       <label className="font-bold text-slate-700">Product Type</label>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-2 font-bold">
                         <label className="flex items-center gap-1.5 cursor-pointer font-semibold">
                           <input
                             type="checkbox"
@@ -673,7 +749,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                             }}
                             className="rounded text-red-600"
                           />
-                          <span>Is Composite Bundle Pack</span>
+                          <span>Composite Bundle Pack</span>
                         </label>
                       </div>
                     </div>
@@ -840,12 +916,21 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
               {/* TAB 4: VARIANTS & STOCK MATRIX */}
               {modalTab === 'variants' && !isBundle && (
                 <div className="space-y-5">
+                  {/* Datalist for Inventory SKU Autocomplete */}
+                  <datalist id="inventory-skus-list">
+                    {inventoryItems.map(inv => (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.brand ? inv.brand + ' - ' : ''}{inv.name} (Stock: {inv.stock})
+                      </option>
+                    ))}
+                  </datalist>
+
                   {/* Variants Row Builder */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Variants & Picture Linkage</h4>
                       <button
-                        onClick={() => setVariants([...variants, { weight: '', unit: 'kg', price: 0, stock: 0, imageIndex: 0 }])}
+                        onClick={() => setVariants([...variants, { weight: '', unit: 'kg', price: 0, stock: 0, imageIndex: 0, sku: '' }])}
                         className="text-xs font-semibold text-red-700 hover:text-red-800 flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" /> + Add Variant
@@ -905,7 +990,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                               next[idx].weight = e.target.value;
                               setVariants(next);
                             }}
-                            className="w-24 bg-white border border-slate-200 rounded p-1.5"
+                            className="w-24 bg-white border border-slate-200 rounded p-1.5 font-semibold"
                           />
                           <select
                             value={v.unit || 'kg'}
@@ -933,23 +1018,23 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                             }}
                             className="w-24 bg-white border border-slate-200 rounded p-1.5 font-bold"
                           />
-                          {/* SKU Link Dropdown */}
-                          <select
-                            value={v.sku || ''}
-                            onChange={(e) => {
-                              const next = [...variants];
-                              next[idx].sku = e.target.value;
-                              setVariants(next);
-                            }}
-                            className="bg-white border border-slate-200 rounded p-1.5 text-xs font-semibold text-emerald-700 flex-1 min-w-[140px]"
-                          >
-                            <option value="">-- Link Inventory SKU --</option>
-                            {inventoryItems.map(inv => (
-                              <option key={inv.id} value={inv.id}>
-                                [{inv.id}] {inv.brand ? inv.brand + ' - ' : ''}{inv.name} (Stock: {inv.stock})
-                              </option>
-                            ))}
-                          </select>
+
+                          {/* INTERACTIVE SKU SEARCH / AUTOCOMPLETE INPUT */}
+                          <div className="flex-1 min-w-[160px]">
+                            <input
+                              type="text"
+                              list="inventory-skus-list"
+                              placeholder="Search SKU or Name..."
+                              value={v.sku || ''}
+                              onChange={(e) => {
+                                const next = [...variants];
+                                next[idx].sku = e.target.value;
+                                setVariants(next);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs font-bold text-emerald-800"
+                            />
+                          </div>
+
                           <button onClick={() => setVariants(variants.filter((_, i) => i !== idx))} className="text-rose-600 p-1">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -994,7 +1079,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                   {/* Stock Matrix Grid & Picture Linkage Preview */}
                   {variants.length > 0 && flavors.length > 0 && (
                     <div className="space-y-2 pt-2">
-                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Stock per Variant & Flavor (Click Row to Preview Picture)</h4>
+                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Stock per Variant & Flavor</h4>
                       <div className="border border-slate-200 rounded-xl overflow-x-auto">
                         <table className="w-full text-xs text-left">
                           <thead className="bg-slate-100 font-bold text-slate-600">
