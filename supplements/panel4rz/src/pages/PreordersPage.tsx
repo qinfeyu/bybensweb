@@ -337,12 +337,11 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
           <div class="title">Courier Delivery Slip<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
         </div>
         <div class="info-grid">
+          ${p.notes ? `
           <div class="info-block" style="background:#f8fafc; padding: 16px; border-radius: 8px; border:1px solid #e2e8f0;">
-            <h3>Customer / Recipient</h3>
-            <p style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom:2px;">${p.customer_name}</p>
-            <p style="font-weight: 600; color: #ad0000;">📞 ${p.customer_phone}</p>
-            ${p.notes ? `<p style="margin-top:8px; font-size:12px; color:#64748b; white-space:pre-wrap;">Notes: ${p.notes}</p>` : ''}
-          </div>
+            <h3>Delivery Notes / Instructions</h3>
+            <p style="font-size: 13.5px; font-weight: normal; color: #475569; white-space: pre-wrap; margin: 0;">${p.notes}</p>
+          </div>` : ''}
         </div>
         <table>
           <thead>
