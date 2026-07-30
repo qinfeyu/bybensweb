@@ -12,7 +12,8 @@ import {
   Check, 
   X, 
   Search,
-  FileSpreadsheet
+  FileSpreadsheet,
+  RotateCcw
 } from 'lucide-react';
 
 interface InventoryPageProps {
@@ -44,77 +45,122 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [sortField, setSortField] = useState<keyof InventoryItem | 'landed' | 'margin'>('id');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // Modal States
-  const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<Partial<InventoryItem> | null>(null);
+  // Default Sample Data Seeder
+  const handleSeedSampleData = async () => {
+    const sampleItems: InventoryItem[] = [
+      {
+        id: 'SUP-8801',
+        type: 'supplement',
+        brand: 'Optimum Nutrition',
+        name: '100% Whey Gold Standard 2.27kg',
+        variant_spec: '2.27kg',
+        size: '2.27kg',
+        price_eur: 55,
+        rate: defaultEurRate,
+        delivery_dzd: 1200,
+        retail_dzd: 19500,
+        stock: 12,
+        stock_eu: 5
+      },
+      {
+        id: 'SUP-8802',
+        type: 'supplement',
+        brand: 'Myprotein',
+        name: 'Impact Whey Isolate 1kg',
+        variant_spec: '1kg',
+        size: '1kg',
+        price_eur: 32,
+        rate: defaultEurRate,
+        delivery_dzd: 800,
+        retail_dzd: 11500,
+        stock: 8,
+        stock_eu: 10
+      },
+      {
+        id: 'SUP-8803',
+        type: 'supplement',
+        brand: 'Creapure',
+        name: 'Creatine Monohydrate 250g',
+        variant_spec: '250g',
+        size: '250g',
+        price_eur: 18,
+        rate: defaultEurRate,
+        delivery_dzd: 500,
+        retail_dzd: 6500,
+        stock: 20,
+        stock_eu: 15
+      },
+      {
+        id: 'SNK-9901',
+        type: 'snack',
+        brand: 'Barebells',
+        name: 'Protein Bar Cookies & Cream 55g',
+        variant_spec: '55g',
+        size: '55g',
+        price_eur: 2.2,
+        rate: defaultEurRate,
+        delivery_dzd: 100,
+        retail_dzd: 850,
+        stock: 48,
+        stock_eu: 24
+      }
+    ];
+
+    await onSaveBulkItems(sampleItems);
+    showToast("✓ Default inventory items restored!");
+  };
 
   // Bulk Restock Modal State
   const [isBulkRestockOpen, setIsBulkRestockOpen] = useState(false);
-  const [bulkSearchQuery, setBulkSearchQuery] = useState('');
-  const [bulkRestockRows, setBulkRestockRows] = useState<Array<{
-    sku: string;
-    item: InventoryItem;
-    addedQty: number;
-    newPriceEur: number;
-  }>>([]);
+  const [bulkRestockTarget, setBulkRestockTarget] = useState<'dz' | 'eu'>('dz');
+  const [bulkRestockQtys, setBulkRestockQtys] = useState<Record<string, number>>({});
 
-  // Stock Transfer Modal State
-  const [transferModalItem, setTransferModalItem] = useState<InventoryItem | null>(null);
-  const [transferQty, setTransferQty] = useState<number>(0);
+  // Add / Edit Single Item Modal State
+  const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Partial<InventoryItem> | null>(null);
 
-  // CSV Import Confirm Modal State
+  // CSV Import Confirmation Modal State
   const [isCsvConfirmOpen, setIsCsvConfirmOpen] = useState(false);
   const [csvDiffs, setCsvDiffs] = useState<CsvDiffItem[]>([]);
   const [pendingCsvItems, setPendingCsvItems] = useState<InventoryItem[]>([]);
 
-  // Spreadsheet Auto-save ref
-  const pendingSpreadsheetEdits = useRef<Map<string, InventoryItem>>(new Map());
-  const spreadsheetTimerRef = useRef<any>(null);
+  // Filter Items by activeTab & searchQuery
+  const tabItems = inventoryItems.filter(item => (item.type || 'supplement') === activeTab);
 
-  // Save pending spreadsheet edits before unmount or window close
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (pendingSpreadsheetEdits.current.size > 0) {
-        const itemsToSave = Array.from(pendingSpreadsheetEdits.current.values());
-        onSaveBulkItems(itemsToSave);
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      handleBeforeUnload();
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [onSaveBulkItems]);
+  const filteredItems = tabItems.filter(item => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      item.id.toLowerCase().includes(q) ||
+      (item.brand || '').toLowerCase().includes(q) ||
+      item.name.toLowerCase().includes(q) ||
+      (item.variant_spec || '').toLowerCase().includes(q)
+    );
+  });
 
-  // Filter & Sort Inventory Items
-  const filteredItems = inventoryItems
-    .filter(i => (i.type || 'supplement') === activeTab)
-    .filter(i => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase().trim();
-      const sku = (i.id || '').toLowerCase();
-      const brand = (i.brand || '').toLowerCase();
-      const name = (i.name || '').toLowerCase();
-      const spec = (i.variant_spec || '').toLowerCase();
-      return sku.includes(q) || brand.includes(q) || name.includes(q) || spec.includes(q);
-    })
-    .sort((a, b) => {
-      let valA: any = a[sortField as keyof InventoryItem];
-      let valB: any = b[sortField as keyof InventoryItem];
+  // Sort Items
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    let aVal: any = a[sortField as keyof InventoryItem];
+    let bVal: any = b[sortField as keyof InventoryItem];
 
-      if (sortField === 'landed') {
-        valA = calculateLandedCost(a.price_eur, a.rate, a.delivery_dzd);
-        valB = calculateLandedCost(b.price_eur, b.rate, b.delivery_dzd);
-      } else if (sortField === 'margin') {
-        valA = calculateMargin(a.retail_dzd, calculateLandedCost(a.price_eur, a.rate, a.delivery_dzd));
-        valB = calculateMargin(b.retail_dzd, calculateLandedCost(b.price_eur, b.rate, b.delivery_dzd));
-      }
+    if (sortField === 'landed') {
+      aVal = calculateLandedCost(a.price_eur, a.rate, a.delivery_dzd);
+      bVal = calculateLandedCost(b.price_eur, b.rate, b.delivery_dzd);
+    } else if (sortField === 'margin') {
+      const aLanded = calculateLandedCost(a.price_eur, a.rate, a.delivery_dzd);
+      const bLanded = calculateLandedCost(b.price_eur, b.rate, b.delivery_dzd);
+      aVal = calculateMargin(a.retail_dzd, aLanded);
+      bVal = calculateMargin(b.retail_dzd, bLanded);
+    }
 
-      if (typeof valA === 'string') {
-        return sortAsc ? valA.localeCompare(valB || '') : (valB || '').localeCompare(valA);
-      }
-      return sortAsc ? (Number(valA) || 0) - (Number(valB) || 0) : (Number(valB) || 0) - (Number(valA) || 0);
-    });
+    if (aVal === undefined || aVal === null) return 1;
+    if (bVal === undefined || bVal === null) return -1;
+
+    if (typeof aVal === 'string') {
+      return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    }
+    return sortAsc ? aVal - bVal : bVal - aVal;
+  });
 
   const toggleSort = (field: keyof InventoryItem | 'landed' | 'margin') => {
     if (sortField === field) {
@@ -125,197 +171,173 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     }
   };
 
-  // ── SpreadSheet Mode Live Edit ──
-  const handleSpreadsheetChange = (itemId: string, field: keyof InventoryItem, value: any) => {
-    const item = inventoryItems.find(x => x.id === itemId);
-    if (!item) return;
-
-    const updatedItem = { ...item, [field]: value, _lastUpdated: new Date().toISOString() };
-    pendingSpreadsheetEdits.current.set(itemId, updatedItem);
-
-    if (spreadsheetTimerRef.current) clearTimeout(spreadsheetTimerRef.current);
-    spreadsheetTimerRef.current = setTimeout(async () => {
-      const itemsToSave = Array.from(pendingSpreadsheetEdits.current.values());
-      pendingSpreadsheetEdits.current.clear();
-      await onSaveBulkItems(itemsToSave);
-    }, 300);
-  };
-
-  // ── Bulk EU Restock Handlers ──
-  const addBulkRestockRow = (item: InventoryItem) => {
-    if (bulkRestockRows.some(r => r.sku === item.id)) return;
-    setBulkRestockRows([
-      ...bulkRestockRows,
-      { sku: item.id, item, addedQty: 1, newPriceEur: item.price_eur || 0 }
-    ]);
-  };
-
-  const handleConfirmBulkRestock = async () => {
-    if (!bulkRestockRows.length) return;
-    const updatedItems: InventoryItem[] = bulkRestockRows.map(row => {
-      const currentTotalStock = (Number(row.item.stock_eu) || 0) + (Number(row.item.stock) || 0);
-      const newTotalStockEu = (Number(row.item.stock_eu) || 0) + row.addedQty;
-      const newWeightedPrice = calculateWeightedAverageEurPrice(currentTotalStock, row.item.price_eur, row.addedQty, row.newPriceEur);
-
-      return {
-        ...row.item,
-        stock_eu: newTotalStockEu,
-        price_eur: newWeightedPrice,
-        _lastUpdated: new Date().toISOString()
-      };
+  // Open Modal for Add
+  const handleOpenAddModal = () => {
+    setEditingItem({
+      id: `SUP-${Math.floor(1000 + Math.random() * 9000)}`,
+      type: activeTab,
+      brand: '',
+      name: '',
+      variant_spec: '',
+      size: '',
+      price_eur: 0,
+      rate: defaultEurRate,
+      delivery_dzd: 0,
+      retail_dzd: 0,
+      stock: 0,
+      stock_eu: 0
     });
-
-    await onSaveBulkItems(updatedItems);
-    setIsBulkRestockOpen(false);
-    setBulkRestockRows([]);
-    showToast(`✓ Restocked ${updatedItems.length} products with updated weighted average prices!`);
+    setIsAddEditModalOpen(true);
   };
 
-  // ── Save Add/Edit Inventory Item Modal ──
+  // Open Modal for Edit
+  const handleOpenEditModal = (item: InventoryItem) => {
+    setEditingItem({ ...item });
+    setIsAddEditModalOpen(true);
+  };
+
+  // Save Modal Item
   const handleSaveModalItem = async () => {
-    if (!editingItem?.id || !editingItem?.name) {
-      showToast("SKU and Product Name are required", "error");
+    if (!editingItem?.id?.trim() || !editingItem?.name?.trim()) {
+      showToast("SKU ID and Name are required", "error");
       return;
     }
 
     const payload: InventoryItem = {
       id: editingItem.id.trim(),
-      type: (editingItem.type || activeTab) as 'supplement' | 'snack',
-      brand: editingItem.brand || '',
+      type: editingItem.type || activeTab,
+      brand: editingItem.brand?.trim() || '',
       name: editingItem.name.trim(),
-      variant_spec: editingItem.variant_spec || null,
-      size: editingItem.size || null,
+      variant_spec: editingItem.variant_spec?.trim() || null,
+      size: editingItem.size?.trim() || null,
       price_eur: Number(editingItem.price_eur) || 0,
       rate: Number(editingItem.rate) || defaultEurRate,
       delivery_dzd: Number(editingItem.delivery_dzd) || 0,
       retail_dzd: Number(editingItem.retail_dzd) || 0,
       stock: Number(editingItem.stock) || 0,
-      stock_eu: Number(editingItem.stock_eu) || 0,
-      _lastUpdated: new Date().toISOString()
+      stock_eu: Number(editingItem.stock_eu) || 0
     };
 
     await onSaveItem(payload);
     setIsAddEditModalOpen(false);
-    setEditingItem(null);
-    showToast(`✓ Inventory item [${payload.id}] saved!`);
+    showToast("✓ Inventory item saved!");
   };
 
-  // ── Stock Transfer Europe → Algeria ──
-  const handleConfirmStockTransfer = async () => {
-    if (!transferModalItem || transferQty <= 0) return;
-    const currentEu = Number(transferModalItem.stock_eu) || 0;
-    const currentDz = Number(transferModalItem.stock) || 0;
+  // Spreadsheet Inline Edit Handler
+  const handleSpreadsheetChange = async (id: string, field: keyof InventoryItem, value: any) => {
+    const existing = inventoryItems.find(x => x.id === id);
+    if (!existing) return;
+
+    let parsedVal: any = value;
+    if (['price_eur', 'rate', 'delivery_dzd', 'retail_dzd', 'stock', 'stock_eu'].includes(field)) {
+      parsedVal = parseFloat(value) || 0;
+    }
 
     const updated: InventoryItem = {
-      ...transferModalItem,
-      stock_eu: Math.max(0, currentEu - transferQty),
-      stock: currentDz + transferQty,
-      _lastUpdated: new Date().toISOString()
+      ...existing,
+      [field]: parsedVal
     };
 
     await onSaveItem(updated);
-    setTransferModalItem(null);
-    showToast(`✓ Transferred ${transferQty} unit(s) of [${updated.id}] to Algeria sellable stock!`);
   };
 
-  // ── CSV Export ──
-  const handleExportCSV = () => {
-    const itemsToExport = inventoryItems.filter(i => (i.type || 'supplement') === activeTab);
-    if (!itemsToExport.length) {
-      showToast("No data to export", "error");
-      return;
-    }
-
+  // CSV Export Function
+  const handleExportCsv = () => {
     const headers = [
-      "SKU", "Brand", "Product Name", "Variant Spec", "Size",
-      "Price EUR", "Rate", "Delivery DZD", "Landed Cost DZD", "Retail DZD",
-      "Margin DZD", "Margin Pct", "Stock EU", "Stock DZ", "Type"
+      "SKU",
+      "Brand",
+      "Name",
+      "Variant Spec",
+      "Size",
+      "Price EUR",
+      "Rate",
+      "Delivery DZD",
+      "Retail DZD",
+      "Stock EU",
+      "Stock DZ",
+      "Type"
     ];
 
-    const lines = [headers.join(",")];
-    itemsToExport.forEach(item => {
-      const landed = calculateLandedCost(item.price_eur, item.rate, item.delivery_dzd);
-      const margin = calculateMargin(item.retail_dzd, landed);
-      const marginPct = calculateMarginPct(item.retail_dzd, margin).toFixed(1);
+    const rows = filteredItems.map(item => [
+      `"${item.id}"`,
+      `"${(item.brand || '').replace(/"/g, '""')}"`,
+      `"${(item.name || '').replace(/"/g, '""')}"`,
+      `"${(item.variant_spec || '').replace(/"/g, '""')}"`,
+      `"${(item.size || '').replace(/"/g, '""')}"`,
+      item.price_eur,
+      item.rate,
+      item.delivery_dzd,
+      item.retail_dzd,
+      item.stock_eu || 0,
+      item.stock || 0,
+      item.type || 'supplement'
+    ]);
 
-      const row = [
-        `"${(item.id || "").replace(/"/g, '""')}"`,
-        `"${(item.brand || "").replace(/"/g, '""')}"`,
-        `"${(item.name || "").replace(/"/g, '""')}"`,
-        `"${(item.variant_spec || "").replace(/"/g, '""')}"`,
-        `"${(item.size || "").replace(/"/g, '""')}"`,
-        item.price_eur || 0,
-        item.rate || defaultEurRate,
-        item.delivery_dzd || 0,
-        Math.round(landed),
-        item.retail_dzd || 0,
-        Math.round(margin),
-        `${marginPct}%`,
-        item.stock_eu || 0,
-        item.stock || 0,
-        `"${(item.type || activeTab).replace(/"/g, '""')}"`
-      ];
-      lines.push(row.join(","));
-    });
-
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bybens-inventory-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("✓ CSV Exported!");
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `inventory_export_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("✓ CSV Export downloaded!");
   };
 
-  // ── CSV Import with Visual Diff Confirmation ──
-  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // CSV Import Parser & Diff Detector
+  const handleImportCsv = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) {
+      const content = e.target?.result as string;
+      if (!content) return;
+
+      const lines = content.split(/\r\n|\n/).filter(line => line.trim().length > 0);
+      if (lines.length <= 1) {
         showToast("CSV file is empty or invalid", "error");
         return;
       }
 
-      const parseLine = (line: string) => {
-        const res: string[] = [];
-        let cur = "";
-        let inQ = false;
-        for (let i = 0; i < line.length; i++) {
-          const c = line[i];
-          if (c === '"') inQ = !inQ;
-          else if (c === ',' && !inQ) {
-            res.push(cur.trim().replace(/^"|"$/g, ''));
-            cur = "";
-          } else cur += c;
+      // Parse Header
+      const headerCols = lines[0].split(",").map(c => c.replace(/^"|"$/g, '').trim().toLowerCase());
+
+      const findIdx = (possibleNames: string[]) => {
+        return headerCols.findIndex(c => possibleNames.includes(c));
+      };
+
+      const skuIdx = findIdx(["sku", "id"]);
+      const brandIdx = findIdx(["brand"]);
+      const nameIdx = findIdx(["name", "product name", "product_name"]);
+      const varIdx = findIdx(["variant spec", "variant_spec", "variant"]);
+      const sizeIdx = findIdx(["size"]);
+      const eurIdx = findIdx(["price eur", "price_eur", "price (€)", "price_euro"]);
+      const rateIdx = findIdx(["rate"]);
+      const delIdx = findIdx(["delivery dzd", "delivery_dzd", "delivery"]);
+      const retailIdx = findIdx(["retail dzd", "retail_dzd", "retail (da)", "retail"]);
+      const stockEuIdx = findIdx(["stock eu", "stock_eu", "eu"]);
+      const stockDzIdx = findIdx(["stock dz", "stock_dz", "stock", "dz"]);
+      const typeIdx = findIdx(["type"]);
+
+      if (skuIdx === -1 || nameIdx === -1) {
+        showToast("CSV must contain SKU and Name columns", "error");
+        return;
+      }
+
+      const parseLine = (lineStr: string) => {
+        const regex = /(?:,|\n|^)("(?:(?:"")*[^"]*)*"|[^",\n]*|(?:\n|$))/g;
+        const matches: string[] = [];
+        let m;
+        while ((m = regex.exec(lineStr)) !== null) {
+          let val = m[1];
+          if (val.startsWith('"') && val.endsWith('"')) {
+            val = val.substring(1, val.length - 1).replace(/""/g, '"');
+          }
+          matches.push(val.trim());
         }
-        res.push(cur.trim().replace(/^"|"$/g, ''));
-        return res;
+        return matches;
       };
-
-      const headerCols = parseLine(lines[0]).map(h => h.toLowerCase());
-      const findCol = (terms: string[], def: number) => {
-        const idx = headerCols.findIndex(h => terms.some(t => h.includes(t)));
-        return idx !== -1 ? idx : def;
-      };
-
-      const skuIdx = findCol(["sku", "id"], 0);
-      const brandIdx = findCol(["brand"], 1);
-      const nameIdx = findCol(["product name", "name"], 2);
-      const varIdx = findCol(["variant", "spec"], 3);
-      const sizeIdx = findCol(["size"], 4);
-      const eurIdx = findCol(["price eur", "price_eur", "eur"], 5);
-      const rateIdx = findCol(["rate"], 6);
-      const delIdx = findCol(["delivery"], 7);
-      const retailIdx = findCol(["retail"], 9);
-      const stockEuIdx = findCol(["stock eu", "eu stock", "stock_eu"], 12);
-      const stockDzIdx = findCol(["stock dz", "dz stock", "stock_dz", "stock"], 13);
-      const typeIdx = findCol(["type", "category"], 14);
 
       const parsedItems: InventoryItem[] = [];
       const diffs: CsvDiffItem[] = [];
@@ -392,97 +414,132 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     setIsCsvConfirmOpen(false);
     setPendingCsvItems([]);
     setCsvDiffs([]);
-    showToast(`✓ Successfully imported & updated ${pendingCsvItems.length} inventory items!`);
+    showToast(`✓ ${pendingCsvItems.length} CSV inventory items imported and saved!`);
+  };
+
+  // Bulk Restock Execution
+  const handleConfirmBulkRestock = async () => {
+    const itemsToUpdate: InventoryItem[] = [];
+
+    Object.entries(bulkRestockQtys).forEach(([id, addQty]) => {
+      if (addQty && addQty !== 0) {
+        const item = inventoryItems.find(x => x.id === id);
+        if (item) {
+          const updated: InventoryItem = {
+            ...item,
+            stock: bulkRestockTarget === 'dz' ? (item.stock + addQty) : item.stock,
+            stock_eu: bulkRestockTarget === 'eu' ? ((item.stock_eu || 0) + addQty) : (item.stock_eu || 0),
+            _lastUpdated: new Date().toISOString()
+          };
+          itemsToUpdate.push(updated);
+        }
+      }
+    });
+
+    if (itemsToUpdate.length > 0) {
+      await onSaveBulkItems(itemsToUpdate);
+      showToast(`✓ Bulk restock updated ${itemsToUpdate.length} SKUs!`);
+    }
+
+    setIsBulkRestockOpen(false);
+    setBulkRestockQtys({});
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Action Header Bar */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Inventory Manager</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Manage sellable DZ stock, Europe pool stock, and landed costs.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Manage SKU pricing, landed costs, EU/DZ stock levels & margin calculations.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleSeedSampleData}
+            className="flex items-center gap-1.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all"
+            title="Restore default supplement SKUs"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Restore Default SKUs</span>
+          </button>
+
           <button
             onClick={() => setIsBulkRestockOpen(true)}
-            className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all"
+            className="flex items-center gap-1.5 bg-purple-700 hover:bg-purple-800 text-white font-semibold text-xs px-3 py-2 rounded-xl shadow-sm transition-all"
           >
-            <Euro className="w-4 h-4" />
-            <span>💶 Bulk EU Restock</span>
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>Bulk Restock</span>
           </button>
 
           <button
             onClick={() => setIsSpreadsheetMode(!isSpreadsheetMode)}
-            className={`flex items-center gap-2 font-semibold text-xs px-3.5 py-2 rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 font-semibold text-xs px-3 py-2 rounded-xl border transition-all ${
               isSpreadsheetMode
-                ? 'bg-rose-50 border-rose-200 text-rose-700'
+                ? 'bg-amber-100 border-amber-300 text-amber-900'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>{isSpreadsheetMode ? 'Close Spreadsheet Mode' : '📊 Spreadsheet Mode'}</span>
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>{isSpreadsheetMode ? 'Exit Excel Edit' : 'Excel Edit Mode'}</span>
           </button>
 
-          <label className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs px-3.5 py-2 rounded-xl cursor-pointer shadow-sm transition-all">
-            <Upload className="w-4 h-4 text-blue-600" />
-            <span>Import CSV</span>
-            <input type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
-          </label>
-
           <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all"
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-3 py-2 rounded-xl shadow-sm transition-all"
           >
-            <Download className="w-4 h-4 text-emerald-600" />
+            <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export CSV</span>
           </button>
 
+          <label className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3 py-2 rounded-xl shadow-sm cursor-pointer transition-all">
+            <Upload className="w-3.5 h-3.5" />
+            <span>Import CSV</span>
+            <input type="file" accept=".csv" className="hidden" onChange={handleImportCsv} />
+          </label>
+
           <button
-            onClick={() => {
-              setEditingItem({ type: activeTab, rate: defaultEurRate });
-              setIsAddEditModalOpen(true);
-            }}
-            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all"
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white font-semibold text-xs px-4 py-2 rounded-xl shadow-sm transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Item</span>
+            <span>Add SKU</span>
           </button>
         </div>
       </div>
 
       {/* Tabs & Search Filter */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        {/* Sub-tabs */}
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+        {/* Category Segment Tabs */}
+        <div className="flex p-1 bg-slate-100 rounded-xl gap-1 w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('supplement')}
-            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 sm:flex-none px-5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'supplement' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            💪 Supplements ({inventoryItems.filter(i => i.type === 'supplement').length})
+            Supplements ({inventoryItems.filter(i => (i.type || 'supplement') === 'supplement').length})
           </button>
           <button
             onClick={() => setActiveTab('snack')}
-            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 sm:flex-none px-5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'snack' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            🍪 Snacks ({inventoryItems.filter(i => i.type === 'snack').length})
+            Snacks & Bars ({inventoryItems.filter(i => i.type === 'snack').length})
           </button>
         </div>
 
         {/* Search */}
-        <div className="relative w-full sm:w-72">
+        <div className="relative max-w-md w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search SKU, brand, or name..."
+            placeholder="Search SKU, brand, or product..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:border-red-600 transition-all"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
           />
         </div>
       </div>
@@ -510,7 +567,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredItems.map((item) => {
+              {sortedItems.map((item) => {
                 const landed = calculateLandedCost(item.price_eur, item.rate, item.delivery_dzd);
                 const margin = calculateMargin(item.retail_dzd, landed);
                 const marginPct = calculateMarginPct(item.retail_dzd, margin).toFixed(1);
@@ -541,7 +598,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                           type="text"
                           defaultValue={item.name}
                           onBlur={(e) => handleSpreadsheetChange(item.id, 'name', e.target.value)}
-                          className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-semibold"
+                          className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold"
                         />
                       ) : (
                         item.name
@@ -549,87 +606,41 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     </td>
 
                     {/* Variant Spec */}
-                    <td className="p-3">
-                      {isSpreadsheetMode ? (
-                        <input
-                          type="text"
-                          defaultValue={item.variant_spec || ''}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'variant_spec', e.target.value)}
-                          className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs"
-                        />
-                      ) : (
-                        item.variant_spec || '—'
-                      )}
-                    </td>
-
+                    <td className="p-3 text-slate-500">{item.variant_spec || '—'}</td>
                     {/* Size */}
-                    <td className="p-3">
-                      {isSpreadsheetMode ? (
-                        <input
-                          type="text"
-                          defaultValue={item.size || ''}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'size', e.target.value)}
-                          className="w-20 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs"
-                        />
-                      ) : (
-                        item.size || '—'
-                      )}
-                    </td>
+                    <td className="p-3 text-slate-500">{item.size || '—'}</td>
 
                     {/* Price EUR */}
-                    <td className="p-3 font-semibold">
+                    <td className="p-3 font-semibold text-slate-900">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.1"
                           defaultValue={item.price_eur}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'price_eur', parseFloat(e.target.value) || 0)}
-                          className="w-16 bg-slate-100 border border-slate-200 rounded px-1 py-0.5 text-xs"
+                          onBlur={(e) => handleSpreadsheetChange(item.id, 'price_eur', e.target.value)}
+                          className="w-16 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold"
                         />
                       ) : (
-                        `${item.price_eur} €`
+                        `€${item.price_eur.toFixed(2)}`
                       )}
                     </td>
 
                     {/* Rate */}
-                    <td className="p-3 text-slate-500">
-                      {isSpreadsheetMode ? (
-                        <input
-                          type="number"
-                          defaultValue={item.rate}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'rate', parseFloat(e.target.value) || defaultEurRate)}
-                          className="w-16 bg-slate-100 border border-slate-200 rounded px-1 py-0.5 text-xs"
-                        />
-                      ) : (
-                        item.rate
-                      )}
-                    </td>
-
+                    <td className="p-3 text-slate-500">{item.rate}</td>
                     {/* Delivery */}
-                    <td className="p-3 text-slate-500">
-                      {isSpreadsheetMode ? (
-                        <input
-                          type="number"
-                          defaultValue={item.delivery_dzd}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'delivery_dzd', parseFloat(e.target.value) || 0)}
-                          className="w-16 bg-slate-100 border border-slate-200 rounded px-1 py-0.5 text-xs"
-                        />
-                      ) : (
-                        `${item.delivery_dzd} DA`
-                      )}
-                    </td>
+                    <td className="p-3 text-slate-500">{item.delivery_dzd} DA</td>
 
-                    {/* Landed DZD */}
-                    <td className="p-3 font-semibold text-slate-700">{Math.round(landed).toLocaleString()} DA</td>
+                    {/* Landed DA */}
+                    <td className="p-3 font-bold text-slate-900">{landed.toLocaleString()} DA</td>
 
-                    {/* Retail DZD */}
-                    <td className="p-3 font-bold text-slate-900">
+                    {/* Retail DA */}
+                    <td className="p-3 font-extrabold text-slate-900">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
                           defaultValue={item.retail_dzd}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'retail_dzd', parseFloat(e.target.value) || 0)}
-                          className="w-20 bg-slate-100 border border-slate-200 rounded px-1 py-0.5 text-xs font-bold"
+                          onBlur={(e) => handleSpreadsheetChange(item.id, 'retail_dzd', e.target.value)}
+                          className="w-20 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold"
                         />
                       ) : (
                         `${item.retail_dzd.toLocaleString()} DA`
@@ -637,75 +648,58 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     </td>
 
                     {/* Margin */}
-                    <td className="p-3 font-bold">
-                      <span className={margin >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                        {Math.round(margin).toLocaleString()} DA ({marginPct}%)
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                        margin >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {margin.toLocaleString()} DA ({marginPct}%)
                       </span>
                     </td>
 
-                    {/* Stock EU */}
-                    <td className="p-3 text-center font-bold text-blue-600 bg-blue-50/40">
+                    {/* EU Stock */}
+                    <td className="p-3 text-center">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
                           defaultValue={item.stock_eu || 0}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'stock_eu', parseInt(e.target.value) || 0)}
-                          className="w-14 text-center bg-blue-100 border border-blue-300 rounded px-1 py-0.5 text-xs font-bold text-blue-700"
+                          onBlur={(e) => handleSpreadsheetChange(item.id, 'stock_eu', e.target.value)}
+                          className="w-12 text-center bg-blue-50 border border-blue-200 rounded px-1 py-0.5 text-xs font-bold"
                         />
                       ) : (
-                        item.stock_eu || 0
+                        <span className="font-bold text-blue-700">{item.stock_eu || 0}</span>
                       )}
                     </td>
 
-                    {/* Stock DZ (Sellable) */}
-                    <td className="p-3 text-center font-extrabold text-emerald-600 bg-emerald-50/40">
+                    {/* DZ Stock */}
+                    <td className="p-3 text-center">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
                           defaultValue={item.stock || 0}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'stock', parseInt(e.target.value) || 0)}
-                          className="w-14 text-center bg-emerald-100 border border-emerald-300 rounded px-1 py-0.5 text-xs font-extrabold text-emerald-700"
+                          onBlur={(e) => handleSpreadsheetChange(item.id, 'stock', e.target.value)}
+                          className="w-12 text-center bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5 text-xs font-bold"
                         />
                       ) : (
-                        item.stock || 0
+                        <span className="font-bold text-emerald-700">{item.stock || 0}</span>
                       )}
                     </td>
 
                     {/* Actions */}
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {item.stock_eu > 0 && (
-                          <button
-                            onClick={() => {
-                              setTransferModalItem(item);
-                              setTransferQty(item.stock_eu);
-                            }}
-                            title="Move Europe stock to Algeria"
-                            className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
-                          >
-                            <ArrowRightLeft className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
-                          onClick={() => {
-                            setEditingItem({ ...item });
-                            setIsAddEditModalOpen(true);
-                          }}
-                          title="Edit Item"
-                          className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                          onClick={() => handleOpenEditModal(item)}
+                          className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
+                          title="Edit SKU"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
-
                         <button
                           onClick={() => {
-                            if (confirm(`Delete inventory item [${item.id}]?`)) {
-                              onDeleteItem(item.id);
-                            }
+                            if (confirm(`Delete SKU [${item.id}]?`)) onDeleteItem(item.id);
                           }}
-                          title="Delete Item"
-                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
+                          className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded transition-colors"
+                          title="Delete SKU"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -714,45 +708,215 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                   </tr>
                 );
               })}
+
+              {sortedItems.length === 0 && (
+                <tr>
+                  <td colSpan={14} className="p-12 text-center space-y-4">
+                    <div className="text-slate-400 font-medium text-sm">
+                      No inventory items found for {activeTab}s.
+                    </div>
+                    <div className="flex items-center justify-center gap-3 flex-wrap">
+                      <button
+                        onClick={handleSeedSampleData}
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-2"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Restore Default Inventory SKUs</span>
+                      </button>
+                      <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        <span>Import Inventory CSV File</span>
+                        <input type="file" accept=".csv" className="hidden" onChange={handleImportCsv} />
+                      </label>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ── ADD / EDIT INVENTORY ITEM MODAL ── */}
-      {isAddEditModalOpen && (
+      {/* ── CSV CONFIRMATION & DIFF PREVIEW MODAL ── */}
+      {isCsvConfirmOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Confirm CSV Import & Changes</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Review detected updates before committing changes to inventory.</p>
+              </div>
+              <button onClick={() => setIsCsvConfirmOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
+              {csvDiffs.map((diff, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-xl border ${
+                    diff.status === 'NEW'
+                      ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                      : 'bg-amber-50/60 border-amber-200 text-amber-950'
+                  }`}
+                >
+                  <div className="font-bold mb-1 flex items-center justify-between">
+                    <span>{diff.item.brand ? diff.item.brand + ' - ' : ''}{diff.item.name}</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                      diff.status === 'NEW' ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'
+                    }`}>
+                      {diff.status}
+                    </span>
+                  </div>
+                  <div className="font-medium text-xs opacity-90">{diff.changesText}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <button
+                onClick={() => setIsCsvConfirmOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSaveCsv}
+                className="px-6 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save All Changes ({pendingCsvItems.length} SKUs)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BULK RESTOCK MODAL ── */}
+      {isBulkRestockOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Bulk Restock Inventory</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Quickly add quantities to EU or DZ stock across multiple SKUs.</p>
+              </div>
+              <button onClick={() => setIsBulkRestockOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-slate-700">Target Warehouse Stock:</span>
+                <button
+                  onClick={() => setBulkRestockTarget('dz')}
+                  className={`px-3 py-1.5 rounded-xl font-bold border transition-all ${
+                    bulkRestockTarget === 'dz' ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-600'
+                  }`}
+                >
+                  DZ Stock (Sellable)
+                </button>
+                <button
+                  onClick={() => setBulkRestockTarget('eu')}
+                  className={`px-3 py-1.5 rounded-xl font-bold border transition-all ${
+                    bulkRestockTarget === 'eu' ? 'bg-blue-100 border-blue-300 text-blue-900' : 'bg-slate-50 border-slate-200 text-slate-600'
+                  }`}
+                >
+                  EU Stock
+                </button>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100 font-bold text-slate-600">
+                    <tr>
+                      <th className="p-2.5">SKU</th>
+                      <th className="p-2.5">Product</th>
+                      <th className="p-2.5 text-center">Current Stock</th>
+                      <th className="p-2.5 text-center">Add Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {tabItems.map(item => (
+                      <tr key={item.id}>
+                        <td className="p-2.5 font-bold">{item.id}</td>
+                        <td className="p-2.5">{item.brand ? item.brand + ' - ' : ''}{item.name}</td>
+                        <td className="p-2.5 text-center font-bold">
+                          {bulkRestockTarget === 'dz' ? item.stock : (item.stock_eu || 0)}
+                        </td>
+                        <td className="p-2.5 text-center">
+                          <input
+                            type="number"
+                            placeholder="+0"
+                            value={bulkRestockQtys[item.id] || ''}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              setBulkRestockQtys({ ...bulkRestockQtys, [item.id]: val });
+                            }}
+                            className="w-16 text-center bg-slate-50 border border-slate-200 rounded p-1 text-xs font-bold"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <button
+                onClick={() => setIsBulkRestockOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmBulkRestock}
+                className="px-6 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Confirm Bulk Restock</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD / EDIT ITEM MODAL ── */}
+      {isAddEditModalOpen && editingItem && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <h3 className="font-bold text-slate-900 text-base">
-                {editingItem?.id ? `Edit Item [${editingItem.id}]` : 'Add Inventory Item'}
+                {editingItem.id ? `Edit SKU — ${editingItem.id}` : 'Add Inventory SKU'}
               </h3>
               <button onClick={() => setIsAddEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="p-6 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700">SKU *</label>
+                  <label className="font-bold text-slate-700">SKU Code *</label>
                   <input
                     type="text"
-                    disabled={!!editingItem?.id && inventoryItems.some(x => x.id === editingItem.id)}
-                    value={editingItem?.id || ''}
+                    value={editingItem.id || ''}
                     onChange={(e) => setEditingItem({ ...editingItem, id: e.target.value })}
-                    placeholder="SUP-8801"
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-900"
+                    placeholder="e.g. SUP-8801"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
                   />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700">Brand</label>
                   <input
                     type="text"
-                    value={editingItem?.brand || ''}
+                    value={editingItem.brand || ''}
                     onChange={(e) => setEditingItem({ ...editingItem, brand: e.target.value })}
-                    placeholder="Brand Name"
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900"
+                    placeholder="e.g. Optimum Nutrition"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
                   />
                 </div>
               </div>
@@ -761,10 +925,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 <label className="font-bold text-slate-700">Product Name *</label>
                 <input
                   type="text"
-                  value={editingItem?.name || ''}
+                  value={editingItem.name || ''}
                   onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                  placeholder="Whey Protein Isolate"
-                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold text-slate-900"
+                  placeholder="e.g. 100% Whey Gold Standard"
+                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
                 />
               </div>
 
@@ -773,360 +937,99 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                   <label className="font-bold text-slate-700">Variant / Spec</label>
                   <input
                     type="text"
-                    value={editingItem?.variant_spec || ''}
+                    value={editingItem.variant_spec || ''}
                     onChange={(e) => setEditingItem({ ...editingItem, variant_spec: e.target.value })}
-                    placeholder="Chocolate 2kg"
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900"
+                    placeholder="e.g. 2.27kg"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5"
                   />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700">Size</label>
                   <input
                     type="text"
-                    value={editingItem?.size || ''}
+                    value={editingItem.size || ''}
                     onChange={(e) => setEditingItem({ ...editingItem, size: e.target.value })}
-                    placeholder="2kg"
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900"
+                    placeholder="e.g. 2.27kg"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700">Price EUR (€)</label>
+                  <label className="font-bold text-slate-700">Price (€)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    value={editingItem?.price_eur || 0}
+                    step="0.1"
+                    value={editingItem.price_eur || 0}
                     onChange={(e) => setEditingItem({ ...editingItem, price_eur: parseFloat(e.target.value) || 0 })}
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-bold"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700">Exchange Rate</label>
+                  <label className="font-bold text-slate-700">Rate</label>
                   <input
                     type="number"
-                    value={editingItem?.rate || defaultEurRate}
+                    value={editingItem.rate || defaultEurRate}
                     onChange={(e) => setEditingItem({ ...editingItem, rate: parseFloat(e.target.value) || defaultEurRate })}
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-semibold"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
                   />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700">Delivery (DA)</label>
                   <input
                     type="number"
-                    value={editingItem?.delivery_dzd || 0}
+                    value={editingItem.delivery_dzd || 0}
                     onChange={(e) => setEditingItem({ ...editingItem, delivery_dzd: parseFloat(e.target.value) || 0 })}
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-semibold"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700">Retail DZD (DA)</label>
+                  <label className="font-bold text-slate-700">Retail Price (DA)</label>
                   <input
                     type="number"
-                    value={editingItem?.retail_dzd || 0}
+                    value={editingItem.retail_dzd || 0}
                     onChange={(e) => setEditingItem({ ...editingItem, retail_dzd: parseFloat(e.target.value) || 0 })}
-                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-extrabold"
+                    className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-extrabold text-emerald-800"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-blue-700">EU Stock</label>
+                  <label className="font-bold text-slate-700 text-blue-700">EU Stock</label>
                   <input
                     type="number"
-                    value={editingItem?.stock_eu || 0}
+                    value={editingItem.stock_eu || 0}
                     onChange={(e) => setEditingItem({ ...editingItem, stock_eu: parseInt(e.target.value) || 0 })}
-                    className="w-full mt-1 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl p-2 font-black"
+                    className="w-full mt-1 bg-blue-50 border border-blue-200 rounded-xl p-2.5 font-bold text-blue-900"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-emerald-700">DZ Stock (Sellable)</label>
+                  <label className="font-bold text-slate-700 text-emerald-700">DZ Stock</label>
                   <input
                     type="number"
-                    value={editingItem?.stock || 0}
+                    value={editingItem.stock || 0}
                     onChange={(e) => setEditingItem({ ...editingItem, stock: parseInt(e.target.value) || 0 })}
-                    className="w-full mt-1 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl p-2 font-black"
+                    className="w-full mt-1 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 font-bold text-emerald-900"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-              <button onClick={() => setIsAddEditModalOpen(false)} className="px-4 py-2 bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl">
-                Cancel
-              </button>
-              <button onClick={handleSaveModalItem} className="px-5 py-2 bg-red-700 hover:bg-red-800 text-white font-semibold text-xs rounded-xl shadow-sm">
-                Save Item
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── CSV IMPORT CONFIRMATION MODAL WITH VISUAL DIFF PREVIEW ── */}
-      {isCsvConfirmOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-4xl w-full overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Upload className="w-5 h-5 text-blue-600" />
-                <span>📥 Confirm CSV Import Changes</span>
-              </h3>
-              <button onClick={() => setIsCsvConfirmOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs flex items-center justify-between flex-wrap gap-2">
-                <div className="text-slate-600 font-medium">
-                  Review the detected changes before committing to Supabase database.
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-md">
-                    {csvDiffs.filter(d => d.status === 'NEW').length} New
-                  </span>
-                  <span className="bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-md">
-                    {csvDiffs.filter(d => d.status === 'MODIFIED').length} Modified
-                  </span>
-                </div>
-              </div>
-
-              {/* Diff Table */}
-              <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-100 font-bold text-slate-600 sticky top-0">
-                    <tr>
-                      <th className="p-3">SKU</th>
-                      <th className="p-3">Product Name</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Detected Changes (Original → Imported)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {csvDiffs.map((diff, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-3 font-bold text-slate-900">{diff.item.id}</td>
-                        <td className="p-3 font-medium text-slate-800">
-                          {diff.item.brand ? diff.item.brand + ' - ' : ''}{diff.item.name}
-                        </td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                            diff.status === 'NEW' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {diff.status}
-                          </span>
-                        </td>
-                        <td className={`p-3 font-medium text-[11.5px] ${diff.status === 'NEW' ? 'text-emerald-700' : 'text-blue-700'}`}>
-                          {diff.changesText}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setIsCsvConfirmOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmSaveCsv}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>✅ Save Changes to Inventory</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── BULK EU RESTOCK MODAL ── */}
-      {isBulkRestockOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-3xl w-full overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Euro className="w-5 h-5 text-emerald-600" />
-                <span>💶 Bulk EU Restock & Weighted Average Calculator</span>
-              </h3>
-              <button onClick={() => setIsBulkRestockOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Product Search */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type="text"
-                  placeholder="Search item to add to restock list..."
-                  value={bulkSearchQuery}
-                  onChange={(e) => setBulkSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600"
-                />
-                {bulkSearchQuery.trim() && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-10 divide-y divide-slate-100">
-                    {inventoryItems
-                      .filter(i => {
-                        const q = bulkSearchQuery.toLowerCase();
-                        return i.id.toLowerCase().includes(q) || i.name.toLowerCase().includes(q) || (i.brand || '').toLowerCase().includes(q);
-                      })
-                      .map(item => (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            addBulkRestockRow(item);
-                            setBulkSearchQuery('');
-                          }}
-                          className="p-3 hover:bg-emerald-50 cursor-pointer text-xs flex justify-between items-center"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-900">[{item.id}]</span> {item.brand ? item.brand + ' - ' : ''}{item.name}
-                          </div>
-                          <span className="font-semibold text-blue-600">Stock EU: {item.stock_eu} | DZ: {item.stock}</span>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Table of selected items */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50 font-bold text-slate-500 border-b border-slate-200">
-                    <tr>
-                      <th className="p-3">Product</th>
-                      <th className="p-3 text-center">Current Total Stock (EU+DZ)</th>
-                      <th className="p-3 text-center">+ New EU Qty</th>
-                      <th className="p-3 text-center">Purchase € Price</th>
-                      <th className="p-3 text-center">New Weighted Avg (€)</th>
-                      <th className="p-3 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {bulkRestockRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-400">
-                          Search above to add items for EU restock.
-                        </td>
-                      </tr>
-                    ) : (
-                      bulkRestockRows.map((row, idx) => {
-                        const currentTotal = (Number(row.item.stock_eu) || 0) + (Number(row.item.stock) || 0);
-                        const weightedAvg = calculateWeightedAverageEurPrice(currentTotal, row.item.price_eur, row.addedQty, row.newPriceEur);
-
-                        return (
-                          <tr key={row.sku} className="hover:bg-slate-50">
-                            <td className="p-3 font-semibold">[{row.sku}] {row.item.name}</td>
-                            <td className="p-3 text-center font-bold text-slate-700">{currentTotal}</td>
-                            <td className="p-3 text-center">
-                              <input
-                                type="number"
-                                min="1"
-                                value={row.addedQty}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 1;
-                                  const next = [...bulkRestockRows];
-                                  next[idx].addedQty = val;
-                                  setBulkRestockRows(next);
-                                }}
-                                className="w-16 bg-slate-50 border border-slate-200 rounded p-1 text-center font-bold"
-                              />
-                            </td>
-                            <td className="p-3 text-center">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={row.newPriceEur}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 0;
-                                  const next = [...bulkRestockRows];
-                                  next[idx].newPriceEur = val;
-                                  setBulkRestockRows(next);
-                                }}
-                                className="w-20 bg-slate-50 border border-slate-200 rounded p-1 text-center font-bold"
-                              />
-                            </td>
-                            <td className="p-3 text-center font-black text-emerald-600">{weightedAvg} €</td>
-                            <td className="p-3 text-center">
-                              <button
-                                onClick={() => setBulkRestockRows(bulkRestockRows.filter(r => r.sku !== row.sku))}
-                                className="text-rose-600 hover:text-rose-800 p-1"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Action */}
+            <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <button
-                disabled={!bulkRestockRows.length}
-                onClick={handleConfirmBulkRestock}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs py-3 rounded-xl shadow-sm transition-all"
-              >
-                Confirm Restocks & Update Weighted Prices
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── STOCK TRANSFER MODAL (EU → ALGERIA) ── */}
-      {transferModalItem && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4">
-            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-              <ArrowRightLeft className="w-5 h-5 text-blue-600" />
-              <span>Transfer Stock to Algeria</span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              Move units from Europe pool stock to Algeria sellable stock pool for <strong>[{transferModalItem.id}] {transferModalItem.name}</strong>.
-            </p>
-
-            <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs space-y-1">
-              <div className="text-blue-900 font-semibold">Available in Europe: {transferModalItem.stock_eu} units</div>
-              <div className="text-blue-700">Current Algeria Sellable Stock: {transferModalItem.stock} units</div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700">Units Transferred to Algeria</label>
-              <input
-                type="number"
-                min="1"
-                max={transferModalItem.stock_eu}
-                value={transferQty}
-                onChange={(e) => setTransferQty(Math.min(transferModalItem.stock_eu, parseInt(e.target.value) || 0))}
-                className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-900"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => setTransferModalItem(null)}
+                onClick={() => setIsAddEditModalOpen(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
-                onClick={handleConfirmStockTransfer}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-sm"
+                onClick={handleSaveModalItem}
+                className="px-6 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
               >
-                Transfer Stock
+                <Check className="w-4 h-4" />
+                <span>Save Inventory Item</span>
               </button>
             </div>
           </div>

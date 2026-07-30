@@ -12,7 +12,9 @@ import {
   Users, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -20,13 +22,17 @@ interface SidebarProps {
   setActiveTab: (tab: TabType) => void;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  adminEmail?: string;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   isCollapsed,
-  setIsCollapsed
+  setIsCollapsed,
+  adminEmail,
+  onLogout
 }) => {
   const menuItems: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -84,13 +90,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Footer User Info */}
-      {!isCollapsed && (
-        <div className="p-4 border-t border-slate-800 text-[10px] text-slate-500 flex items-center justify-between">
-          <span>v2.0 • Admin Active</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        </div>
-      )}
+      {/* Footer User & Auth Controls */}
+      <div className="p-3 border-t border-slate-800 text-xs">
+        {!isCollapsed ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 overflow-hidden text-slate-300 font-medium">
+                <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate text-[11px] font-bold">{adminEmail || 'admin@bybens.com'}</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            </div>
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-rose-900/80 hover:text-white text-slate-400 py-1.5 px-3 rounded-xl font-bold text-[11px] transition-all"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          onLogout && (
+            <button
+              onClick={onLogout}
+              className="w-full p-2 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-white rounded-xl flex justify-center transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )
+        )}
+      </div>
     </aside>
   );
 };
