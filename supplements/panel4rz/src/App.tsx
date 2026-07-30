@@ -657,6 +657,35 @@ export default function App() {
     );
   }
 
+  const handleSaveCustomer = async (cust: Customer) => {
+    setCustomers(prev => {
+      const next = [...prev];
+      const idx = next.findIndex(c => c.phone === cust.phone || (c.id && c.id === cust.id));
+      if (idx >= 0) next[idx] = cust;
+      else next.push(cust);
+      localStorage.setItem('bb_customers_cache', JSON.stringify(next));
+      return next;
+    });
+
+    try {
+      await supabase.from('customers').upsert({
+        id: cust.id,
+        name: cust.name,
+        phone: cust.phone,
+        wilaya: cust.wilaya,
+        commune: cust.commune,
+        group_type: cust.group
+      }, { onConflict: 'id' });
+    } catch(e) {}
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    setCustomers(prev => prev.filter(c => c.id !== id));
+    try {
+      await supabase.from('customers').delete().eq('id', id);
+    } catch(e) {}
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
       {/* Toast Notifications */}
@@ -800,6 +829,8 @@ export default function App() {
               <CustomersPage
                 customers={customers}
                 orders={orders}
+                onSaveCustomer={handleSaveCustomer}
+                onDeleteCustomer={handleDeleteCustomer}
               />
             )}
 
