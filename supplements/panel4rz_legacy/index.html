@@ -1,0 +1,2492 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ByBens – Admin Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      (function() {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "/supplements/panel4rz/index.css?t=" + Date.now();
+        document.head.appendChild(link);
+      })();
+    </script>
+  </head>
+  <body>
+<div class="loading-overlay" id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loading-text">Loading…</div>
+    </div>
+
+    <div id="app">
+      <div id="sb-overlay" onclick="closeSidebar()"></div>
+      <aside id="sidebar">
+        <div class="sb-header">
+          <div class="sb-logo-mark"><span>B</span></div>
+          <div class="sb-logo-text">By<em>Bens</em></div>
+          <button class="sb-toggle" onclick="toggleSidebar()">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <nav class="sb-nav">
+          <div class="sb-section-label">Main</div>
+          <div class="sb-link active" onclick="showPage('dashboard', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" /></svg
+            ><span>Dashboard</span>
+          </div>
+          <div class="sb-section-label">Store</div>
+          <div class="sb-link" onclick="showPage('products', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+              /></svg
+            ><span>Products</span>
+          </div>
+          <div class="sb-link" onclick="showPage('inventory', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg><span>Inventory</span>
+          </div>
+          <div class="sb-link" onclick="showPage('categories', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"
+              /></svg
+            ><span>Categories</span>
+          </div>
+          <div class="sb-link" onclick="showPage('promos', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+              /></svg
+            ><span>Promo Codes</span>
+          </div>
+          <div class="sb-link" onclick="showPage('delivery', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="1" y="3" width="15" height="13" rx="2" />
+              <path d="M16 8h4l3 5v4h-7V8z" />
+              <circle cx="5.5" cy="18.5" r="2.5" />
+              <circle cx="18.5" cy="18.5" r="2.5" /></svg
+            ><span>Delivery Prices</span>
+          </div>
+          <div class="sb-link" onclick="showPage('bundle', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+              />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" /></svg
+            ><span>Bundle</span>
+          </div>
+          <div class="sb-link" onclick="showPage('orders', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="1"/>
+              <path d="M9 12h6M9 16h4"/></svg
+            ><span>Orders</span>
+          </div>
+          <div class="sb-section-label">Business</div>
+          <div class="sb-link" onclick="showPage('pos', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg><span>POS Checkout</span>
+          </div>
+          <div class="sb-link" onclick="showPage('preorders', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg><span>Pre-Orders</span>
+          </div>
+          <div class="sb-link" onclick="showPage('expenses', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg><span>Expenses</span>
+          </div>
+          <div class="sb-link" onclick="showPage('customers', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg><span>Customers</span>
+          </div>
+          <div class="sb-section-label">Admin</div>
+          <div class="sb-link" onclick="showPage('settings', this)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+              /></svg
+            ><span>Settings</span>
+          </div>
+        </nav>
+        <div class="sb-footer">
+          <div
+            class="sb-user"
+            onclick="
+              showPage('settings', document.querySelector('.sb-link[onclick*=settings]'))
+            "
+          >
+            <div class="sb-avatar">A</div>
+            <div class="sb-user-info">
+              <div class="sb-user-name" id="sb-username">Admin</div>
+              <div class="sb-user-role">Super Admin</div>
+            </div>
+          </div>
+          <a href="/supplements" class="back-to-site"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" /></svg
+            ><span>Back to Website</span></a
+          >
+        </div>
+      </aside>
+
+      <div id="main">
+        <header id="topbar">
+          <button
+            class="tb-icon-btn"
+            onclick="toggleSidebar()"
+            title="Toggle sidebar"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <div class="tb-title" id="page-title">Dashboard</div>
+          <div class="tb-live">
+            <div class="tb-live-dot"></div>
+            <span id="last-updated">Live</span>
+          </div>
+          <div class="tb-actions">
+<button class="tb-logout" onclick="doLogout()">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" /></svg
+              >Logout
+            </button>
+          </div>
+        </header>
+
+        <!-- DASHBOARD -->
+        <div class="page active" id="page-dashboard">
+          <!-- DASHBOARD TABS -->
+          <div class="tab-bar" style="margin-bottom:20px">
+            <button class="tab-btn active" id="dash-tab-orders" onclick="toggleDashboardTab('orders')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              Orders Overview
+            </button>
+            <button class="tab-btn" id="dash-tab-stock" onclick="toggleDashboardTab('stock')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Stock &amp; Financials
+            </button>
+          </div>
+
+          <!-- ORDERS SUBSECTION -->
+          <div id="dash-sec-orders">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-products">0</div>
+                  <div class="stat-label">Products</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon red">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                    <rect x="9" y="3" width="6" height="4" rx="1"/>
+                    <path d="M9 12h6M9 16h4"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-orders">0</div>
+                  <div class="stat-label">Total Orders</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon blue">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-week-orders">0</div>
+                  <div class="stat-label">Orders This Week</div>
+                  <div class="stat-trend neutral" id="stat-week-trend"></div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-pending">0</div>
+                  <div class="stat-label">Pending Orders</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon green">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-pos-count">0</div>
+                  <div class="stat-label">POS Checkout Sales</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon purple">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-num" id="stat-pos-revenue">0 DA</div>
+                  <div class="stat-label">POS Sales Revenue</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dash-panels">
+              <!-- Top Products -->
+              <div class="dash-panel">
+                <div class="dash-panel-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  <div class="dash-panel-title">Top Products Sold</div>
+                  <span class="dash-panel-subtitle" id="top-products-period">All time</span>
+                </div>
+                <div class="dash-panel-body" id="top-products-list">
+                  <div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">No order data yet</div>
+                </div>
+              </div>
+
+              <!-- Recent Orders -->
+              <div class="dash-panel">
+                <div class="dash-panel-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <div class="dash-panel-title">Recent Orders</div>
+                  <button class="act-btn act-view" style="font-size:11px;padding:3px 10px" onclick="showPage('orders', document.querySelector('.sb-link[onclick*=orders]'))">View All</button>
+                </div>
+                <div class="dash-panel-body" id="recent-orders-list">
+                  <div style="padding:24px;text-align:center;color:var(--g400);font-size:13px">No orders yet</div>
+                </div>
+              </div>
+
+              <!-- Orders Status Overview -->
+              <div class="dash-panel" style="grid-column: 1 / -1">
+                <div class="dash-panel-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+                  <div class="dash-panel-title">Orders Status Overview</div>
+                </div>
+                <div class="status-ov-bar-track" style="margin:12px 20px 6px">
+                  <div class="status-ov-bar-segments" id="status-ov-bar">
+                    <div class="ov-seg ov-seg-waiting" style="width:100%"></div>
+                  </div>
+                </div>
+                <div class="status-overview" id="status-ov-legend"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STOCK & FINANCIALS SUBSECTION -->
+          <div id="dash-sec-stock" style="display:none">
+            <!-- PERIOD SELECTOR BAR -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+              <div style="font-size:16px; font-weight:700; color:var(--black); display:flex; align-items:center; gap:8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Financial Performance &amp; Profitability
+              </div>
+              <div class="financial-period-selector" style="display:flex; background:var(--g100); border-radius:8px; padding:3px; gap:2px;">
+                <button class="fin-period-btn active" onclick="setFinancialPeriod('all', this)">All Time</button>
+                <button class="fin-period-btn" onclick="setFinancialPeriod('today', this)">Today</button>
+                <button class="fin-period-btn" onclick="setFinancialPeriod('week', this)">This Week</button>
+                <button class="fin-period-btn" onclick="setFinancialPeriod('month', this)">This Month</button>
+              </div>
+            </div>
+
+            <!-- BUDGET MANAGER CARD -->
+            <div class="stat-card" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #f8fafc, #fff); border: 1px solid var(--g200); padding: 20px; border-radius: 8px; box-shadow: var(--sh-sm);">
+              <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+                <div>
+                  <span style="font-size: 11px; font-weight: 700; color: var(--g400); text-transform: uppercase; letter-spacing: 0.5px;">EUR Budget Balance</span>
+                  <div style="font-size: 26px; font-weight: 800; color: #ad0000; margin-top: 4px;" id="lbl-budget-eur">0.00 €</div>
+                </div>
+                <div style="border-left: 1px solid var(--g200); padding-left: 40px;">
+                  <span style="font-size: 11px; font-weight: 700; color: var(--g400); text-transform: uppercase; letter-spacing: 0.5px;">DZD Budget Balance</span>
+                  <div style="font-size: 26px; font-weight: 800; color: var(--black); margin-top: 4px;" id="lbl-budget-dzd">0 DA</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn-secondary" onclick="openBudgetModal()" style="gap: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                  Manage Budgets &amp; Exchanges
+                </button>
+              </div>
+            </div>
+
+            <div class="stock-layout">
+              <!-- Left: Financial KPI Stats -->
+              <div class="stock-left">
+                <div class="stats-grid stats-grid-2col" style="margin-bottom: 20px;">
+                  <div class="stat-card">
+                    <div class="stat-icon green">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-revenue-total">0 DA</div>
+                      <div class="stat-label">Gross Sales Revenue</div>
+                    </div>
+                  </div>
+
+                  <div class="stat-card">
+                    <div class="stat-icon orange">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-cogs-total">0 DA</div>
+                      <div class="stat-label">Cost of Goods Sold (COGS)</div>
+                    </div>
+                  </div>
+
+                  <div class="stat-card">
+                    <div class="stat-icon blue">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-gross-profit">0 DA</div>
+                      <div class="stat-label">Gross Profit <span id="badge-gross-margin" class="fin-badge positive" style="margin-left:4px;">0.0%</span></div>
+                    </div>
+                  </div>
+
+                  <div class="stat-card">
+                    <div class="stat-icon" style="background:var(--orange-l);color:var(--orange)">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-total-expenses">0 DA</div>
+                      <div class="stat-label">Operating Expenses</div>
+                    </div>
+                  </div>
+
+                  <div class="stat-card">
+                    <div class="stat-icon purple">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-net-profit">0 DA</div>
+                      <div class="stat-label">Net Profit <span id="badge-net-margin" class="fin-badge positive" style="margin-left:4px;">0.0%</span></div>
+                    </div>
+                  </div>
+
+                  <div class="stat-card">
+                    <div class="stat-icon" style="background:var(--g100);color:var(--g800)">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="stat-num" id="stat-stock-valuation">0 DA</div>
+                      <div class="stat-label">Warehouse Stock Asset Value</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Product Profitability Table -->
+                <div class="dash-panel" style="margin-top: 16px;">
+                  <div class="dash-panel-header" style="background:#fff; border-bottom:1px solid var(--g200); padding: 14px 18px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                    <div class="dash-panel-title" style="font-size:14px; font-weight:700;">Top Product Profitability Breakdown</div>
+                  </div>
+                  <div class="dash-panel-body" style="padding:0; overflow-x:auto;">
+                    <table class="data-table" style="font-size:12.5px;">
+                      <thead>
+                        <tr>
+                          <th>Item / SKU</th>
+                          <th style="text-align:center;">Units Sold</th>
+                          <th style="text-align:right;">Revenue</th>
+                          <th style="text-align:right;">COGS</th>
+                          <th style="text-align:right;">Gross Profit</th>
+                          <th style="text-align:center;">Margin %</th>
+                        </tr>
+                      </thead>
+                      <tbody id="financial-profitability-tbody">
+                        <tr><td colspan="6" style="text-align:center; color:var(--g400); padding:20px;">Loading financial breakdown…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Low Stock Alerts -->
+              <div class="stock-right">
+                <div class="dash-panel low-stock-panel">
+                  <div class="dash-panel-header" style="background:linear-gradient(135deg,#fff1f1,#fff);border-left:4px solid var(--red)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <div class="dash-panel-title" style="color:var(--red)">Low Stock Alerts <span style="font-size:11px;font-weight:500;color:#ef4444;opacity:0.7">≤ 2 units</span></div>
+                    <button class="act-btn act-delete" id="low-stock-view-all-btn" style="margin-left:auto;display:none;font-size:10px;padding:2px 9px" onclick="toggleLowStockViewAll()">View All</button>
+                  </div>
+                  <div class="dash-panel-body" id="low-stock-alerts-list">
+                    <!-- Rendered by JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRODUCTS -->
+        <div class="page" id="page-products">
+          <div class="sec-header">
+            <div class="sec-title">Products</div>
+            <button class="btn-primary" onclick="openProductModal()">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" /></svg
+              >Add Product
+            </button>
+          </div>
+          <div class="table-wrap">
+            <div class="table-toolbar">
+               <input
+                 class="search-box"
+                 type="text"
+                 placeholder="Search products…"
+                 oninput="filterProducts(this.value)"
+               />
+               <select class="search-box" onchange="filterProductsByAvailability(this.value)" style="min-width:0; width:auto; padding:0 10px; cursor:pointer; height:38px;">
+                 <option value="">All Stock Status</option>
+                 <option value="in-stock">Available / In Stock</option>
+                 <option value="out-of-stock">Out of Stock</option>
+               </select>
+               <select class="search-box" id="prod-visibility-filter" onchange="filterProductsByVisibility(this.value)" style="min-width:0; width:auto; padding:0 10px; cursor:pointer; height:38px;">
+                 <option value="all">All Visibility</option>
+                 <option value="shown">Shown Products</option>
+                 <option value="hidden">Hidden Products</option>
+               </select>
+             </div>
+            <div class="sel-bar" id="sel-bar-product">
+              <span class="sel-count" id="sel-count-product">0 items selected</span>
+              <button class="act-btn act-delete" onclick="deleteSelected('product')">Delete Selected</button>
+              <button class="act-btn" style="background:var(--g100);color:var(--g600)" onclick="_selClear('product')">Cancel</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th class="cb-th"><input type="checkbox" class="row-cb" id="selall-product" onchange="_selAll('product',this.checked)"></th>
+                  <th>Product</th>
+                  <th>Categories</th>
+                  <th>Flavors</th>
+                  <th>Variants / Prices</th>
+                  <th>Promos</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="products-tbody"></tbody>
+            </table>
+          </div>
+          <div id="products-mobile-cards" class="prod-mobile-cards" style="display:none;"></div>
+          <div id="products-pag"></div>
+        </div>
+
+        <!-- INVENTORY -->
+        <div class="page" id="page-inventory">
+          <div class="sec-header">
+            <div class="sec-title">Inventory</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="text" id="inv-search" placeholder="Search supplements..." oninput="debouncedRenderInventoryList()" class="search-box" style="width: 220px;" />
+              <select id="inv-brand-filter" class="search-box" onchange="renderInventoryList()" style="width: auto; cursor: pointer;">
+                <option value="">All Brands</option>
+              </select>
+              <select id="inv-stock-filter" class="search-box" onchange="renderInventoryList()" style="width: auto; cursor: pointer;">
+                <option value="all">All Stock Levels</option>
+                <option value="low">Low Stock (≤ 2)</option>
+                <option value="out">Out of Stock (0)</option>
+              </select>
+              <button class="btn-primary" onclick="openBulkRestockEurModal()" style="gap: 5px; background:#16a34a; border-color:#16a34a;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                💶 Bulk EU Restock
+              </button>
+              <button class="btn-secondary" id="btn-inv-spreadsheet" onclick="toggleInventorySpreadsheetMode()" style="gap: 5px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                Spreadsheet Mode
+              </button>
+              <button class="btn-secondary" onclick="exportInventoryCSV()" style="gap: 5px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+              </button>
+              <button class="btn-secondary" onclick="document.getElementById('inv-csv-input').click()" style="gap: 5px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import CSV
+              </button>
+              <input type="file" id="inv-csv-input" accept=".csv" style="display:none" onchange="importInventoryCSV(event)" />
+            </div>
+          </div>
+
+          <!-- INVENTORY TABS -->
+          <div class="cust-tab-bar">
+            <button class="cust-tab-btn active" id="inv-tab-supplement" onclick="toggleInventoryTab('supplement')">
+              💪 Supplements
+            </button>
+            <button class="cust-tab-btn" id="inv-tab-snack" onclick="toggleInventoryTab('snack')">
+              🍪 Snacks
+            </button>
+          </div>
+
+          <div class="table-wrap" style="width: 100%; max-width: 100%; overflow-x: auto;">
+            <table class="data-table" style="table-layout: fixed; width: 100%; min-width: 1200px;">
+              <thead>
+                <tr>
+                  <th style="width: 85px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('id')">SKU ⇅</th>
+                  <th style="width: 90px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('brand')">Brand ⇅</th>
+                  <th style="width: 180px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('name')">Product Name ⇅</th>
+                  <th style="width: 95px;">Variant / Spec</th>
+                  <th style="width: 50px;">Size</th>
+                  <th style="width: 75px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('price_eur')">Price (€) ⇅</th>
+                  <th style="width: 45px;">Rate</th>
+                  <th style="width: 80px;">Delivery</th>
+                  <th style="width: 85px;">Landed</th>
+                  <th style="width: 80px;">Retail</th>
+                  <th style="width: 90px; cursor:pointer; user-select:none;" onclick="toggleInventorySort('margin')">Margin ⇅</th>
+                  <th style="width: 65px; text-align:center; cursor:pointer; user-select:none;" onclick="toggleInventorySort('stock_eu')">EU ⇅</th>
+                  <th style="width: 70px; text-align:center; cursor:pointer; user-select:none;" onclick="toggleInventorySort('stock')">DZ ⇅</th>
+                  <th style="width: 110px; text-align:center;">Actions</th>
+                </tr>
+                <tr class="inv-quick-add-row" style="background: rgba(173, 0, 0, 0.03); border-bottom: 2px solid var(--g200);">
+                  <td><input type="text" id="add-inv-sku" class="form-control" placeholder="SKU" style="font-size:11px; font-weight:700; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-brand" class="form-control" placeholder="Brand" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-name" class="form-control" placeholder="+ New Item Name" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-variant" class="form-control" placeholder="Variant/Flavor" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
+                  <td><input type="text" id="add-inv-size" class="form-control" placeholder="Size" style="font-size:11px; width:100%; box-sizing:border-box;" /></td>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:1px; width:100%;">
+                      <span style="font-size:11px;">€</span>
+                      <input type="number" step="0.01" id="add-inv-price" class="form-control" value="0.00" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" />
+                    </div>
+                  </td>
+                  <td><input type="number" id="add-inv-rate" class="form-control" value="250" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
+                  <td><input type="number" id="add-inv-delivery" class="form-control" value="0" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
+                  <td><span id="add-inv-landed-label" style="font-size:11px; font-weight:600; color:var(--g600); display:block; text-align:center;">0 DZD</span></td>
+                  <td><input type="number" id="add-inv-retail" class="form-control" placeholder="Retail" style="width:100%; font-size:11px; padding:2px; box-sizing:border-box;" oninput="recalcQuickAddLanded()" /></td>
+                  <td><span id="add-inv-margin-label" style="font-size:11px; font-weight:600; color:var(--green); display:block; text-align:center;">0 DZD</span></td>
+                  <td><input type="number" id="add-inv-qty-eu" class="form-control" value="0" placeholder="EU" style="width:100%; font-size:11px; padding:2px; text-align:center; box-sizing:border-box;" title="Stock in Europe" /></td>
+                  <td><input type="number" id="add-inv-qty-dz" class="form-control" value="0" placeholder="DZ" style="width:100%; font-size:11px; padding:2px; text-align:center; box-sizing:border-box;" title="Stock in Algeria (Sellable)" /></td>
+                  <td style="text-align:center;"><button class="btn-primary" onclick="addInventoryItem()" style="padding: 0 6px; height: 28px; font-size: 11px; width: 100%; box-sizing:border-box; justify-content: center;">+ Add</button></td>
+                </tr>
+              </thead>
+              <tbody id="inventory-table-body">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+          <div id="inventory-mobile-cards" class="inv-mobile-cards" style="display:none;"></div>
+          <div id="inventory-pag" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- CATEGORIES -->
+        <div class="page" id="page-categories">
+          <div class="sec-header">
+            <div class="sec-title">Categories</div>
+            <button class="btn-primary" onclick="openCatModal()">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" /></svg
+              >Add Category
+            </button>
+          </div>
+          <div class="cats-sel-bar" id="sel-bar-cat">
+            <span class="sel-count" id="sel-count-cat">0 items selected</span>
+            <button class="act-btn act-delete" onclick="deleteSelected('cat')">Delete Selected</button>
+            <button class="act-btn" style="background:var(--g100);color:var(--g600)" onclick="_selClear('cat')">Cancel</button>
+          </div>
+          <div class="cat-tree" id="cat-tree"></div>
+          <div id="cat-pag"></div>
+        </div>
+
+        <!-- PROMOS -->
+        <div class="page" id="page-promos">
+          <div class="sec-header">
+            <div class="sec-title">Promo Codes</div>
+            <button class="btn-primary" onclick="openPromoModal()">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" /></svg
+              >New Code
+            </button>
+          </div>
+          <div class="table-wrap">
+            <div class="sel-bar" id="sel-bar-promo">
+              <span class="sel-count" id="sel-count-promo">0 items selected</span>
+              <button class="act-btn act-delete" onclick="deleteSelected('promo')">Delete Selected</button>
+              <button class="act-btn" style="background:var(--g100);color:var(--g600)" onclick="_selClear('promo')">Cancel</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th class="cb-th"><input type="checkbox" class="row-cb" id="selall-promo" onchange="_selAll('promo',this.checked)"></th>
+                  <th>Code / Target</th>
+                  <th>Type</th>
+                  <th>Value</th>
+                  <th>Min. Order</th>
+                  <th>Uses</th>
+                  <th>Expiry</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="promos-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- DELIVERY PRICES -->
+        <div class="page" id="page-delivery">
+          <div class="sec-header">
+            <div class="sec-title">Delivery Prices</div>
+            <button class="btn-primary" onclick="openDeliveryModal()">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" /></svg
+              >Add Wilaya
+            </button>
+          </div>
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <input
+                class="search-box"
+                type="text"
+                placeholder="Search wilaya…"
+                oninput="filterDelivery(this.value)"
+              />
+            </div>
+            <div class="sel-bar" id="sel-bar-delivery">
+              <span class="sel-count" id="sel-count-delivery">0 items selected</span>
+              <button class="act-btn act-delete" onclick="deleteSelected('delivery')">Delete Selected</button>
+              <button class="act-btn" style="background:var(--g100);color:var(--g600)" onclick="_selClear('delivery')">Cancel</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th class="cb-th"><input type="checkbox" class="row-cb" id="selall-delivery" onchange="_selAll('delivery',this.checked)"></th>
+                  <th>#</th>
+                  <th>Wilaya</th>
+                  <th>Home Delivery (DA)</th>
+                  <th>Office / Desk (DA)</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="delivery-tbody"></tbody>
+            </table>
+            <div id="delivery-pag"></div>
+          </div>
+        </div>
+
+        <!-- BUNDLE -->
+        <div class="page" id="page-bundle">
+          <div class="sec-header">
+            <div class="sec-title">Bundle</div>
+          </div>
+          <div class="settings-card" style="max-width: 680px">
+            <div class="settings-card-title">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+              Select Bundle Product
+            </div>
+            <p style="font-size: 13px; color: var(--g600); margin-bottom: 18px">
+              Choose <strong>one product</strong> to feature as the bundle on
+              your store.
+            </p>
+            <!-- Banner Title -->
+            <div style="font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--g400);margin-bottom:12px;">Banner Title</div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label>Title (English)</label>
+              <input id="bundle-title-en" class="form-control" type="text" placeholder="RAMP UP YOUR PERFORMANCE" />
+            </div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label>Title (French)</label>
+              <input id="bundle-title-fr" class="form-control" type="text" placeholder="BOOSTEZ VOS PERFORMANCES" />
+            </div>
+            <div class="form-group" style="margin-bottom:20px">
+              <label>Title (Arabic)</label>
+              <input id="bundle-title-ar" class="form-control" type="text" placeholder="ارفع مستوى أدائك" dir="rtl" />
+            </div>
+
+            <!-- Banner Description -->
+            <div style="font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--g400);margin-bottom:12px;">Banner Description</div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label>Description (English)</label>
+              <textarea id="bundle-description-en" class="form-control" rows="2" placeholder="Get our most popular bundle at 20% off. Limited stock — order now!" style="resize:none;min-height:60px"></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label>Description (French)</label>
+              <textarea id="bundle-description-fr" class="form-control" rows="2" placeholder="Obtenez notre bundle le plus populaire à -20%. Stock limité — commandez maintenant." style="resize:none;min-height:60px"></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom:20px">
+              <label>Description (Arabic)</label>
+              <textarea id="bundle-description-ar" class="form-control" rows="2" placeholder="احصل على باقتنا الأكثر مبيعاً بخصم 20%. مخزون محدود — اطلب الآن." style="resize:none;min-height:60px" dir="rtl"></textarea>
+            </div>
+            <input
+              class="search-box"
+              id="bundle-search"
+              type="text"
+              placeholder="Search products…"
+              oninput="filterBundleProducts(this.value)"
+              style="width: 100%; max-width: 100%; margin-bottom: 14px"
+            />
+            <div
+              id="bundle-product-list"
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                max-height: 460px;
+                overflow-y: auto;
+                padding-right: 2px;
+              "
+            ></div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-top: 20px;
+                padding-top: 16px;
+                border-top: 1px solid var(--g100);
+                flex-wrap: wrap;
+                gap: 10px;
+              "
+            >
+              <div
+                style="font-size: 13px; color: var(--g600)"
+                id="bundle-selected-label"
+              >
+                No product selected
+              </div>
+              <div style="display: flex; gap: 8px">
+                <button class="btn-secondary" onclick="clearBundle()">
+                  Clear
+                </button>
+                <button class="btn-primary" onclick="saveBundle()">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Save Bundle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- POS CHECKOUT -->
+        <div class="page" id="page-pos">
+          <div class="sec-header">
+            <div class="sec-title">POS Checkout</div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <input type="text" id="pos-barcode-input" placeholder="⚡ Barcode / SKU scan…" onkeydown="if(event.key==='Enter') handlePOSBarcodeScan(this.value)" class="form-control" style="width:190px; border-color:var(--red); font-weight:600;" title="Scan barcode or type SKU and press Enter" />
+              <input type="text" id="pos-search" placeholder="Search product..." oninput="filterPOSProducts()" class="form-control" style="width:180px" />
+              <select id="pos-cat-filter" onchange="filterPOSProducts()" class="form-control" style="width:140px">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+          </div>
+          <div class="pos-layout">
+            <div class="pos-catalog" id="pos-catalog-grid">
+              <!-- Rendered by JS -->
+            </div>
+            <div class="pos-cart-panel">
+              <div class="pos-cart-header">Current Cart</div>
+              <div class="pos-cart-items" id="pos-cart-items-list">
+                <div style="text-align:center;color:var(--g400);padding:40px 0;font-size:13px">Cart is empty</div>
+              </div>
+              <div class="pos-customer-details">
+                <div class="form-group">
+                  <label>Select Existing Customer (Optional)</label>
+                  <input type="text" id="pos-cust-search" class="form-control" list="pos-cust-list" placeholder="Type name or phone to search..." oninput="fillPOSCustomerInfoDynamic(this.value)" />
+                  <datalist id="pos-cust-list"></datalist>
+                </div>
+                <div class="form-group">
+                  <label>Customer Name</label>
+                  <input type="text" id="pos-cust-name" class="form-control" placeholder="Optional" />
+                </div>
+                <div class="form-group">
+                  <label>Customer Phone</label>
+                  <input type="text" id="pos-cust-phone" class="form-control" placeholder="Optional" />
+                </div>
+                <div class="form-group">
+                  <label>Discount (DA)</label>
+                  <input type="number" id="pos-discount" class="form-control" value="0" min="0" oninput="updatePOSTotals()" />
+                </div>
+              </div>
+              <div class="pos-cart-summary">
+                <div class="summary-row">
+                  <span>Subtotal</span>
+                  <span id="pos-subtotal">0 DA</span>
+                </div>
+                <div class="summary-row">
+                  <span>Discount</span>
+                  <span id="pos-discount-val">0 DA</span>
+                </div>
+                <div class="summary-row total">
+                  <span>Total</span>
+                  <span id="pos-total">0 DA</span>
+                </div>
+              </div>
+              <button class="btn-primary" style="width:100%;margin-top:15px;justify-content:center" onclick="submitPOSSale()">
+                Record In-Store Sale
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRE-ORDERS -->
+        <div class="page" id="page-preorders">
+          <div class="sec-header">
+            <div class="sec-title">Pre-Orders</div>
+            <div style="display:flex;gap:10px">
+              <button class="btn-secondary" onclick="loadPreorders()" style="display:flex;align-items:center;gap:6px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>Refresh
+              </button>
+              <button class="btn-primary" onclick="openPreorderModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                </svg>New Pre-Order
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <select id="preorder-status-filter" class="form-control" style="width:180px" onchange="renderPreordersList()">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="fulfilled">Fulfilled</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Benefit</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="preorders-table-body">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+            <div id="preorders-pag" style="margin-top: 15px;"></div>
+          </div>
+        </div>
+
+        <!-- EXPENSES -->
+        <div class="page" id="page-expenses">
+          <div class="sec-header">
+            <div class="sec-title">Expenses Logger</div>
+          </div>
+          <div class="expenses-layout">
+            <div class="expense-form-card">
+              <h3>Log New Expense</h3>
+              <div class="form-group">
+                <label>Amount</label>
+                <input type="number" step="0.01" id="exp-amount" class="form-control" required min="0" placeholder="0.00" style="width: 100%; box-sizing: border-box;" />
+              </div>
+              <div class="form-group">
+                <label>Currency</label>
+                <select id="exp-currency" class="form-control" style="width: 100%; box-sizing: border-box; cursor: pointer;">
+                  <option value="DZD">DZD (DA)</option>
+                  <option value="EUR">EUR (€)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="exp-category" class="form-control">
+                  <option value="Cargo">Cargo</option>
+                  <option value="Ads">Ads</option>
+                  <option value="Supplements Cost">Supplements Cost</option>
+                  <option value="Rent">Rent</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="Others">Others</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Description</label>
+                <textarea id="exp-description" class="form-control" rows="3" placeholder="Details..."></textarea>
+              </div>
+              <button class="btn-primary" style="width:100%;justify-content:center" onclick="saveExpense()">Save Expense</button>
+            </div>
+            <div class="expense-list-card">
+              <div class="expense-list-header">
+                <h3>Recorded Expenses</h3>
+                <span class="total-spent-badge" id="total-expenses-badge">Total: 0 DA</span>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Category</th>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expenses-table-body">
+                    <!-- Rendered by JS -->
+                  </tbody>
+                </table>
+                <div id="expenses-pag" style="margin-top: 15px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CUSTOMERS -->
+        <div class="page" id="page-customers">
+          <div class="sec-header">
+            <div class="sec-title">Customers Ledger</div>
+            <div style="display:flex;gap:10px">
+              <input type="text" id="cust-search" placeholder="Search customer..." oninput="customerPage=1; renderCustomersList()" class="form-control" style="width:250px" />
+              <button class="btn-primary" onclick="openCustomerModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>New Customer
+              </button>
+            </div>
+          </div>
+          <!-- CUSTOMER LEDGER TABS -->
+          <div class="cust-tab-bar">
+            <button class="cust-tab-btn active" id="cust-tab-public" onclick="toggleCustomerTab('public')">
+              🌐&nbsp; Public Group
+            </button>
+            <button class="cust-tab-btn" id="cust-tab-private" onclick="toggleCustomerTab('private')">
+              🔒&nbsp; Private Group
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Customer Name</th>
+                  <th>Phone Number</th>
+                  <th>Group</th>
+                  <th>Orders Count</th>
+                  <th>Total Spent</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customers-table-body">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+            <div id="customers-pag" style="margin-top: 15px;"></div>
+          </div>
+        </div>
+        <!-- SETTINGS -->
+        <div class="page" id="page-settings">
+          <div class="sec-header"><div class="sec-title">Settings</div></div>
+          <div class="settings-grid">
+            <div class="settings-card">
+              <div class="settings-card-title">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" /></svg
+                >Account Info
+              </div>
+              <div class="form-group" style="margin-bottom: 14px">
+                <label>Username</label
+                ><input type="text" class="form-control" id="set-username" />
+              </div>
+              <div class="form-group" style="margin-bottom: 18px">
+                <label>Display Name</label
+                ><input type="text" class="form-control" id="set-displayname" />
+              </div>
+              <button
+                class="btn-primary"
+                style="width: 100%; justify-content: center"
+                onclick="saveUsername()"
+              >
+                Save Changes
+              </button>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-title">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+                >Change Password
+              </div>
+              <div class="form-group" style="margin-bottom: 14px">
+                <label>Current Password</label
+                ><input
+                  type="password"
+                  class="form-control"
+                  id="set-cur-pass"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div class="form-group" style="margin-bottom: 14px">
+                <label>New Password</label
+                ><input
+                  type="password"
+                  class="form-control"
+                  id="set-new-pass"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div class="form-group" style="margin-bottom: 18px">
+                <label>Confirm New Password</label
+                ><input
+                  type="password"
+                  class="form-control"
+                  id="set-confirm-pass"
+                  placeholder="••••••••"
+                />
+              </div>
+              <button
+                class="btn-primary"
+                style="width: 100%; justify-content: center"
+                onclick="savePassword()"
+              >
+                Update Password
+              </button>
+            </div>
+            <!-- Promotional Banner (Marquee) -->
+            <div class="settings-card">
+              <div class="settings-card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                </svg>Promotional Banner (Marquee)
+              </div>
+              <div class="form-group" style="margin-bottom: 14px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="checkbox" id="set-marquee-enabled" style="width:16px;height:16px;cursor:pointer" />
+                  Show Banner on Website
+                </label>
+              </div>
+              <div class="form-group" style="margin-bottom: 18px">
+                <label>Banner Text</label>
+                <input type="text" class="form-control" id="set-marquee-text" placeholder="🚚 Free delivery over 15 000 DA CODE: FREEDELIVERY" />
+              </div>
+              <button
+                class="btn-primary"
+                style="width: 100%; justify-content: center"
+                onclick="saveMarqueeSettings()"
+              >
+                Save Banner Settings
+              </button>
+              <button
+                class="btn-danger"
+                style="width: 100%; justify-content: center; margin-top: 10px;"
+                onclick="disableBannerQuick()"
+              >
+                Disable Banner
+              </button>
+            </div>
+
+            <!-- Database Backups Card -->
+            <div class="settings-card backup-card" style="position:relative; overflow:hidden;">
+              <!-- decorative grid overlay -->
+              <div class="backup-grid-bg" aria-hidden="true"></div>
+
+              <!-- header -->
+              <div class="backup-header">
+                <div class="backup-icon-wrap">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="backup-title">Database Backups</div>
+                  <div class="backup-subtitle">Export & restore all system data as a portable JSON snapshot</div>
+                </div>
+                <div class="backup-badge">
+                  <span class="backup-dot"></span> Live Data
+                </div>
+              </div>
+
+              <!-- what's included -->
+              <div class="backup-coverage">
+                <span class="backup-chip">🏷️ Categories</span>
+                <span class="backup-chip">📦 Products</span>
+                <span class="backup-chip">👤 Customers</span>
+                <span class="backup-chip">🛒 Orders</span>
+                <span class="backup-chip">📋 Pre-Orders</span>
+                <span class="backup-chip">🖥️ POS Sales</span>
+                <span class="backup-chip">💰 Expenses</span>
+                <span class="backup-chip">🗂️ Sub-Categories</span>
+              </div>
+
+              <!-- divider -->
+              <div class="backup-divider"></div>
+
+              <!-- action buttons -->
+              <div class="settings-backup-actions">
+                <button class="btn-backup btn-backup-export" id="btn-backup-export" onclick="exportDatabaseBackup()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Backup Data (JSON)
+                </button>
+                <button class="btn-backup btn-backup-restore" id="btn-backup-import" onclick="document.getElementById('backup-file-input').click()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Restore Data (JSON)
+                </button>
+                <input type="file" id="backup-file-input" accept=".json" style="display:none" onchange="restoreDatabaseBackup(event)" />
+              </div>
+
+              <!-- progress bar -->
+              <div id="backup-progress-wrap" style="display:none; margin-top:16px;">
+                <div class="backup-progress-track">
+                  <div class="backup-progress-fill" id="backup-progress-bar"></div>
+                </div>
+              </div>
+
+              <!-- status message -->
+              <div id="backup-status" class="settings-backup-status" style="display:none"></div>
+            </div>
+
+            <!-- Manage Users Card (Full width at bottom) -->
+            <div class="settings-card" style="grid-column: 1 / -1">
+              <div class="settings-card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>Manage Users
+              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+                <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+                  <label>Email</label>
+                  <input type="email" class="form-control" id="new-user-email" placeholder="admin@example.com"/>
+                </div>
+                <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+                  <label>Password</label>
+                  <input type="password" class="form-control" id="new-user-pass" placeholder="Min 6 characters"/>
+                </div>
+                <div style="display:flex;align-items:flex-end">
+                  <button class="btn-primary" onclick="createAdminUser()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Create User
+                  </button>
+                </div>
+              </div>
+              <div id="users-list" style="display:flex;flex-direction:column;gap:8px">
+                <div style="color:var(--g400);font-size:13px">Loading users…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORDERS -->
+        <div class="page" id="page-orders">
+          <div class="sec-header">
+            <div class="sec-title">Orders</div>
+            <button class="btn-primary" onclick="loadOrders()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+          <div class="table-wrap">
+            <div class="table-toolbar" style="flex-wrap:wrap;gap:10px">
+              <input class="search-box" type="text" id="orders-search" placeholder="Search name, phone, wilaya…" oninput="searchOrders(this.value)" style="min-width:200px;max-width:260px"/>
+              <select class="search-box" id="orders-sort" onchange="sortOrders(this.value)" style="min-width:0;width:auto;padding:0 10px;cursor:pointer">
+                <option value="date-desc">Newest First</option>
+                <option value="date-asc">Oldest First</option>
+                <option value="total-desc">Highest Total</option>
+                <option value="total-asc">Lowest Total</option>
+                <option value="name-asc">Name A→Z</option>
+                <option value="name-desc">Name Z→A</option>
+              </select>
+              <div class="order-filters" style="flex:1;justify-content:flex-end">
+                <button class="order-filter-btn active" data-filter="all" onclick="filterOrders('all',this)">All <span class="count">0</span></button>
+                <button class="order-filter-btn" data-filter="waiting" onclick="filterOrders('waiting',this)">Waiting <span class="count">0</span></button>
+                <button class="order-filter-btn" data-filter="confirmed" onclick="filterOrders('confirmed',this)">Confirmed <span class="count">0</span></button>
+                <button class="order-filter-btn" data-filter="delivered" onclick="filterOrders('delivered',this)">Delivered <span class="count">0</span></button>
+                <button class="order-filter-btn" data-filter="canceled" onclick="filterOrders('canceled',this)">Canceled <span class="count">0</span></button>
+              </div>
+            </div>
+            <div class="sel-bar" id="sel-bar-order">
+              <span class="sel-count" id="sel-count-order">0 items selected</span>
+              <button class="act-btn act-delete" onclick="deleteSelected('order')">Delete Selected</button>
+              <button class="act-btn" style="background:var(--g100);color:var(--g600)" onclick="_selClear('order')">Cancel</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th class="cb-th"><input type="checkbox" class="row-cb" id="selall-order" onchange="_selAll('order',this.checked)"></th>
+                  <th>#</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Wilaya</th>
+                  <th>Address</th>
+                  <th style="text-align:center">Items</th>
+                  <th>Total</th>
+                  <th>Benefit</th>
+                  <th>Source</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody">
+                <tr><td colspan="13"><div class="empty-state"><p>No orders yet</p></div></td></tr>
+              </tbody>
+            </table>
+            <div id="orders-pag"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDER DETAIL MODAL -->
+    <div class="modal-overlay" id="order-detail-modal">
+      <div class="modal" style="max-width:760px">
+        <div class="modal-header">
+          <div class="modal-title" id="order-detail-id">Order Details</div>
+          <button class="modal-close" onclick="document.getElementById('order-detail-modal').classList.remove('open')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div id="order-detail-body"></div>
+      </div>
+    </div>
+
+    <!-- PRE-ORDER ITEMS MODAL -->
+    <div class="modal-overlay" id="preorder-items-modal">
+      <div class="modal" style="max-width:680px">
+        <div class="modal-header">
+          <div class="modal-title" id="preorder-items-modal-title">Pre-Order Items</div>
+          <button class="modal-close" onclick="closeModal('preorder-items-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="preorder-items-modal-body"></div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('preorder-items-modal')">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMMAND PALETTE MODAL (Ctrl + K) -->
+    <div class="modal-overlay" id="cmd-palette-modal" style="z-index: 9999;">
+      <div class="modal" style="max-width: 580px; padding: 0; border-radius: 14px; overflow: hidden; background: #ffffff; box-shadow: var(--sh-md);">
+        <div style="padding: 14px 18px; border-bottom: 1px solid var(--g200); display: flex; align-items: center; gap: 12px; background: #fafafa;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--g400)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="cmd-palette-input" placeholder="Type a command, search tab, product, or order ID… (Press Esc to exit)" oninput="filterCmdPalette(this.value)" style="width: 100%; border: none; background: transparent; font-size: 15px; font-weight: 500; outline: none; color: var(--black);" />
+          <span style="font-size: 11px; background: var(--g200); color: var(--g600); padding: 2px 6px; border-radius: 4px; font-family: monospace;">ESC</span>
+        </div>
+        <div id="cmd-palette-results" style="max-height: 360px; overflow-y: auto; padding: 8px;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCT MODAL -->
+    <div class="modal-overlay" id="product-modal">
+      <div class="modal modal-lg">
+        <div class="modal-header">
+          <div class="modal-title" id="pm-title">Add Product</div>
+          <button class="modal-close" onclick="closeModal('product-modal')">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Product Name *</label
+              ><input
+                type="text"
+                class="form-control"
+                id="pm-name"
+                placeholder="e.g. Gold Standard Whey"
+              />
+            </div>
+            <div class="form-group">
+              <label>Brand</label
+              ><input
+                type="text"
+                class="form-control"
+                id="pm-brand"
+                placeholder="e.g. Optimum Nutrition"
+              />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px">
+            <label>Categories (select one or more)</label>
+            <div class="checkbox-group" id="pm-categories"></div>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px">
+            <label>Sub-Categories</label>
+            <div class="checkbox-group" id="pm-subcategories"></div>
+          </div>
+          
+          <!-- BUNDLE TOGGLE -->
+          <div class="form-row full" style="margin-bottom: 16px">
+            <div class="form-group">
+              <label>Product Type</label>
+              <div class="toggle-row" style="margin-top: 4px; display:flex; justify-content:space-between; align-items:center; background:var(--gray-50); padding:10px 14px; border:1px solid var(--gray-100); border-radius:8px; cursor:pointer;" onclick="document.getElementById('pm-bundle-toggle').click();">
+                <div>
+                  <div class="toggle-label" style="font-weight:600; font-size:14px; color:var(--black)">This product is a Bundle</div>
+                  <div class="toggle-desc" style="font-size:12px; color:var(--g400); margin-top:2px;">Combine multiple products into a single package</div>
+                </div>
+                <label class="toggle-switch" onclick="event.stopPropagation()" style="position:relative; display:inline-block; width:36px; height:20px;">
+                  <input type="checkbox" id="pm-bundle-toggle" onchange="toggleBundleSection()" style="opacity:0; width:0; height:0;" />
+                  <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:20px;"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- BUNDLE ITEMS SECTION -->
+          <div id="pm-bundle-section" class="form-group" style="display:none; margin-bottom: 20px; border: 1px solid var(--gray-100); padding: 14px; border-radius: 8px; background: var(--gray-50)">
+            <label style="margin-bottom: 10px; font-weight: 600; font-size:13px; color:var(--gray-700)">Bundle Items</label>
+            <div style="display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap">
+              <div class="form-group" style="flex:2; min-width:180px; margin-bottom:0">
+                <label style="font-size:11px; margin-bottom:4px">Select Product</label>
+                <select id="bundle-item-select" class="form-control" onchange="onBundleItemSelectChange()" style="font-size:13px; height:38px;"></select>
+              </div>
+              <div class="form-group" style="flex:1.2; min-width:120px; margin-bottom:0; display:none" id="bundle-variant-group">
+                <label style="font-size:11px; margin-bottom:4px">Variant</label>
+                <select id="bundle-variant-select" class="form-control" style="font-size:13px; height:38px;" onchange="updateBundleQtyMax()"></select>
+              </div>
+              <div class="form-group" style="flex:1.2; min-width:120px; margin-bottom:0; display:none" id="bundle-flavor-group">
+                <label style="font-size:11px; margin-bottom:4px">Flavor</label>
+                <select id="bundle-flavor-select" class="form-control" style="font-size:13px; height:38px;" onchange="updateBundleQtyMax()"></select>
+              </div>
+              <div class="form-group" style="flex:0.6; min-width:60px; margin-bottom:0">
+                <label style="font-size:11px; margin-bottom:4px">Qty</label>
+                <input type="number" id="bundle-item-qty" class="form-control" value="1" min="1" style="font-size:13px; height:38px; text-align:center" oninput="updateBundleQtyMax()" />
+              </div>
+              <div style="display:flex; align-items:flex-end">
+                <button type="button" class="btn-primary" onclick="addBundleItem()" style="height:38px; padding:0 16px; font-size:13px;">Add</button>
+              </div>
+            </div>
+            <div id="bundle-items-list" style="display:flex; flex-direction:column; gap:8px"></div>
+          </div>
+
+          <div class="form-row full">
+            <div class="form-group">
+              <label>Description</label>
+              <div class="rte-wrap">
+                <div class="rte-toolbar">
+                  <button type="button" class="rte-btn" onclick="rteCmd('bold')" title="Bold"><strong>B</strong></button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('italic')" title="Italic"><em>I</em></button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('underline')" title="Underline"><u>U</u></button>
+                  <span class="rte-sep"></span>
+                  <button type="button" class="rte-btn" onclick="rteCmd('insertUnorderedList')" title="Bullet list">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+                    Bullets
+                  </button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('insertOrderedList')" title="Numbered list">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="2" y="8" font-size="8" fill="currentColor" stroke="none" font-weight="bold">1.</text><text x="2" y="14" font-size="8" fill="currentColor" stroke="none" font-weight="bold">2.</text><text x="2" y="20" font-size="8" fill="currentColor" stroke="none" font-weight="bold">3.</text></svg>
+                    Numbers
+                  </button>
+                  <span class="rte-sep"></span>
+                  <button type="button" class="rte-btn" onclick="rteCmd('removeFormat')" title="Clear formatting">✕ Clear</button>
+                </div>
+                <div class="rte-editor" id="pm-desc" contenteditable="true" spellcheck="true" data-placeholder="Describe the product…"></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label>Nutritional Facts <span style="font-weight:400;color:var(--g400);font-size:11px;">(optional)</span></label>
+              <div class="rte-wrap">
+                <div class="rte-toolbar">
+                  <button type="button" class="rte-btn" onclick="rteCmd('bold','pm-nutritional')" title="Bold"><strong>B</strong></button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('italic','pm-nutritional')" title="Italic"><em>I</em></button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('underline','pm-nutritional')" title="Underline"><u>U</u></button>
+                  <span class="rte-sep"></span>
+                  <button type="button" class="rte-btn" onclick="rteCmd('insertUnorderedList','pm-nutritional')" title="Bullet list">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+                    Bullets
+                  </button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('insertOrderedList','pm-nutritional')" title="Numbered list">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="2" y="8" font-size="8" fill="currentColor" stroke="none" font-weight="bold">1.</text><text x="2" y="14" font-size="8" fill="currentColor" stroke="none" font-weight="bold">2.</text><text x="2" y="20" font-size="8" fill="currentColor" stroke="none" font-weight="bold">3.</text></svg>
+                    Numbers
+                  </button>
+                  <span class="rte-sep"></span>
+                  <button type="button" class="rte-btn" onclick="rteCmd('removeFormat','pm-nutritional')" title="Clear formatting">✕ Clear</button>
+                </div>
+                <div class="rte-editor" id="pm-nutritional" contenteditable="true" spellcheck="true" data-placeholder="Nutritional facts (optional)…"></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label>Benefits <span style="font-weight:400;color:var(--g400);font-size:11px;">(optional)</span></label>
+              <div class="rte-wrap">
+                <div class="rte-toolbar">
+                  <button type="button" class="rte-btn" onclick="rteCmd('bold','pm-benefits')" title="Bold"><strong>B</strong></button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('italic','pm-benefits')" title="Italic"><em>I</em></button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('underline','pm-benefits')" title="Underline"><u>U</u></button>
+                  <span class="rte-sep"></span>
+                  <button type="button" class="rte-btn" onclick="rteCmd('insertUnorderedList','pm-benefits')" title="Bullet list">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+                    Bullets
+                  </button>
+                  <button type="button" class="rte-btn" onclick="rteCmd('insertOrderedList','pm-benefits')" title="Numbered list">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="2" y="8" font-size="8" fill="currentColor" stroke="none" font-weight="bold">1.</text><text x="2" y="14" font-size="8" fill="currentColor" stroke="none" font-weight="bold">2.</text><text x="2" y="20" font-size="8" fill="currentColor" stroke="none" font-weight="bold">3.</text></svg>
+                    Numbers
+                  </button>
+                  <span class="rte-sep"></span>
+                  <button type="button" class="rte-btn" onclick="rteCmd('removeFormat','pm-benefits')" title="Clear formatting">✕ Clear</button>
+                </div>
+                <div class="rte-editor" id="pm-benefits" contenteditable="true" spellcheck="true" data-placeholder="Product benefits (optional)…"></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px">
+            <label>Product Images</label>
+            <div id="images-grid" class="images-grid"></div>
+            <div id="upload-spinner" style="display:none;font-size:12px;color:var(--g400);margin-top:6px;">Uploading to Cloudinary…</div>
+          </div>
+          <div class="form-group" style="margin-bottom: 8px">
+            <label>Weight / Size Variants & Prices</label>
+          </div>
+          <div class="variants-list" id="variants-list"></div>
+          <button class="btn-add-variant" onclick="addVariant()">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" /></svg
+            >Add Variant
+          </button>
+          <div class="form-group" style="margin-top: 16px; margin-bottom: 8px">
+            <label>Flavors</label>
+          </div>
+          <div class="flavors-list" id="flavors-list"></div>
+          <button class="btn-add-variant" onclick="addFlavor()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" /></svg
+            >Add Flavor
+          </button>
+
+          <!-- Per-variant stock (variants only, no flavors) -->
+          <div id="variant-stock-section" style="display:none; margin-top:14px">
+            <span class="stock-section-label">Stock per Variant</span>
+            <div class="vstock-list" id="variant-stock-list"></div>
+          </div>
+
+          <!-- Stock matrix (variants + flavors) -->
+          <div id="stock-matrix-section" style="display:none; margin-top:14px">
+            <span class="stock-section-label">Stock per Variant &amp; Flavor</span>
+            <div class="stock-matrix-wrap">
+              <table class="stock-matrix">
+                <thead id="stock-matrix-head"></thead>
+                <tbody id="stock-matrix-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top: 16px">
+            <div class="form-group" id="pm-stock-group">
+              <label>Total Stock</label>
+              <input type="number" class="form-control" id="pm-stock" placeholder="0" min="0" />
+              <span class="pm-stock-hint" id="pm-stock-hint" style="display:none">Auto-calculated from variants above</span>
+            </div>
+            <div class="form-group">
+              <label>Discount %</label
+              ><input
+                type="number"
+                class="form-control"
+                id="pm-discount"
+                placeholder="0"
+                min="0"
+                max="100"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Status</label
+              ><select class="form-control form-select" id="pm-status">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <!-- Promo toggle + specific promo code assignment -->
+          <div class="form-row full" style="margin-bottom: 0">
+            <div class="form-group">
+              <label>Promo Code Eligibility</label>
+              <div
+                class="toggle-row"
+                style="margin-top: 4px"
+                onclick="
+                  document.getElementById('pm-promo-toggle').click();
+                  setTimeout(togglePromoSection, 50);
+                "
+              >
+                <div>
+                  <div class="toggle-label">
+                    Allow promo codes on this product
+                  </div>
+                  <div class="toggle-desc">
+                    When enabled, select which promo codes apply
+                  </div>
+                </div>
+                <label class="toggle-switch" onclick="event.stopPropagation()"
+                  ><input
+                    type="checkbox"
+                    id="pm-promo-toggle"
+                    checked
+                    onchange="togglePromoSection()" /><span
+                    class="toggle-slider"
+                  ></span
+                ></label>
+              </div>
+            </div>
+          </div>
+          <div
+            id="pm-promo-section"
+            class="form-group"
+            style="margin-bottom: 16px"
+          >
+            <label>Assign Promo Codes</label>
+            <div class="checkbox-group" id="pm-promo-codes"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('product-modal')">
+            Cancel</button
+          ><button class="btn-primary" id="pm-save-btn" onclick="saveProduct()">
+            Save Product
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY MODAL -->
+    <div class="modal-overlay" id="cat-modal">
+      <div class="modal" style="max-width: 540px">
+        <div class="modal-header">
+          <div class="modal-title" id="cat-modal-title">Add Category</div>
+          <button class="modal-close" onclick="closeModal('cat-modal')">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 14px">
+            <label>Category Name *</label
+            ><input
+              type="text"
+              class="form-control"
+              id="cat-name"
+              placeholder="e.g. Protein"
+            />
+          </div>
+          <div class="form-group" style="margin-bottom: 14px">
+            <label>Description</label
+            ><input
+              type="text"
+              class="form-control"
+              id="cat-desc"
+              placeholder="Optional short description"
+            />
+          </div>
+          <div class="sub-adder">
+            <div class="sub-adder-title">Sub-categories (optional)</div>
+            <div id="sub-items-list"></div>
+            <button class="btn-add-sub" onclick="addSubItem()">
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" /></svg
+              >Add Sub-category
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('cat-modal')">
+            Cancel</button
+          ><button class="btn-primary" onclick="saveCat()">
+            Save Category
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBCATEGORY EDIT MODAL -->
+    <div class="modal-overlay" id="subcat-edit-modal">
+      <div class="modal" style="max-width: 400px">
+        <div class="modal-header">
+          <div class="modal-title">Edit Sub-Category</div>
+          <button class="modal-close" onclick="closeModal('subcat-edit-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Sub-Category Name *</label>
+            <input type="text" class="form-control" id="subcat-name-input" placeholder="Sub-category name" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('subcat-edit-modal')">Cancel</button>
+          <button class="btn-primary" onclick="saveSubCat()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROMO MODAL -->
+    <div class="modal-overlay" id="promo-modal">
+      <div class="modal" style="max-width: 520px">
+        <div class="modal-header">
+          <div class="modal-title" id="promo-modal-title">New Promo Code</div>
+          <button class="modal-close" onclick="closeModal('promo-modal')">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Code *</label
+              ><input
+                type="text"
+                class="form-control"
+                id="promo-code"
+                placeholder="e.g. RAMADAN25"
+                style="text-transform: uppercase"
+              />
+            </div>
+            <div class="form-group">
+              <label>Type</label
+              ><select
+                class="form-control form-select"
+                id="promo-type"
+                onchange="updatePromoValueLabel()"
+              >
+                <option value="percent">Percentage (%)</option>
+                <option value="fixed">Fixed Amount (DA)</option>
+                <option value="free_delivery">Free Delivery</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row" id="promo-value-row">
+            <div class="form-group">
+              <label id="promo-value-label">Value *</label
+              ><input
+                type="number"
+                class="form-control"
+                id="promo-value"
+                placeholder="e.g. 15"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Min. Order (DA)</label
+              ><input
+                type="number"
+                class="form-control"
+                id="promo-min"
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Max Uses</label
+              ><input
+                type="number"
+                class="form-control"
+                id="promo-max-uses"
+                placeholder="Unlimited"
+              />
+            </div>
+            <div class="form-group">
+              <label>Expiry Date</label
+              ><input type="date" class="form-control" id="promo-expiry" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Status</label
+            ><select class="form-control form-select" id="promo-status">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="form-row full" style="margin-top: 16px; margin-bottom: 0">
+            <div class="form-group">
+              <div class="toggle-row" style="margin-bottom: 0" onclick="document.getElementById('promo-apply-all').click()">
+                <div>
+                  <div class="toggle-label">Apply to all products</div>
+                  <div class="toggle-desc">Valid for all products that allow promos</div>
+                </div>
+                <label class="toggle-switch" onclick="event.stopPropagation()"><input type="checkbox" id="promo-apply-all" /><span class="toggle-slider"></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('promo-modal')">
+            Cancel</button
+          ><button class="btn-primary" onclick="savePromo()">Save Code</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DELIVERY PRICE MODAL -->
+    <div class="modal-overlay" id="delivery-modal">
+      <div class="modal" style="max-width: 480px">
+        <div class="modal-header">
+          <div class="modal-title" id="delivery-modal-title">Add Wilaya</div>
+          <button class="modal-close" onclick="closeModal('delivery-modal')">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 16px">
+            <label>Wilaya Name *</label>
+            <input
+              type="text"
+              class="form-control"
+              id="delivery-wilaya"
+              placeholder="e.g. Alger, Blida, Oran…"
+            />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Home Delivery Price (DA) *</label>
+              <input
+                type="number"
+                class="form-control"
+                id="delivery-home"
+                placeholder="e.g. 500"
+                min="0"
+              />
+            </div>
+            <div class="form-group">
+              <label>Office / Desk Price (DA) *</label>
+              <input
+                type="number"
+                class="form-control"
+                id="delivery-office"
+                placeholder="e.g. 350"
+                min="0"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('delivery-modal')">
+            Cancel</button
+          ><button class="btn-primary" onclick="saveDelivery()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIRM -->
+    <div class="confirm-overlay" id="confirm-overlay">
+      <div class="confirm-box">
+        <div class="confirm-icon">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+        </div>
+        <div class="confirm-title">Are you sure?</div>
+        <div class="confirm-msg" id="confirm-msg">
+          This action cannot be undone.
+        </div>
+        <div class="confirm-actions">
+          <button class="btn-cancel" onclick="closeConfirm()">Cancel</button
+          ><button class="btn-danger" id="confirm-ok">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- POS CHOOSE FLAVOR/VARIANT MODAL -->
+    <div class="modal-overlay" id="pos-flavor-modal">
+      <div class="modal" style="max-width: 450px">
+        <div class="modal-header">
+          <div class="modal-title">Select Flavor & Variant</div>
+          <button class="modal-close" onclick="closeModal('pos-flavor-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="pos-modal-prod-id" />
+          <div class="form-group" id="pos-modal-flavors-group" style="display:none">
+            <label>Flavor *</label>
+            <select id="pos-modal-flavor" class="form-control"></select>
+          </div>
+          <div class="form-group" id="pos-modal-variants-group" style="display:none">
+            <label>Variant *</label>
+            <select id="pos-modal-variant" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label>Quantity *</label>
+            <input type="number" id="pos-modal-qty" class="form-control" value="1" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Unit Price (DA) *</label>
+            <input type="number" id="pos-modal-price" class="form-control" />
+          </div>
+          <button class="btn-primary" style="width:100%;margin-top:15px;justify-content:center" onclick="confirmAddCartItem()">
+            Add to Cart
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDIT INVENTORY ITEM MODAL -->
+    <div class="modal-overlay" id="inv-edit-modal">
+      <div class="modal" style="max-width: 500px;">
+        <div class="modal-header">
+          <div class="modal-title" id="inv-edit-modal-title">Edit Inventory Item</div>
+          <button class="modal-close" onclick="closeModal('inv-edit-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-inv-sku" />
+          <div class="form-group">
+            <label>Brand</label>
+            <input type="text" id="edit-inv-brand" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label>Product Name</label>
+            <input type="text" id="edit-inv-name" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label>Variant / Spec</label>
+            <input type="text" id="edit-inv-variant" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label>Size</label>
+            <input type="text" id="edit-inv-size" class="form-control" />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label>Price (€)</label>
+              <input type="number" step="0.01" id="edit-inv-price" class="form-control" oninput="recalcEditLanded()" />
+            </div>
+            <div class="form-group">
+              <label>Exchange Rate</label>
+              <input type="number" id="edit-inv-rate" class="form-control" oninput="recalcEditLanded()" />
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label>Delivery (DZD)</label>
+              <input type="number" id="edit-inv-delivery" class="form-control" oninput="recalcEditLanded()" />
+            </div>
+            <div class="form-group">
+              <label>Retail Price (DZD)</label>
+              <input type="number" id="edit-inv-retail" class="form-control" oninput="recalcEditLanded()" />
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom:15px; background:var(--g50); padding:10px; border-radius:6px; border:1px solid var(--g200);">
+            <div>
+              <span style="font-size:11px; color:var(--g400); text-transform:uppercase; font-weight:700;">Landed Cost:</span><br>
+              <strong id="edit-inv-landed-label" style="font-size:14px; color:var(--g700);">0 DZD</strong>
+            </div>
+            <div>
+              <span style="font-size:11px; color:var(--g400); text-transform:uppercase; font-weight:700;">Margin:</span><br>
+              <strong id="edit-inv-margin-label" style="font-size:14px; color:var(--green);">0 DZD</strong>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom:15px;">
+            <div class="form-group" style="margin:0;">
+              <label>Stock Europe (Not Sellable)</label>
+              <input type="number" id="edit-inv-qty-eu" class="form-control" value="0" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Stock Algeria (Available for Sale)</label>
+              <input type="number" id="edit-inv-qty-dz" class="form-control" value="0" />
+            </div>
+          </div>
+          <button class="btn-primary" style="width:100%; justify-content:center; margin-top:10px;" onclick="saveInventoryItemEdit()">
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BULK RESTOCK EUR (MULTI-PRODUCT RESTOCK & WEIGHTED AVERAGE PRICE) MODAL -->
+    <div class="modal-overlay" id="bulk-restock-eur-modal">
+      <div class="modal" style="max-width: 880px; width: 94%;">
+        <div class="modal-header">
+          <div class="modal-title">💶 Bulk EU Restock (Purchase in €)</div>
+          <button class="modal-close" onclick="closeModal('bulk-restock-eur-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding:20px;">
+          <!-- Product Search to Select Items -->
+          <div style="position:relative; margin-bottom:20px;">
+            <label style="font-weight:700; font-size:13px; margin-bottom:6px; display:block; color:var(--black);">
+              🔍 Search &amp; Add Products to Restock
+            </label>
+            <input type="text" id="bulk-restock-search" class="form-control" placeholder="Search by SKU, Brand, or Product Name..." oninput="onBulkRestockSearchInput()" style="font-size:13.5px; padding:10px 14px;" />
+            <div id="bulk-restock-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--g200); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); z-index:100; max-height:240px; overflow-y:auto; margin-top:4px;"></div>
+          </div>
+
+          <!-- Selected Products Restock Table -->
+          <div style="overflow-x:auto; border:1px solid var(--g200); border-radius:8px; margin-bottom:20px;">
+            <table class="table" style="margin:0; min-width:760px; font-size:12.5px;">
+              <thead>
+                <tr style="background:var(--g100);">
+                  <th style="width:230px;">Product &amp; SKU</th>
+                  <th style="width:140px; text-align:center;">Current Stock (EU+DZ) &amp; €</th>
+                  <th style="width:110px; text-align:center;">+ New EU Qty</th>
+                  <th style="width:125px; text-align:center;">Purchase € Price</th>
+                  <th style="width:140px; text-align:center;">New Avg Price (€)</th>
+                  <th style="width:50px; text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="bulk-restock-table-body">
+                <tr>
+                  <td colspan="6" style="text-align:center; padding:30px; color:var(--g400);">
+                    Search for products above to add them to your EU restock list.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Formula Info & Summary Footer -->
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-size:12px; font-weight:700; color:#15803d;">Weighted Average Formula (Includes EU + DZ Stock):</div>
+              <div style="font-size:11px; color:#475569; margin-top:2px;">
+                <code>((Current Total Stock [EU+DZ] × Current €) + (New EU Qty × Purchase €)) ÷ (Current Total Stock + New EU Qty)</code>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:12px; color:#64748b;">Selected Products: <strong id="bulk-restock-total-items" style="color:var(--black);">0</strong></span>
+            </div>
+          </div>
+
+          <button class="btn-primary" style="width:100%; justify-content:center; background:#16a34a; border-color:#16a34a; padding:12px; font-size:14px;" onclick="saveBulkRestockEur()">
+            Confirm All Restocks &amp; Update Average Prices
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CSV IMPORT CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="csv-import-confirm-modal">
+      <div class="modal" style="max-width: 900px; width: 95%;">
+        <div class="modal-header">
+          <div class="modal-title" id="csv-import-modal-title">📥 Confirm CSV Import Changes</div>
+          <button class="modal-close" onclick="closeModal('csv-import-confirm-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+          <div style="font-size: 13px; color: var(--g600); margin-bottom: 15px; padding: 10px 14px; background: var(--g50); border-radius: 8px; border: 1px solid var(--g200); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div id="csv-import-summary-text">
+              Review the detected changes from the imported CSV file below before applying.
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <span class="badge" style="background:#dcfce7; color:#15803d; font-weight:700;" id="csv-badge-new">0 New</span>
+              <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700;" id="csv-badge-mod">0 Modified</span>
+            </div>
+          </div>
+
+          <!-- Diff Table -->
+          <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--g200); border-radius: 8px; margin-bottom: 20px;">
+            <table class="table" style="margin: 0; font-size: 12px; width: 100%;">
+              <thead>
+                <tr style="background: var(--g100); position: sticky; top: 0; z-index: 2;">
+                  <th style="width: 90px;">SKU</th>
+                  <th style="width: 170px;">Product Name</th>
+                  <th style="width: 85px;">Status</th>
+                  <th>Detected Changes (Original → Imported)</th>
+                </tr>
+              </thead>
+              <tbody id="csv-import-diff-table-body">
+                <!-- Diff rows rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn-secondary" style="padding: 9px 18px;" onclick="closeModal('csv-import-confirm-modal')">
+              Cancel
+            </button>
+            <button class="btn-primary" style="background: #16a34a; border-color: #16a34a; padding: 9px 22px;" onclick="confirmSaveCsvImport()">
+              ✅ Save Changes to Inventory
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANAGE BUDGETS & EXCHANGES MODAL -->
+    <div class="modal-overlay" id="budget-modal">
+      <div class="modal" style="max-width: 500px;">
+        <div class="modal-header">
+          <div class="modal-title">Manage Budgets &amp; Currency Exchanges</div>
+          <button class="modal-close" onclick="closeModal('budget-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Adjust Budgets Directly -->
+          <div style="background: var(--g50); padding: 15px; border-radius: 8px; border: 1px solid var(--g200); margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--black);">Adjust Current Balances</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>EUR Budget (€)</label>
+                <input type="number" step="0.01" id="adj-budget-eur" class="form-control" placeholder="0.00" />
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>DZD Budget (DA)</label>
+                <input type="number" id="adj-budget-dzd" class="form-control" placeholder="0" />
+              </div>
+            </div>
+            <button class="btn-primary" style="margin-top: 15px; width: 100%; justify-content: center;" onclick="saveDirectBudgets()">
+              Update Balances
+            </button>
+          </div>
+
+          <!-- Currency Conversion (DZD to EUR) -->
+          <div style="border: 1px dashed var(--orange); background: rgba(245, 158, 11, 0.03); padding: 15px; border-radius: 8px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #b45309; display: flex; align-items: center; gap: 6px;">
+              🔄 Record Currency Conversion
+            </h4>
+            <p style="font-size: 11.5px; color: var(--g500); margin: 0 0 12px 0; line-height: 1.4;">
+              Convert local DZD cash to EUR to fund your European stock procurement. This will automatically deduct DZD, add EUR, and log a ledger transaction.
+            </p>
+            <div class="form-group">
+              <label>DZD Amount to Deduct (DA)</label>
+              <input type="number" id="ex-amount-dzd" class="form-control" placeholder="e.g. 250000" oninput="recalcConversion()" />
+            </div>
+            <div class="form-group">
+              <label>Exchange Rate (DA/€)</label>
+              <input type="number" id="ex-rate" class="form-control" value="250" oninput="recalcConversion()" />
+            </div>
+            <div class="form-group">
+              <label>EUR Gained (€)</label>
+              <input type="number" id="ex-amount-eur" class="form-control" readonly style="background: var(--g100); font-weight: 700; color: #ad0000;" />
+            </div>
+            <button class="btn-primary" style="background: var(--orange); border-color: var(--orange); margin-top: 15px; width: 100%; justify-content: center; color: white;" onclick="recordCurrencyConversion()">
+              Record Exchange &amp; Sync Budgets
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREORDER MODAL -->
+    <div class="modal-overlay" id="preorder-modal">
+      <div class="modal" style="max-width: 750px">
+        <div class="modal-header">
+          <div class="modal-title" id="preorder-modal-title">New Pre-Order</div>
+          <button class="modal-close" onclick="closeModal('preorder-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="preorder-id" />
+          <div class="form-group">
+            <label>Select Existing Customer (Optional - Private Group Only)</label>
+            <input type="text" id="preorder-cust-search" class="form-control" list="preorder-cust-list" placeholder="Type name or phone to search..." oninput="fillPreorderCustomerInfoDynamic(this.value)" />
+            <datalist id="preorder-cust-list"></datalist>
+          </div>
+          <div class="form-group">
+            <label>Customer Name *</label>
+            <input type="text" id="preorder-cust-name" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label>Customer Phone *</label>
+            <input type="text" id="preorder-cust-phone" class="form-control" required />
+          </div>
+          <input type="hidden" id="preorder-delivery-price" value="0" />
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea id="preorder-notes" class="form-control" rows="2" placeholder="Batch details, timeline..."></textarea>
+          </div>
+          
+          <div style="margin: 15px 0; border-top: 1px solid var(--gray-200); padding-top: 15px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <h4 style="margin:0; font-weight:600">Items List</h4>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <label style="font-size:12px; font-weight:500; color:var(--g600);">Filter Category:</label>
+                <select id="preorder-type-filter" class="form-control" style="font-size:12px; padding:4px 8px; height:28px; width:140px;" onchange="updatePreorderItemsDatalists()">
+                  <option value="all">All Items</option>
+                  <option value="supplement">Supplements Only</option>
+                  <option value="snack">Snacks Only</option>
+                </select>
+              </div>
+            </div>
+            <div id="preorder-items-list" style="display:flex;flex-direction:column;gap:10px">
+              <!-- Dynamically populated list of pre-order items -->
+            </div>
+            <button class="btn-secondary" style="margin-top:10px;font-size:12px;padding:5px 12px" onclick="addPreorderItemRow()">
+              + Add Item
+            </button>
+          </div>
+
+          <!-- Live totals summary -->
+          <div id="preorder-summary-card" style="margin: 15px 0; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-family: var(--font-b);">
+            <div style="display:flex; justify-content:space-between; color:var(--gray-600);">
+              <span>Items Subtotal:</span>
+              <span id="preorder-lbl-subtotal" style="font-weight:600; color:var(--black);">0 DA</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; color:var(--gray-600);">
+              <span>Delivery Cost (from Inventory):</span>
+              <span id="preorder-lbl-delivery" style="font-weight:600; color:var(--black);">0 DA</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size: 14px; border-top: 1px dashed var(--gray-200); padding-top: 6px; font-weight:700; color:var(--red);">
+              <span>Grand Total:</span>
+              <span id="preorder-lbl-grandtotal">0 DA</span>
+            </div>
+          </div>
+
+          <div class="form-group" id="preorder-status-group" style="display:none">
+            <label>Status</label>
+            <select id="preorder-status" class="form-control">
+              <option value="pending">Pending</option>
+              <option value="fulfilled">Fulfilled</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <button class="btn-primary" style="width:100%;margin-top:15px;justify-content:center" onclick="savePreorder()">
+            Save Pre-Order
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER MODAL -->
+    <div class="modal-overlay" id="customer-modal">
+      <div class="modal" style="max-width: 450px">
+        <div class="modal-header">
+          <div class="modal-title">New Customer Profile</div>
+          <button class="modal-close" onclick="closeModal('customer-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Customer Name *</label>
+            <input type="text" id="cust-modal-name" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label>Phone Number *</label>
+            <input type="text" id="cust-modal-phone" class="form-control" placeholder="e.g. +213xxxxxxxxx" required />
+          </div>
+          <div class="form-group">
+            <label>Group *</label>
+            <select id="cust-modal-group" class="form-control">
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+          <button class="btn-primary" style="width:100%;margin-top:15px;justify-content:center" onclick="saveCustomer()">
+            Save Customer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER HISTORY MODAL -->
+    <div class="modal-overlay" id="cust-history-modal">
+      <div class="modal" style="max-width: 650px">
+        <div class="modal-header">
+          <div class="modal-title" id="cust-history-title">Customer History</div>
+          <button class="modal-close" onclick="closeModal('cust-history-modal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="cust-history-body" style="max-height:400px;overflow-y:auto">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div id="toast">
+      <svg
+        class="t-icon"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+      >
+        <polyline points="20 6 9 17 4 12" /></svg
+      ><span id="toast-msg">Done!</span>
+    </div>
+
+    <script>
+      (function() {
+        // Sequential script loader to preserve execution order with cache-busting timestamps
+        const scripts = [
+          "/supplements/supabase-client.js",
+          "/supplements/panel4rz/index.js"
+        ];
+        
+        function loadScript(idx) {
+          if (idx >= scripts.length) return;
+          const script = document.createElement("script");
+          script.src = scripts[idx] + "?t=" + Date.now();
+          script.onload = () => loadScript(idx + 1);
+          document.body.appendChild(script);
+        }
+        
+        loadScript(0);
+      })();
+    </script>
+  </body>
+</html>
