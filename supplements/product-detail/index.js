@@ -214,8 +214,11 @@
               // Fetch heavy text fields (description, benefits, nutritional_facts) for this product only
               try {
                 const detailRes = await fetch(
-                  `${SUPABASE_URL}/rest/v1/products?select=description,benefits,nutritional_facts&id=eq.${p.id}`,
-                  { headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY } }
+                  `${SUPABASE_URL}/rest/v1/products?select=description,benefits,nutritional_facts,stock,variants,flavors,status&id=eq.${p.id}`,
+                  {
+                    headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
+                    cache: "no-store"
+                  }
                 );
                 if (detailRes.ok) {
                   const detail = await detailRes.json();
@@ -223,6 +226,10 @@
                     p.description = detail[0].description || "";
                     p.benefits = detail[0].benefits || "";
                     p.nutritionalFacts = detail[0].nutritional_facts || "";
+                    if (detail[0].stock !== undefined) p.stock = detail[0].stock;
+                    if (detail[0].variants) p.variants = detail[0].variants;
+                    if (detail[0].flavors) p.flavors = detail[0].flavors;
+                    if (detail[0].status) p.status = detail[0].status;
                   }
                 }
               } catch (e) { /* non-critical, page still works */ }

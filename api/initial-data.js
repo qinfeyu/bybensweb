@@ -26,8 +26,10 @@ module.exports = async function handler(_req, res) {
       sf("settings?select=*"),
     ]);
 
-    // 5-minute Vercel edge cache; stale-while-revalidate keeps the site fast during refresh
-    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=60");
+    // Ensure fresh live data on every load without stale edge caching delays
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.setHeader("Content-Type", "application/json");
     res.status(200).json({
       products,

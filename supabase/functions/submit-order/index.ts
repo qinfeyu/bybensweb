@@ -188,6 +188,82 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // ── LIVE STOCK AVAILABILITY VALIDATION ──
+    if (items && Array.isArray(items)) {
+      for (const item of items) {
+        const prodId = item.productId || item.product_id;
+        if (!prodId) continue;
+        const reqQty = Number(item.qty) || 1;
+        const rawVariant = String(item.variant || "").trim().toLowerCase();
+        const rawFlavor = String(item.flavor || "").trim();
+        const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
+
+        const { data: pRows } = await sb.from("products").select("*").eq("id", prodId).limit(1);
+        if (!pRows || pRows.length === 0) continue;
+        const p = pRows[0];
+
+        const variants: any[] = p.variants || [];
+        if (variants.length > 0) {
+          let mIdx = -1;
+          if (cleanVar) {
+            mIdx = variants.findIndex((v: any) => {
+              if (typeof v !== "object") return String(v).toLowerCase().replace(/\s+/g, "") === cleanVar;
+              const vWeight = String(v.weight || "").toLowerCase().replace(/\s+/g, "");
+              const vUnit = String(v.unit || "").toLowerCase().replace(/\s+/g, "");
+              const vCombo = (vWeight + vUnit);
+              const vLabel = String(v.label || v.name || "").toLowerCase().replace(/\s+/g, "");
+              return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || cleanVar.includes(vWeight);
+            });
+          }
+          if (mIdx < 0) mIdx = 0;
+          const v = variants[mIdx];
+          if (v) {
+            let mFlavorKey = "";
+            if (rawFlavor && v.flavorStock) {
+              mFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase()) || "";
+            }
+            if (!mFlavorKey && v.flavorStock && Object.keys(v.flavorStock).length === 1) {
+              mFlavorKey = Object.keys(v.flavorStock)[0];
+            }
+            if (mFlavorKey && v.flavorStock) {
+              const avail = Number(v.flavorStock[mFlavorKey]) || 0;
+              if (avail < reqQty) {
+                return new Response(
+                  JSON.stringify({
+                    success: false,
+                    error: `Sorry, "${p.name}" (${mFlavorKey}) is out of stock!`
+                  }),
+                  { status: 400, headers: { ...cors, "Content-Type": "application/json" } }
+                );
+              }
+            } else if (v.stock !== undefined) {
+              const avail = Number(v.stock) || 0;
+              if (avail < reqQty) {
+                return new Response(
+                  JSON.stringify({
+                    success: false,
+                    error: `Sorry, "${p.name}" is out of stock!`
+                  }),
+                  { status: 400, headers: { ...cors, "Content-Type": "application/json" } }
+                );
+              }
+            }
+          }
+        } else {
+          const avail = Number(p.stock) || 0;
+          if (avail < reqQty) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Sorry, "${p.name}" is out of stock!`
+              }),
+              { status: 400, headers: { ...cors, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+    }
+
     const id = Date.now().toString();
     const source = action === "submitCartOrder" ? "checkout" : "product-detail";
 
