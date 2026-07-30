@@ -660,17 +660,25 @@
           }
         }
 
-        // 2. Fallback: check if the flavor object itself has an imageIndex
+        // 2. Fallback: check flavor object for .image (URL) or .imageIndex
         if (!found && selectedFlavor && Array.isArray(p.flavors)) {
           const fObj = p.flavors.find(f => {
             const name = typeof f === "object" ? f.name : f;
             return String(name).trim().toLowerCase() === selectedFlavor.trim().toLowerCase();
           });
-          if (fObj && typeof fObj === "object" && fObj.imageIndex !== undefined && fObj.imageIndex !== null && fObj.imageIndex !== "") {
-            const parsedIdx = parseInt(fObj.imageIndex);
-            if (!isNaN(parsedIdx) && imgs[parsedIdx]) {
-              targetImgIdx = parsedIdx;
+          if (fObj && typeof fObj === "object") {
+            // New format: .image is a direct URL
+            if (fObj.image) {
+              targetUrl = fObj.image;
               found = true;
+            }
+            // Legacy format: .imageIndex is an index into imgs[]
+            else if (fObj.imageIndex !== undefined && fObj.imageIndex !== null && fObj.imageIndex !== "") {
+              const parsedIdx = parseInt(fObj.imageIndex);
+              if (!isNaN(parsedIdx) && imgs[parsedIdx]) {
+                targetImgIdx = parsedIdx;
+                found = true;
+              }
             }
           }
         }
