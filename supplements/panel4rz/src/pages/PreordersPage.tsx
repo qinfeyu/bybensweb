@@ -1,7 +1,29 @@
 import React, { useState } from 'react';
 import { PreOrder, InventoryItem, Product } from '../types';
 import { calculatePreorderProfit, getProductPricingAndCost } from '../lib/calculations';
-import { Clock, Search, Eye, CheckCircle, XCircle, Trash2, X, Printer, FileText, PackageCheck } from 'lucide-react';
+import { 
+  Clock, 
+  Search, 
+  Eye, 
+  CheckCircle, 
+  XCircle, 
+  Trash2, 
+  X, 
+  Printer, 
+  FileText, 
+  PackageCheck,
+  Plus,
+  Check
+} from 'lucide-react';
+
+interface PreorderItemRow {
+  product_id: string;
+  product_name: string;
+  variant: string;
+  flavor: string;
+  qty: number;
+  unit_price: number;
+}
 
 interface PreordersPageProps {
   preorders: PreOrder[];
@@ -10,6 +32,7 @@ interface PreordersPageProps {
   products: Product[];
   onToggleStatus: (id: string, currentStatus: PreOrder['status']) => Promise<void>;
   onDeletePreorder: (id: string) => Promise<void>;
+  onSavePreorder?: (preorderData: Partial<PreOrder>, items: PreorderItemRow[]) => Promise<void>;
   defaultEurRate: number;
 }
 
@@ -20,17 +43,116 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
   products,
   onToggleStatus,
   onDeletePreorder,
+  onSavePreorder,
   defaultEurRate
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPreorder, setSelectedPreorder] = useState<PreOrder | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
+  // New / Edit Pre-order Modal State
+  const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
+  const [editingPreorderId, setEditingPreorderId] = useState<string | null>(null);
+  const [custName, setCustName] = useState('');
+  const [custPhone, setCustPhone] = useState('');
+  const [custNotes, setCustNotes] = useState('');
+  const [custStatus, setCustStatus] = useState<PreOrder['status']>('pending');
+  const [itemRows, setItemRows] = useState<PreorderItemRow[]>([
+    { product_id: '', product_name: '', variant: '', flavor: '', qty: 1, unit_price: 0 }
+  ]);
+
   const filteredPreorders = preorders.filter(p => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (p.customer_name || '').toLowerCase().includes(q) || (p.customer_phone || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
   });
+
+  // Open Modal for New Pre-Order
+  const handleOpenAddModal = () => {
+    setEditingPreorderId(null);
+    setCustName('');
+    setCustPhone('');
+    setCustNotes('');
+    setCustStatus('pending');
+    setItemRows([{ product_id: '', product_name: '', variant: '', flavor: '', qty: 1, unit_price: 0 }]);
+    setIsAddEditModalOpen(true);
+  };
+
+  // Open Modal for Edit Pre-Order
+  const handleOpenEditModal = (p: PreOrder) => {
+    setEditingPreorderId(p.id);
+    setCustName(p.customer_name || '');
+    setCustPhone(p.customer_phone || '');
+    setCustNotes(p.notes || '');
+    setCustStatus(p.status || 'pending');
+
+    const existingItems = preorderItems.filter(x => x.pre_order_id === p.id);
+    if (existingItems.length > 0) {
+      setItemRows(existingItems.map(i => ({
+        product_id: i.product_id || '',
+        product_name: i.product_name || '',
+        variant: i.variant || '',
+        flavor: i.flavor || '',
+        qty: Number(i.qty) || 1,
+        unit_price: Number(i.unit_price || i.price) || 0
+      })));
+    } else {
+      setItemRows([{ product_id: '', product_name: '', variant: '', flavor: '', qty: 1, unit_price: 0 }]);
+    }
+    setIsAddEditModalOpen(true);
+  };
+
+  // Save Pre-Order Modal
+  const handleSavePreorderModal = async () => {
+    if (!custName.trim()) return;
+
+    // Filter valid item rows
+    const validRows = itemRows.filter(r => r.product_id || r.product_name.trim());
+    const totalAmount = validRows.reduce((sum, r) => sum + (r.unit_price * r.qty), 0);
+
+    if (onSavePreorder) {
+      await onSavePreorder(
+        {
+          id: editingPreorderId || undefined,
+          customer_name: custName.trim(),
+          customer_phone: custPhone.trim(),
+          notes: custNotes.trim(),
+          status: custStatus,
+          total_amount: totalAmount
+        },
+        validRows
+      );
+    }
+
+    setIsAddEditModalOpen(false);
+  };
+
+  // Resolve inventory item selection in modal row
+  const handleSelectInventoryItem = (index: number, skuOrName: string) => {
+    const inv = inventoryItems.find(x => x.id.toLowerCase() === skuOrName.toLowerCase() || x.name.toLowerCase() === skuOrName.toLowerCase());
+    const prod = products.find(x => x.name.toLowerCase() === skuOrName.toLowerCase() || x.id === skuOrName);
+
+    const nextRows = [...itemRows];
+    if (inv) {
+      nextRows[index] = {
+        ...nextRows[index],
+        product_id: inv.id,
+        product_name: `${inv.brand ? inv.brand + ' - ' : ''}${inv.name}`,
+        variant: inv.variant_spec || inv.size || '',
+        unit_price: inv.retail_dzd || 0
+      };
+    } else if (prod) {
+      nextRows[index] = {
+        ...nextRows[index],
+        product_id: prod.id,
+        product_name: prod.name,
+        unit_price: prod.variants?.[0]?.price || 0
+      };
+    } else {
+      nextRows[index].product_name = skuOrName;
+    }
+    setItemRows(nextRows);
+  };
 
   // Print Customer Invoice
   const handlePrintCustomerInvoice = (p: PreOrder) => {
@@ -68,58 +190,60 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
       <head>
         <title>Invoice - ${p.customer_name}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-          body { font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px; margin: 0; line-height: 1.5; background: #fff; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; }
-          .logo { font-size: 24px; font-weight: 900; color: #b91c1c; letter-spacing: -0.5px; }
-          .logo span { color: #0f172a; font-weight: 500; }
-          .title { font-size: 16px; font-weight: 800; text-align: right; text-transform: uppercase; color: #64748b; }
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+          body { font-family: 'Outfit', sans-serif; color: #1e293b; padding: 40px; margin: 0; line-height: 1.5; background: #fff; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 24px; margin-bottom: 30px; }
+          .logo { font-size: 26px; font-weight: 800; color: #ad0000; letter-spacing: -0.5px; }
+          .logo span { color: #0f172a; font-weight: 400; }
+          .title { font-size: 18px; font-weight: 700; text-align: right; text-transform: uppercase; color: #64748b; letter-spacing: 1px; }
           .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-          .info-block h3 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 800; }
-          .info-block p { margin: 0; font-size: 13.5px; font-weight: 500; color: #334155; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-          th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; text-align: left; }
-          td { border-bottom: 1px solid #f1f5f9; padding: 12px 10px; font-size: 13px; color: #334155; }
-          .summary-table { width: 320px; margin-left: auto; margin-top: 15px; }
-          .summary-table tr.total td { font-size: 18px; font-weight: 800; color: #b91c1c; border-top: 2px solid #e2e8f0; padding-top: 12px; }
-          .footer { text-align: center; margin-top: 60px; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; font-weight: 500; }
-          .btn-print { padding: 10px 20px; background: #b91c1c; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+          .info-block h3 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 1px; }
+          .info-block p { margin: 0; font-size: 14px; font-weight: 500; color: #334155; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 12px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: left; letter-spacing: 0.5px; }
+          td { border-bottom: 1px solid #f1f5f9; padding: 14px 10px; font-size: 13.5px; color: #334155; }
+          .summary-table { width: 340px; margin-left: auto; margin-top: 20px; }
+          .summary-table tr.total { font-size: 18px; font-weight: 700; color: #ad0000; border-top: 2px solid #f1f5f9; }
+          .summary-table tr.total td { color: #ad0000; padding-top: 16px; }
+          .footer { text-align: center; margin-top: 80px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; font-weight: 500; }
+          .btn-print { padding: 10px 20px; background: #ad0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; font-family: 'Outfit', sans-serif; transition: background 0.2s; }
+          .btn-print:hover { background: #880000; }
           @media print { .no-print { display: none !important; } }
         </style>
       </head>
       <body>
-        <div class="no-print" style="margin-bottom: 20px; text-align: right;">
-          <button class="btn-print" onclick="window.print()">Print / Download PDF</button>
+        <div class="no-print" style="margin-bottom: 30px; text-align: right;">
+          <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
         </div>
         <div class="header">
           <div>
             <div class="logo">ByBens <span>Supplements</span></div>
-            <div style="font-size:11.5px; color:#475569; margin-top:4px;">
-              📞 +213 662 269 449 | ✉️ contact@bybens.com | 🌐 www.bybens.com
+            <div style="font-size:12px; color:#475569; margin-top:4px; font-weight:500; line-height:1.4;">
+              📞 +213 662 269 449 &nbsp;|&nbsp; ✉️ contact@bybens.com<br>
+              📸 Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; 🌐 www.bybens.com
             </div>
           </div>
-          <div class="title">Customer Invoice<br><span style="font-size:11px;font-weight:500;color:#94a3b8;">Pre-order #${p.id}</span></div>
+          <div class="title">Customer Invoice<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
         </div>
         <div class="info-grid">
           <div class="info-block">
             <h3>Billed To</h3>
-            <p style="font-size: 16px; font-weight: 800; color:#0f172a;">${p.customer_name}</p>
-            <p>📞 ${p.customer_phone}</p>
+            <p style="font-size: 17px; font-weight: 700; color:#0f172a; margin-bottom:4px;">${p.customer_name}</p>
+            <p style="font-weight: 500; color: #475569;">📞 ${p.customer_phone}</p>
           </div>
           <div class="info-block" style="text-align: right;">
-            <h3>Date & Status</h3>
-            <p style="font-weight: 700; color: #0f172a;">${new Date(p.date || p.created_at || '').toLocaleDateString()}</p>
-            <p style="text-transform: uppercase; font-weight: 800; color: #b91c1c;">${p.status}</p>
+            <h3>Invoice Date</h3>
+            <p style="font-size: 15px; font-weight: 600; color: #0f172a;">${new Date(p.date || p.created_at || '').toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
           </div>
         </div>
         <table>
           <thead>
             <tr>
-              <th style="width: 30px;">#</th>
-              <th>Item Description</th>
-              <th style="width: 60px; text-align: center;">Qty</th>
-              <th style="width: 120px; text-align: right;">Price</th>
-              <th style="width: 120px; text-align: right;">Total</th>
+              <th style="width: 40px;">#</th>
+              <th>Product Details</th>
+              <th style="width: 80px; text-align: center;">Qty</th>
+              <th style="width: 130px; text-align: right;">Unit Price</th>
+              <th style="width: 130px; text-align: right;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -133,7 +257,8 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
           </tr>
         </table>
         <div class="footer">
-          Thank you for choosing ByBens Supplements! • www.bybens.com
+          Thank you for shopping with ByBens!<br>
+          <span style="font-weight:600; color:#475569;">📞 +213 662 269 449 &nbsp;•&nbsp; ✉️ contact@bybens.com &nbsp;•&nbsp; 📸 @BENS.SUPPLEMENTS &nbsp;•&nbsp; 🌐 www.bybens.com</span>
         </div>
       </body>
       </html>
@@ -141,18 +266,32 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
     printWin.document.close();
   };
 
-  // Print Courier / Delivery Slip
+  // Print Legacy Courier Slip
   const handlePrintCourierSlip = (p: PreOrder) => {
     const items = preorderItems.filter(x => x.pre_order_id === p.id);
+    let totalDeliveryFee = 0;
 
-    const rowsHtml = items.map((item, idx) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td style="font-weight:700;">${item.product_name || 'Supplement'}</td>
-        <td style="font-size:11px; color:#64748b;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</td>
-        <td style="text-align:center; font-weight:800;">${item.qty}</td>
-      </tr>
-    `).join("");
+    const rowsHtml = items.map((item, idx) => {
+      const invItem = inventoryItems.find(x => x.id === item.product_id);
+      const deliveryUnit = invItem ? (Number(invItem.delivery_dzd) || 0) : 0;
+      const deliveryItemTotal = deliveryUnit * (Number(item.qty) || 1);
+      totalDeliveryFee += deliveryItemTotal;
+
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <div style="font-weight: 600; color: #0f172a;">${item.product_name || 'Supplement'}</div>
+            <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">${[item.variant, item.flavor].filter(Boolean).join(" | ")}</div>
+          </td>
+          <td style="text-align: center; font-weight: 700; color: #0f172a;">${item.qty}</td>
+          <td style="text-align: right;">${deliveryUnit.toLocaleString()} DA</td>
+          <td style="text-align: right; font-weight: 600; color: #0f172a;">${deliveryItemTotal.toLocaleString()} DA</td>
+        </tr>
+      `;
+    }).join("");
+
+    const deliveryFeeToCollect = totalDeliveryFee > 0 ? totalDeliveryFee : (Number(p.total_amount) || 0);
 
     const printWin = window.open('', '_blank', 'width=800,height=700');
     if (!printWin) return;
@@ -161,53 +300,71 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Courier Slip - ${p.customer_name}</title>
+        <title>Delivery Slip - ${p.customer_name}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-          body { font-family: 'Inter', sans-serif; color: #0f172a; padding: 30px; margin: 0; background: #fff; }
-          .card { border: 2px solid #0f172a; border-radius: 12px; padding: 24px; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }
-          .logo { font-size: 22px; font-weight: 900; color: #b91c1c; }
-          .slip-title { font-size: 18px; font-weight: 900; text-transform: uppercase; }
-          .dest-box { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th { background: #f1f5f9; border-bottom: 2px solid #cbd5e1; padding: 8px; font-size: 11px; text-transform: uppercase; text-align: left; }
-          td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; font-size: 12.5px; }
-          .cod-box { font-size: 20px; font-weight: 900; color: #b91c1c; text-align: right; margin-top: 15px; }
-          .btn-print { padding: 10px 20px; background: #0f172a; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+          body { font-family: 'Outfit', sans-serif; color: #1e293b; padding: 40px; margin: 0; line-height: 1.5; background: #fff; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 24px; margin-bottom: 30px; }
+          .logo { font-size: 26px; font-weight: 800; color: #ad0000; letter-spacing: -0.5px; }
+          .logo span { color: #0f172a; font-weight: 400; }
+          .title { font-size: 18px; font-weight: 700; text-align: right; text-transform: uppercase; color: #64748b; letter-spacing: 1px; }
+          .info-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 30px; }
+          .info-block h3 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: 700; }
+          .info-block p { margin: 0; font-size: 14px; font-weight: 500; color: #334155; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 12px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: left; letter-spacing: 0.5px; }
+          td { border-bottom: 1px solid #f1f5f9; padding: 14px 10px; font-size: 13.5px; color: #334155; }
+          .collect-box { padding: 22px; background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 8px; font-size: 18px; font-weight: 800; color: #b45309; display: flex; justify-content: space-between; align-items: center; margin-top: 30px; }
+          .collect-box span.val { font-size: 24px; color: #ad0000; font-weight: 800; }
+          .footer { margin-top: 80px; display: flex; justify-content: space-between; font-size: 13px; color: #64748b; }
+          .btn-print { padding: 10px 20px; background: #ad0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; font-family: 'Outfit', sans-serif; transition: background 0.2s; }
+          .btn-print:hover { background: #880000; }
           @media print { .no-print { display: none !important; } }
         </style>
       </head>
       <body>
-        <div class="no-print" style="margin-bottom: 20px; text-align: right;">
-          <button class="btn-print" onclick="window.print()">Print Courier Slip</button>
+        <div class="no-print" style="margin-bottom: 30px; text-align: right;">
+          <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
         </div>
-        <div class="card">
-          <div class="header">
-            <div class="logo">BYBENS COURIER SLIP</div>
-            <div class="slip-title">COD SLIP #${p.id}</div>
+        <div class="header">
+          <div>
+            <div class="logo">ByBens <span>Supplements</span></div>
+            <div style="font-size:12px; color:#475569; margin-top:4px; font-weight:500; line-height:1.4;">
+              📞 +213 662 269 449 &nbsp;|&nbsp; ✉️ contact@bybens.com<br>
+              📸 Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; 🌐 www.bybens.com
+            </div>
           </div>
-          <div class="dest-box">
-            <div style="font-size:11px; text-transform:uppercase; font-weight:800; color:#64748b; margin-bottom:4px;">RECIPIENT / RECEPTIONNAIRE</div>
-            <div style="font-size:18px; font-weight:900; color:#0f172a;">${p.customer_name}</div>
-            <div style="font-size:14px; font-weight:700; color:#b91c1c; margin-top:4px;">📞 ${p.customer_phone}</div>
+          <div class="title">Courier Delivery Slip<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
+        </div>
+        <div class="info-grid">
+          <div class="info-block" style="background:#f8fafc; padding: 16px; border-radius: 8px; border:1px solid #e2e8f0;">
+            <h3>Customer / Recipient</h3>
+            <p style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom:2px;">${p.customer_name}</p>
+            <p style="font-weight: 600; color: #ad0000;">📞 ${p.customer_phone}</p>
+            ${p.notes ? `<p style="margin-top:8px; font-size:12px; color:#64748b; white-space:pre-wrap;">Notes: ${p.notes}</p>` : ''}
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th style="width:30px;">#</th>
-                <th>Package Contents</th>
-                <th>Spec</th>
-                <th style="width:50px; text-align:center;">Qty</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-          <div class="cod-box">
-            AMOUNT TO COLLECT: ${Number(p.total_amount || 0).toLocaleString()} DA
-          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40px;">#</th>
+              <th>Product Details</th>
+              <th style="width: 80px; text-align: center;">Qty</th>
+              <th style="width: 130px; text-align: right;">Delivery Price</th>
+              <th style="width: 130px; text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml || '<tr><td colSpan="5" style="text-align:center;">No items recorded</td></tr>'}
+          </tbody>
+        </table>
+
+        <div class="collect-box">
+          <span>COURIER: COLLECT DELIVERY FEE</span>
+          <span class="val">${deliveryFeeToCollect.toLocaleString()} DA</span>
+        </div>
+        <div class="footer" style="margin-top: 40px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 15px; font-weight: 500;">
+          ByBens Supplements &nbsp;•&nbsp; 📞 +213 662 269 449 &nbsp;•&nbsp; ✉️ contact@bybens.com &nbsp;•&nbsp; 📸 @BENS.SUPPLEMENTS &nbsp;•&nbsp; 🌐 www.bybens.com
         </div>
       </body>
       </html>
@@ -217,12 +374,27 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Datalist for inventory SKU / Product Autocomplete in Modal */}
+      <datalist id="preorder-inventory-skus-list">
+        {inventoryItems.map(item => (
+          <option key={item.id} value={item.id}>{item.brand ? item.brand + ' - ' : ''}{item.name} ({item.variant_spec || item.size || 'Default'})</option>
+        ))}
+      </datalist>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Pre-Orders Manager</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Manage customer pre-orders, download customer invoices & courier slips.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Manage customer pre-orders, create new orders, and print customer invoices & courier slips.</p>
         </div>
+
+        <button
+          onClick={handleOpenAddModal}
+          className="flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New Pre-Order</span>
+        </button>
       </div>
 
       {/* Filter */}
@@ -289,6 +461,13 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
+                        <button
+                          onClick={() => handleOpenEditModal(p)}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs"
+                        >
+                          Edit
+                        </button>
+
                         {/* Download / Print Dropdown */}
                         <div className="relative">
                           <button
@@ -350,7 +529,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
               {filteredPreorders.length === 0 && (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-400">
-                    No pre-orders recorded.
+                    No pre-orders recorded. Click "+ New Pre-Order" to create one.
                   </td>
                 </tr>
               )}
@@ -358,6 +537,169 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
           </table>
         </div>
       </div>
+
+      {/* ── NEW / EDIT PRE-ORDER MODAL ── */}
+      {isAddEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900 text-base">
+                {editingPreorderId ? `Edit Pre-Order — ${editingPreorderId}` : 'New Pre-Order'}
+              </h3>
+              <button onClick={() => setIsAddEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Customer Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Mohamed Karim"
+                    value={custName}
+                    onChange={(e) => setCustName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Customer Phone *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 0550123456"
+                    value={custPhone}
+                    onChange={(e) => setCustPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Notes / Instructions</label>
+                <textarea
+                  placeholder="Delivery timeline, batch notes..."
+                  value={custNotes}
+                  onChange={(e) => setCustNotes(e.target.value)}
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                />
+              </div>
+
+              {/* Items List Builder */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Order Items List</h4>
+                  <button
+                    type="button"
+                    onClick={() => setItemRows([...itemRows, { product_id: '', product_name: '', variant: '', flavor: '', qty: 1, unit_price: 0 }])}
+                    className="text-xs font-bold text-red-700 hover:text-red-800 flex items-center gap-1"
+                  >
+                    + Add Item Row
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {itemRows.map((row, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-5">
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Product SKU / Name</label>
+                        <input
+                          type="text"
+                          list="preorder-inventory-skus-list"
+                          placeholder="Search SKU or Name..."
+                          value={row.product_name}
+                          onChange={(e) => handleSelectInventoryItem(idx, e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-1.5 font-bold text-xs"
+                        />
+                      </div>
+
+                      <div className="col-span-3">
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Variant Spec</label>
+                        <input
+                          type="text"
+                          placeholder="2.27kg"
+                          value={row.variant}
+                          onChange={(e) => {
+                            const next = [...itemRows];
+                            next[idx].variant = e.target.value;
+                            setItemRows(next);
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs"
+                        />
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Qty</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={row.qty}
+                          onChange={(e) => {
+                            const next = [...itemRows];
+                            next[idx].qty = parseInt(e.target.value) || 1;
+                            setItemRows(next);
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-1.5 font-bold text-xs text-center"
+                        />
+                      </div>
+
+                      <div className="col-span-2 flex items-center gap-1 justify-end pt-4">
+                        <span className="font-bold text-slate-900 text-xs">
+                          {((row.unit_price || 0) * row.qty).toLocaleString()} DA
+                        </span>
+                        {itemRows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setItemRows(itemRows.filter((_, i) => i !== idx))}
+                            className="text-rose-600 hover:text-rose-800 p-1"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Status</label>
+                <select
+                  value={custStatus}
+                  onChange={(e) => setCustStatus(e.target.value as PreOrder['status'])}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="fulfilled">Fulfilled</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setIsAddEditModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePreorderModal}
+                className="px-6 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save Pre-Order</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── PREORDER ITEMS MODAL ── */}
       {selectedPreorder && (

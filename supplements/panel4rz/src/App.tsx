@@ -541,6 +541,64 @@ export default function App() {
   };
 
   // ── PREORDER MUTATIONS ──
+  const handleSavePreorder = async (preorderData: Partial<PreOrder>, items: any[]) => {
+    const preId = preorderData.id || `PRE-${Date.now()}`;
+    const newPreorder: PreOrder = {
+      id: preId,
+      customer_name: preorderData.customer_name || 'Customer',
+      customer_phone: preorderData.customer_phone || '',
+      notes: preorderData.notes || '',
+      status: preorderData.status || 'pending',
+      total_amount: Number(preorderData.total_amount) || 0,
+      date: preorderData.date || new Date().toISOString()
+    };
+
+    const newItems = items.map(itm => ({
+      id: `pre_item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      pre_order_id: preId,
+      product_id: itm.product_id || '',
+      product_name: itm.product_name || '',
+      variant: itm.variant || null,
+      flavor: itm.flavor || null,
+      qty: Number(itm.qty) || 1,
+      unit_price: Number(itm.unit_price) || 0
+    }));
+
+    setPreorders(prev => {
+      const idx = prev.findIndex(p => p.id === preId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = newPreorder;
+        return next;
+      }
+      return [newPreorder, ...prev];
+    });
+
+    setPreorderItems(prev => [
+      ...prev.filter(i => i.pre_order_id !== preId),
+      ...newItems
+    ]);
+
+    try {
+      await supabase.from('pre_orders').upsert({
+        id: newPreorder.id,
+        customer_name: newPreorder.customer_name,
+        customer_phone: newPreorder.customer_phone,
+        notes: newPreorder.notes,
+        status: newPreorder.status,
+        total_amount: newPreorder.total_amount,
+        date: newPreorder.date
+      }, { onConflict: 'id' });
+
+      await supabase.from('pre_order_items').delete().eq('pre_order_id', preId);
+      if (newItems.length > 0) {
+        await supabase.from('pre_order_items').insert(newItems);
+      }
+    } catch(e) {}
+
+    showToast(`✓ Pre-order #${preId} saved successfully!`);
+  };
+
   const handleTogglePreorderStatus = async (preorderId: string, currentStatus: PreOrder['status']) => {
     const nextStatus = currentStatus === 'fulfilled' ? 'pending' : 'fulfilled';
     try {
@@ -819,6 +877,7 @@ export default function App() {
                 products={products}
                 onToggleStatus={handleTogglePreorderStatus}
                 onDeletePreorder={handleDeletePreorder}
+                onSavePreorder={handleSavePreorder}
                 defaultEurRate={eurRate}
               />
             )}
