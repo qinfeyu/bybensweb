@@ -29,12 +29,14 @@ async function adjustStock(items: any[], direction: number) {
   if (!items || items.length === 0) return;
 
   for (const item of items) {
-    if (!item.productId) continue;
+    const prodId = item.productId || item.product_id;
+    if (!prodId) continue;
     const qty = Number(item.qty) || 1;
-    const itemVariantLabel = String(item.variant || "").trim().toLowerCase();
-    const itemFlavor = String(item.flavor || "").trim();
+    const rawVariant = String(item.variant || "").trim().toLowerCase();
+    const rawFlavor = String(item.flavor || "").trim();
+    const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
 
-    const { data: rows } = await sb.from("products").select("*").eq("id", item.productId).limit(1);
+    const { data: rows } = await sb.from("products").select("*").eq("id", prodId).limit(1);
     if (!rows || rows.length === 0) continue;
     const prod = rows[0];
 
@@ -51,73 +53,75 @@ async function adjustStock(items: any[], direction: number) {
     }
 
     const variants: any[] = prod.variants || [];
-    const flavors: any[] = prod.flavors || [];
-
     let matchedIdx = -1;
-    if (itemVariantLabel && variants.length > 0) {
-      matchedIdx = variants.findIndex((v: any) => {
-        if (typeof v !== "object") return String(v).toLowerCase() === itemVariantLabel;
-        const vLabel = v.weight
-          ? `${v.weight}${v.unit || ""}`.trim().toLowerCase()
-          : String(v.label || v.name || "").trim().toLowerCase();
-        return vLabel === itemVariantLabel;
-      });
+
+    if (variants.length > 0) {
+      if (cleanVar) {
+        matchedIdx = variants.findIndex((v: any) => {
+          if (typeof v !== "object") return String(v).toLowerCase().replace(/\s+/g, "") === cleanVar;
+          const vWeight = String(v.weight || "").toLowerCase().replace(/\s+/g, "");
+          const vUnit = String(v.unit || "").toLowerCase().replace(/\s+/g, "");
+          const vCombo = (vWeight + vUnit);
+          const vLabel = String(v.label || v.name || "").toLowerCase().replace(/\s+/g, "");
+          return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || cleanVar.includes(vWeight);
+        });
+      }
+      if (matchedIdx < 0) matchedIdx = 0;
     }
 
-    if (matchedIdx >= 0) {
+    let linkedSku = "";
+
+    if (matchedIdx >= 0 && variants[matchedIdx]) {
       const v = variants[matchedIdx];
       let matchedFlavorKey = "";
-      if (itemFlavor && v.flavorStock) {
-        matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === itemFlavor.toLowerCase()) || "";
+      if (rawFlavor && v.flavorStock) {
+        matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase()) || "";
       }
-      if (matchedFlavorKey) {
+      if (!matchedFlavorKey && v.flavorStock && Object.keys(v.flavorStock).length === 1) {
+        matchedFlavorKey = Object.keys(v.flavorStock)[0];
+      }
+
+      if (matchedFlavorKey && v.flavorStock) {
         v.flavorStock[matchedFlavorKey] = Math.max(0, (Number(v.flavorStock[matchedFlavorKey]) || 0) + direction * qty);
         v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
         if (direction < 0 && v.flavorStock[matchedFlavorKey] === 0) {
-          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} – ${matchedFlavorKey} (${itemVariantLabel}) is now out of stock.`);
+          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} – ${matchedFlavorKey} is now out of stock.`);
         }
       } else {
         v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
         if (direction < 0 && v.stock === 0) {
-          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} (${itemVariantLabel}) is now out of stock.`);
+          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} is now out of stock.`);
         }
       }
-      const linkedSku = (matchedFlavorKey && v.flavorSkus) ? v.flavorSkus[matchedFlavorKey] : v.sku;
-      if (linkedSku) {
-        try {
-          const { data: inv } = await sb.from("inventory_items").select("stock").eq("id", linkedSku).single();
-          if (inv) {
-            const newInvStock = Math.max(0, (Number(inv.stock) || 0) + direction * qty);
-            await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", linkedSku);
-          }
-        } catch (_) {}
+
+      // Find linked SKU
+      if (matchedFlavorKey && v.flavorSkus) {
+        linkedSku = v.flavorSkus[matchedFlavorKey] || "";
       }
+      if (!linkedSku && v.flavorSkus && rawFlavor) {
+        const fk = Object.keys(v.flavorSkus).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase());
+        if (fk) linkedSku = v.flavorSkus[fk] || "";
+      }
+      if (!linkedSku && v.sku) linkedSku = v.sku;
 
       const newGlobal = variants.reduce((s: number, vv: any) => s + (typeof vv === "object" ? Number(vv.stock) || 0 : 0), 0);
-      await sb.from("products").update({ variants, stock: newGlobal }).eq("id", item.productId);
-      continue;
+      await sb.from("products").update({ variants, stock: newGlobal }).eq("id", prodId);
+    } else {
+      const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
+      await sb.from("products").update({ stock: newStock }).eq("id", prodId);
     }
 
-    // Fallback: old system
-    let updatedFlavors = flavors;
-    if (itemFlavor) {
-      let changed = false;
-      updatedFlavors = flavors.map((f: any) => {
-        const fName = typeof f === "object" ? String(f.name || "") : String(f);
-        if (fName.toLowerCase() === itemFlavor.toLowerCase()) {
-          changed = true;
-          return { ...f, qty: Math.max(0, (Number(f.qty) || 0) + direction * qty) };
+    // ── DEDUCT / RESTORE INVENTORY ITEM SKU STOCK ──
+    if (linkedSku) {
+      try {
+        const { data: inv } = await sb.from("inventory_items").select("stock").eq("id", linkedSku).single();
+        if (inv) {
+          const newInvStock = Math.max(0, (Number(inv.stock) || 0) + direction * qty);
+          await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", linkedSku);
         }
-        return f;
-      });
-      if (changed) {
-        await sb.from("products").update({ flavors: updatedFlavors }).eq("id", item.productId);
+      } catch (err) {
+        console.error("Error updating SKU inventory stock:", err);
       }
-    }
-    const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-    await sb.from("products").update({ stock: newStock }).eq("id", item.productId);
-    if (direction < 0 && newStock === 0) {
-      await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name}${itemFlavor ? " – " + itemFlavor : ""} is now out of stock.`);
     }
   }
 }
