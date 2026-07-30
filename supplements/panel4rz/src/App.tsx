@@ -248,6 +248,11 @@ export default function App() {
         imageUrl: Array.isArray(p.image_url) ? p.image_url : (p.image_url ? [p.image_url] : []),
         variants: p.variants || [],
         flavors: p.flavors || [],
+        flavorImages: (() => {
+          if (!p.flavor_images) return {};
+          if (typeof p.flavor_images === 'object' && !Array.isArray(p.flavor_images)) return p.flavor_images;
+          try { const parsed = JSON.parse(String(p.flavor_images)); return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {}; } catch(e) { return {}; }
+        })(),
         stock: Number(p.stock) || 0,
         discount: Number(p.discount) || 0,
         status: p.status || 'active',
@@ -442,6 +447,7 @@ export default function App() {
       image_url: payload.imageUrl,
       variants: payload.variants || [],
       flavors: payload.flavors || [],
+      flavor_images: payload.flavorImages || {},
       stock: payload.stock,
       discount: payload.discount || 0,
       status: payload.status,

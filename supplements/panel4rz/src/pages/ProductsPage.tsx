@@ -198,7 +198,12 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
       setVariants(initialVariants);
       setFlavors(initialFlavors);
-      setFlavorImages(prod.flavorImages || {});
+      setFlavorImages((() => {
+        const fi = (prod as any).flavorImages;
+        if (!fi) return {};
+        if (typeof fi === 'object' && !Array.isArray(fi)) return fi;
+        try { const p2 = JSON.parse(String(fi)); return (p2 && typeof p2 === 'object' && !Array.isArray(p2)) ? p2 : {}; } catch(e) { return {}; }
+      })());
 
       // Reconstruct matrix values from variant flavorStock
       const matrix: Record<string, number> = {};
