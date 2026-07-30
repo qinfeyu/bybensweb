@@ -72,12 +72,94 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       }
     });
 
-    return Array.from(map.values());
+    const initialList = Array.from(map.values());
+    if (initialList.length === 0) {
+      return [
+        {
+          id: 'cust_0550123456',
+          name: 'Mohamed Karim',
+          phone: '0550123456',
+          wilaya: 'Alger',
+          commune: 'Bab Ezzouar',
+          group: 'public'
+        },
+        {
+          id: 'cust_0661987654',
+          name: 'Sofiane Amrani',
+          phone: '0661987654',
+          wilaya: 'Oran',
+          commune: 'Es Senia',
+          group: 'public'
+        },
+        {
+          id: 'cust_0770112233',
+          name: 'Yacine Brahimi',
+          phone: '0770112233',
+          wilaya: 'Constantine',
+          commune: 'Zighoud Youcef',
+          group: 'private'
+        },
+        {
+          id: 'cust_0555443322',
+          name: 'Fitness Club Alger (Gym VIP)',
+          phone: '0555443322',
+          wilaya: 'Alger',
+          commune: 'Hydra',
+          group: 'private'
+        }
+      ];
+    }
+
+    return initialList;
   });
 
   const saveLocalCustomers = (nextCusts: Customer[]) => {
     setLocalCustomers(nextCusts);
     localStorage.setItem('bb_customers_cache', JSON.stringify(nextCusts));
+  };
+
+  const handleSeedSampleCustomers = async () => {
+    const sampleCusts: Customer[] = [
+      {
+        id: 'cust_0550123456',
+        name: 'Mohamed Karim',
+        phone: '0550123456',
+        wilaya: 'Alger',
+        commune: 'Bab Ezzouar',
+        group: 'public'
+      },
+      {
+        id: 'cust_0661987654',
+        name: 'Sofiane Amrani',
+        phone: '0661987654',
+        wilaya: 'Oran',
+        commune: 'Es Senia',
+        group: 'public'
+      },
+      {
+        id: 'cust_0770112233',
+        name: 'Yacine Brahimi',
+        phone: '0770112233',
+        wilaya: 'Constantine',
+        commune: 'Zighoud Youcef',
+        group: 'private'
+      },
+      {
+        id: 'cust_0555443322',
+        name: 'Fitness Club Alger (Gym VIP)',
+        phone: '0555443322',
+        wilaya: 'Alger',
+        commune: 'Hydra',
+        group: 'private'
+      }
+    ];
+
+    saveLocalCustomers(sampleCusts);
+    if (onSaveCustomer) {
+      for (const c of sampleCusts) {
+        await onSaveCustomer(c);
+      }
+    }
   };
 
   // Filter customers by group tab & search query

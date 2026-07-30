@@ -286,6 +286,30 @@ export default function App() {
       const expRes = await supabase.from('expenses').select('*').order('date', { ascending: false });
       if (expRes.data) setExpenses(expRes.data);
 
+      // 7. Fetch Customers
+      const custRes = await supabase.from('customers').select('*');
+      const cloudCusts: Customer[] = (custRes.data || []).map((c: any) => ({
+        id: String(c.id),
+        name: c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Customer',
+        phone: c.phone || '',
+        wilaya: c.wilaya || '',
+        commune: c.commune || '',
+        group: c.group_type || c.group || 'public'
+      }));
+
+      let localCusts: Customer[] = [];
+      try {
+        localCusts = JSON.parse(localStorage.getItem('bb_customers_cache') || '[]');
+      } catch(e) {}
+
+      const mergedCustMap = new Map<string, Customer>();
+      localCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
+      cloudCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
+
+      const finalCusts = Array.from(mergedCustMap.values());
+      setCustomers(finalCusts);
+      localStorage.setItem('bb_customers_cache', JSON.stringify(finalCusts));
+
       // 7. Fetch Settings
       const setRes = await supabase.from('settings').select('*');
       if (setRes.data) {
