@@ -76,7 +76,8 @@ export interface Product {
   promoCodeIds?: string[];
   bundleItems?: BundleItem[];
   variants?: ProductVariant[];
-  flavors?: string[];
+  flavors?: (string | { name: string; image?: string; imageIndex?: number })[];
+  flavorImages?: Record<string, string>;
 }
 
 export interface OrderItem {

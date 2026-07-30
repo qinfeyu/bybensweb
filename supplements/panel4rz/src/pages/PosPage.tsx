@@ -559,10 +559,30 @@ export const PosPage: React.FC<PosPageProps> = ({
       </div>
 
       {/* ── VARIANT & FLAVOR SELECTOR MODAL ── */}
-      {selectedProduct && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <h3 className="font-bold text-slate-900 text-base">{selectedProduct.name}</h3>
+      {selectedProduct && (() => {
+        const pImgs = Array.isArray(selectedProduct.imageUrl) ? selectedProduct.imageUrl : (selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []);
+        const vImgIdx = selectedProduct.variants?.[selectedVariantIdx]?.imageIndex;
+        const linkedFlavorImg = selectedProduct.flavorImages?.[selectedFlavor];
+        const displayImg = linkedFlavorImg || (vImgIdx !== undefined ? pImgs[vImgIdx] : pImgs[0]);
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3">
+                {displayImg && (
+                  <div className="w-14 h-14 bg-slate-100 rounded-xl border border-slate-200 overflow-hidden shrink-0 shadow-2xs">
+                    <img src={displayImg} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">{selectedProduct.name}</h3>
+                  {selectedFlavor && (
+                    <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                      Picture: {selectedFlavor}
+                    </span>
+                  )}
+                </div>
+              </div>
 
             {/* Variant Selector */}
             {selectedProduct.variants && selectedProduct.variants.length > 0 && (

@@ -143,6 +143,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   // Variant Matrix Editor States
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [flavors, setFlavors] = useState<string[]>([]);
+  const [flavorImages, setFlavorImages] = useState<Record<string, string>>({});
   const [flavorStockMatrix, setFlavorStockMatrix] = useState<Record<string, number>>({});
   const [previewVariantImgIdx, setPreviewVariantImgIdx] = useState<number | null>(null);
 
@@ -197,6 +198,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
       setVariants(initialVariants);
       setFlavors(initialFlavors);
+      setFlavorImages(prod.flavorImages || {});
 
       // Reconstruct matrix values from variant flavorStock
       const matrix: Record<string, number> = {};
@@ -431,6 +433,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       bundleItems: isBundle ? bundleItems : [],
       variants: isBundle ? [] : updatedVariants,
       flavors: isBundle ? [] : flavors,
+      flavorImages: isBundle ? {} : flavorImages,
       stock: computedStock,
       status: editingProduct.status || 'active',
       hidden: editingProduct.hidden || false
@@ -1043,10 +1046,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     })}
                   </div>
 
-                  {/* Flavors Row Builder */}
+                  {/* Flavors Row Builder with Linked Picture Selection */}
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Flavors</h4>
+                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Flavors & Linked Pictures</h4>
                       <button
                         onClick={() => setFlavors([...flavors, `Flavor ${flavors.length + 1}`])}
                         className="text-xs font-semibold text-red-700 hover:text-red-800 flex items-center gap-1"
@@ -1055,24 +1058,66 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                       </button>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {flavors.map((flv, fIdx) => (
-                        <div key={fIdx} className="flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-xs">
-                          <input
-                            type="text"
-                            value={typeof flv === 'object' ? (flv as any).name || String(flv) : String(flv)}
-                            onChange={(e) => {
-                              const next = [...flavors];
-                              next[fIdx] = e.target.value;
-                              setFlavors(next);
-                            }}
-                            className="bg-transparent border-none font-medium focus:outline-none w-24"
-                          />
-                          <button onClick={() => setFlavors(flavors.filter((_, i) => i !== fIdx))} className="text-slate-400 hover:text-rose-600">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {flavors.map((flv, fIdx) => {
+                        const fName = typeof flv === 'object' ? (flv as any).name || String(flv) : String(flv);
+                        const currentImg = flavorImages[fName] || imageUrls[0] || '';
+
+                        return (
+                          <div key={fIdx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 text-xs">
+                            {/* Flavor Picture Thumbnail */}
+                            <div className="w-7 h-7 bg-slate-200 rounded-lg overflow-hidden border border-slate-300 shrink-0">
+                              {currentImg ? (
+                                <img src={currentImg} alt={fName} className="w-full h-full object-cover" />
+                              ) : (
+                                <ImageIcon className="w-3.5 h-3.5 text-slate-400 m-auto mt-1.5" />
+                              )}
+                            </div>
+
+                            <input
+                              type="text"
+                              value={fName}
+                              onChange={(e) => {
+                                const newName = e.target.value;
+                                const next = [...flavors];
+                                next[fIdx] = newName;
+                                setFlavors(next);
+
+                                // Migrate flavor image key if renamed
+                                if (flavorImages[fName]) {
+                                  const nextImgMap = { ...flavorImages };
+                                  nextImgMap[newName] = nextImgMap[fName];
+                                  delete nextImgMap[fName];
+                                  setFlavorImages(nextImgMap);
+                                }
+                              }}
+                              className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-bold text-xs flex-1"
+                              placeholder="Flavor Name"
+                            />
+
+                            {/* Select Linked Picture */}
+                            <select
+                              value={currentImg}
+                              onChange={(e) => {
+                                setFlavorImages({
+                                  ...flavorImages,
+                                  [fName]: e.target.value
+                                });
+                              }}
+                              className="bg-white border border-slate-200 rounded-lg p-1 text-[11px] max-w-[110px]"
+                            >
+                              <option value="">(No Picture)</option>
+                              {imageUrls.map((url, imgIdx) => (
+                                <option key={imgIdx} value={url}>Image #{imgIdx + 1}</option>
+                              ))}
+                            </select>
+
+                            <button onClick={() => setFlavors(flavors.filter((_, i) => i !== fIdx))} className="text-slate-400 hover:text-rose-600 p-1">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1085,9 +1130,32 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                           <thead className="bg-slate-100 font-bold text-slate-600">
                             <tr>
                               <th className="p-2.5">Variant & Picture</th>
-                              {flavors.map((f, i) => (
-                                <th key={i} className="p-2.5 text-center">{typeof f === 'object' ? (f as any).name : String(f)}</th>
-                              ))}
+                              {flavors.map((f, i) => {
+                                const fName = typeof f === 'object' ? (f as any).name : String(f);
+                                const fImg = flavorImages[fName] || imageUrls[0] || '';
+
+                                return (
+                                  <th key={i} className="p-2.5 text-center">
+                                    <div className="flex flex-col items-center gap-1">
+                                      <div
+                                        onClick={() => {
+                                          const foundIdx = imageUrls.findIndex(u => u === fImg);
+                                          if (foundIdx >= 0) setPreviewVariantImgIdx(foundIdx);
+                                        }}
+                                        className="w-6 h-6 bg-white rounded border border-slate-300 overflow-hidden cursor-pointer shadow-2xs"
+                                        title={`Click to preview image for ${fName}`}
+                                      >
+                                        {fImg ? (
+                                          <img src={fImg} alt={fName} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <ImageIcon className="w-3 h-3 text-slate-400 m-auto mt-1" />
+                                        )}
+                                      </div>
+                                      <span>{fName}</span>
+                                    </div>
+                                  </th>
+                                );
+                              })}
                               <th className="p-2.5 text-center">Row Total</th>
                             </tr>
                           </thead>
