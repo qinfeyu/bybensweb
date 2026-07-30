@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from './lib/supabase';
 import type { 
   TabType, 
@@ -14,7 +14,7 @@ import type {
   SubCategory,
   PromoCode
 } from './types';
-import { Lock, Mail, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users } from 'lucide-react';
 
 // Layout
 import { Sidebar } from './components/Sidebar';
@@ -34,6 +34,34 @@ import { SettingsPage } from './pages/SettingsPage';
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // ── Notification bell + global search ──
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Global keyboard shortcut: '/' opens search, Escape closes
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && !searchOpen && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      if (e.key === 'Escape') { setSearchOpen(false); setNotifOpen(false); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [searchOpen]);
+
+  // Click outside to close notification dropdown
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e: MouseEvent) => { if (!(e.target as Element).closest('[data-notif]')) setNotifOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [notifOpen]);
+
 
   // ── AUTHENTICATION STATE ──
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -777,6 +805,39 @@ export default function App() {
     } catch(e) {}
   };
 
+  // ── Global search results ──
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const results: { type: string; title: string; sub: string; tab: string }[] = [];
+
+    // Search orders
+    orders.filter(o => {
+      const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim().toLowerCase();
+      const phone = (o.phone || '').toLowerCase();
+      return name.includes(q) || phone.includes(q) || String(o.id).toLowerCase().includes(q);
+    }).slice(0, 5).forEach(o => {
+      const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || '—';
+      results.push({ type: 'order', title: name, sub: `${o.status} · ${Number(o.total || 0).toLocaleString('fr-DZ')} DA`, tab: 'orders' });
+    });
+
+    // Search products
+    products.filter(p => p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q)).slice(0, 4).forEach(p => {
+      results.push({ type: 'product', title: `${p.brand ? p.brand + ' ' : ''}${p.name}`, sub: `${p.status} · ${(p.variants || []).length} variants`, tab: 'products' });
+    });
+
+    // Search customers
+    customers.filter(c => {
+      const name = `${c.first_name || ''} ${c.last_name || ''} ${c.name || ''}`.trim().toLowerCase();
+      return name.includes(q) || (c.phone || '').includes(q);
+    }).slice(0, 4).forEach(c => {
+      const name = `${c.first_name || ''} ${c.last_name || ''} ${c.name || ''}`.trim() || '—';
+      results.push({ type: 'customer', title: name, sub: `${c.phone || ''} · ${c.wilaya || ''}`, tab: 'customers' });
+    });
+
+    return results.slice(0, 10);
+  }, [searchQuery, orders, products, customers]);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
       {/* Toast Notifications */}
@@ -811,7 +872,74 @@ export default function App() {
         />
 
         {/* Content View Container */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto">
+          {/* Top bar: notification bell + search */}
+          <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-md border-b border-slate-200/60 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-end gap-2 print:hidden">
+            {/* Global Search Trigger */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="flex items-center gap-2 text-xs text-slate-400 bg-white border border-slate-200 rounded-xl px-3 py-2 hover:shadow-sm hover:border-slate-300 transition-all w-48 text-left"
+            >
+              <Search className="w-3.5 h-3.5 shrink-0" />
+              <span>Search...</span>
+              <kbd className="ml-auto text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-mono">/</kbd>
+            </button>
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen(v => !v)}
+                className="relative p-2 rounded-xl bg-white border border-slate-200 hover:shadow-sm transition-all"
+              >
+                <Bell className="w-4 h-4 text-slate-600" />
+                {orders.filter(o => o.status === 'waiting').length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                    {Math.min(orders.filter(o => o.status === 'waiting').length, 9)}
+                  </span>
+                )}
+              </button>
+              {/* Notification Dropdown */}
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <span className="font-bold text-sm text-slate-900">Notifications</span>
+                    <button onClick={() => setNotifOpen(false)}><X className="w-4 h-4 text-slate-400" /></button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
+                    {orders.filter(o => o.status === 'waiting').length === 0 ? (
+                      <div className="p-4 text-xs text-slate-400 text-center">No pending orders</div>
+                    ) : orders.filter(o => o.status === 'waiting').slice(0, 8).map(o => (
+                      <div key={o.id} onClick={() => { setActiveTab('orders'); setNotifOpen(false); }} className="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center shrink-0"><Package className="w-3.5 h-3.5 text-amber-600" /></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold text-slate-900 truncate">
+                              {`${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || '—'}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{Number(o.total || 0).toLocaleString('fr-DZ')} DA · Waiting</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {inventoryItems.filter(i => i.type !== 'snack' && (Number(i.stock) || 0) <= 2).slice(0, 5).map(i => (
+                      <div key={`stock-${i.id}`} onClick={() => { setActiveTab('inventory'); setNotifOpen(false); }} className="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center shrink-0"><span className="text-sm">⚠️</span></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold text-slate-900 truncate">{i.name}</div>
+                            <div className="text-[10px] text-slate-400">Low stock: {i.stock} units</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-3 border-t border-slate-100">
+                    <button onClick={() => { setActiveTab('dashboard'); setNotifOpen(false); }} className="text-xs font-bold text-red-700 hover:text-red-800 w-full text-center">View all on Dashboard →</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
             {isLoading && (
               <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl text-xs font-semibold flex items-center justify-between">
@@ -830,6 +958,7 @@ export default function App() {
                 expenses={expenses}
                 eurRate={eurRate}
                 customers={customers}
+                onUpdateOrderStatus={handleUpdateOrderStatus}
               />
             )}
 
@@ -945,8 +1074,52 @@ export default function App() {
               />
             )}
           </div>
+          </div>
         </main>
       </div>
+
+      {/* ── Global Search Modal ── */}
+      {searchOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4" onClick={() => setSearchOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search orders, products, customers..."
+                className="flex-1 text-sm outline-none text-slate-900 placeholder:text-slate-400"
+                autoFocus
+              />
+              <button onClick={() => setSearchOpen(false)}><X className="w-4 h-4 text-slate-400" /></button>
+            </div>
+            <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
+              {searchQuery.trim().length < 2 ? (
+                <div className="p-6 text-center text-xs text-slate-400">Type at least 2 characters to search</div>
+              ) : searchResults.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">No results for &ldquo;{searchQuery}&rdquo;</div>
+              ) : searchResults.map((r, i) => (
+                <div key={i} onClick={() => { setActiveTab(r.tab as any); setSearchOpen(false); setSearchQuery(''); }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-sm ${r.type === 'order' ? 'bg-blue-50' : r.type === 'product' ? 'bg-emerald-50' : 'bg-sky-50'}`}>
+                    {r.type === 'order' ? '📦' : r.type === 'product' ? '🧴' : '👤'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-slate-900 truncate">{r.title}</div>
+                    <div className="text-[10px] text-slate-400">{r.sub}</div>
+                  </div>
+                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full capitalize shrink-0">{r.type}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-2.5 border-t border-slate-100 text-[10px] text-slate-400 flex items-center gap-3">
+              <span><kbd className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">Esc</kbd> to close</span>
+              <span><kbd className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">Enter</kbd> to navigate</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
