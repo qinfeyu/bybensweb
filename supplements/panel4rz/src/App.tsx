@@ -68,8 +68,7 @@ export function App() {
     rate: Number(item.rate) || 280,
     delivery_dzd: Number(item.delivery_dzd) || 0,
     retail_dzd: Number(item.retail_dzd) || 0,
-    stock: Number(item.stock) || 0,
-    stock_eu: Number(item.stock_eu) || 0
+    stock: Number(item.stock) || 0
   });
 
   // ── LOAD ALL DATA ──
@@ -116,6 +115,13 @@ export function App() {
             stock: finalStock,
             stock_eu: finalStockEu
           });
+        }
+      });
+
+      // Preserving local-only items not present in cloudInv yet
+      localInv.forEach(item => {
+        if (item.id && !cloudInv.some(c => c.id === item.id)) {
+          mergedInvMap.set(item.id, item);
         }
       });
 
@@ -186,38 +192,40 @@ export function App() {
     const payload = { ...item, _lastUpdated: new Date().toISOString() };
     const dbPayload = toDbInventoryPayload(payload);
 
+    setInventoryItems(prev => {
+      const nextInv = [...prev];
+      const idx = nextInv.findIndex(x => x.id === item.id);
+      if (idx >= 0) nextInv[idx] = payload;
+      else nextInv.push(payload);
+      localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
+      return nextInv;
+    });
+
     try {
       const { error } = await supabase.from('inventory_items').upsert(dbPayload, { onConflict: 'id' });
       if (error) console.warn("Supabase inventory upsert notice:", error.message);
     } catch(e) {}
-
-    const nextInv = [...inventoryItems];
-    const idx = nextInv.findIndex(x => x.id === item.id);
-    if (idx >= 0) nextInv[idx] = payload;
-    else nextInv.push(payload);
-
-    setInventoryItems(nextInv);
-    localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
   };
 
   const handleSaveBulkInventoryItems = async (items: InventoryItem[]) => {
     const payloads = items.map(i => ({ ...i, _lastUpdated: new Date().toISOString() }));
     const dbPayloads = payloads.map(toDbInventoryPayload);
 
+    setInventoryItems(prev => {
+      const nextInv = [...prev];
+      payloads.forEach(item => {
+        const idx = nextInv.findIndex(x => x.id === item.id);
+        if (idx >= 0) nextInv[idx] = { ...nextInv[idx], ...item };
+        else nextInv.push(item);
+      });
+      localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
+      return nextInv;
+    });
+
     try {
       const { error } = await supabase.from('inventory_items').upsert(dbPayloads, { onConflict: 'id' });
       if (error) console.warn("Supabase bulk inventory upsert notice:", error.message);
     } catch(e) {}
-
-    const nextInv = [...inventoryItems];
-    payloads.forEach(item => {
-      const idx = nextInv.findIndex(x => x.id === item.id);
-      if (idx >= 0) nextInv[idx] = { ...nextInv[idx], ...item };
-      else nextInv.push(item);
-    });
-
-    setInventoryItems(nextInv);
-    localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
   };
 
   const handleDeleteInventoryItem = async (id: string) => {
