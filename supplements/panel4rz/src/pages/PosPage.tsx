@@ -645,7 +645,8 @@ export const PosPage: React.FC<PosPageProps> = ({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
