@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Product, InventoryItem, ProductVariant, BundleItem, Category, SubCategory, PromoCode } from '../types';
+import { uploadToCloudinary } from '../lib/cloudinary';
 import { 
   Boxes, 
   Plus, 
@@ -14,7 +15,8 @@ import {
   PackageCheck, 
   Sparkles,
   Upload,
-  Star
+  Star,
+  Loader2
 } from 'lucide-react';
 
 interface ProductsPageProps {
@@ -58,9 +60,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   // Form tab state in modal
   const [modalTab, setModalTab] = useState<'basic' | 'images' | 'categories' | 'variants' | 'bundle'>('basic');
 
-  // Images state
+  // Images & Cloudinary Upload state
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   // Categories & Promos state
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
@@ -144,11 +147,28 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
     setIsModalOpen(true);
   };
 
-  // Image Gallery Handlers
-  const handleAddImage = () => {
+  // Image Gallery & Cloudinary Handlers
+  const handleAddImageUrl = () => {
     if (!newImageUrl.trim()) return;
     setImageUrls([...imageUrls, newImageUrl.trim()]);
     setNewImageUrl('');
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      setImageUrls(prev => [...prev, url]);
+      showToast("✓ Image uploaded to Cloudinary!");
+    } catch (err: any) {
+      showToast("Upload error: " + err.message, "error");
+    } finally {
+      setIsUploading(false);
+      event.target.value = "";
+    }
   };
 
   const handleRemoveImage = (index: number) => {
@@ -303,7 +323,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Products Catalog</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Manage storefront products, image galleries, categories, bundles & stock matrices.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Manage storefront products, Cloudinary images, categories, bundles & stock matrices.</p>
         </div>
 
         <button
@@ -549,25 +569,53 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 </div>
               )}
 
-              {/* TAB 2: IMAGE GALLERY */}
+              {/* TAB 2: IMAGE GALLERY & CLOUDINARY UPLOADER */}
               {modalTab === 'images' && (
                 <div className="space-y-4">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Paste Image URL (Cloudinary / HTTPS link)..."
-                      value={newImageUrl}
-                      onChange={(e) => setNewImageUrl(e.target.value)}
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-900"
-                    />
-                    <button
-                      onClick={handleAddImage}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl"
-                    >
-                      + Add Image
-                    </button>
+                  {/* Upload Controls */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      {/* Cloudinary File Input Button */}
+                      <label className={`flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl cursor-pointer shadow-sm transition-all text-xs w-full sm:w-auto ${
+                        isUploading ? 'opacity-50 pointer-events-none' : ''
+                      }`}>
+                        {isUploading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        <span>{isUploading ? 'Uploading to Cloudinary...' : '☁️ Upload File to Cloudinary'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                          disabled={isUploading}
+                        />
+                      </label>
+
+                      <span className="text-slate-400 font-semibold text-xs">or paste image link:</span>
+
+                      {/* Image URL Input */}
+                      <div className="flex flex-1 gap-2 w-full sm:w-auto">
+                        <input
+                          type="text"
+                          placeholder="Paste image URL (HTTPS / Cloudinary link)..."
+                          value={newImageUrl}
+                          onChange={(e) => setNewImageUrl(e.target.value)}
+                          className="flex-1 bg-white border border-slate-200 rounded-xl p-2 font-medium text-slate-900"
+                        />
+                        <button
+                          onClick={handleAddImageUrl}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl"
+                        >
+                          + Add URL
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
+                  {/* Gallery Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {imageUrls.map((url, idx) => (
                       <div key={idx} className="relative bg-slate-100 rounded-xl border border-slate-200 overflow-hidden group">
