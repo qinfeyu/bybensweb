@@ -7055,7 +7055,8 @@
         let csvLines = [headers.join(",")];
         
         items.forEach(item => {
-          const landed = (Number(item.price_eur || 0) * Number(item.rate || 250)) + Number(item.delivery_dzd || 0);
+          const eurRate = Number(item.rate) || parseFloat(settings.budget_rate) || 280;
+          const landed = (Number(item.price_eur || 0) * eurRate) + Number(item.delivery_dzd || 0);
           const margin = Number(item.retail_dzd || 0) - landed;
           const marginPct = Number(item.retail_dzd || 0) > 0 ? ((margin / Number(item.retail_dzd || 0)) * 100).toFixed(1) : "0.0";
 
@@ -7066,12 +7067,12 @@
             `"${(item.variant_spec || "").replace(/"/g, '""')}"`,
             `"${(item.size || "").replace(/"/g, '""')}"`,
             item.price_eur || 0,
-            item.rate || 250,
+            eurRate,
             item.delivery_dzd || 0,
             Math.round(landed),
             item.retail_dzd || 0,
             Math.round(margin),
-            marginPct,
+            `${marginPct}%`,
             item.stock_eu || 0,
             item.stock || 0,
             `"${(item.type || activeInventoryTab).replace(/"/g, '""')}"`
@@ -7093,6 +7094,8 @@
         showToast("✓ CSV Exported!");
       };
 
+      let _pendingCsvImportItems = [];
+
       window.importInventoryCSV = function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -7100,16 +7103,12 @@
         const reader = new FileReader();
         reader.onload = async function(e) {
           const text = e.target.result;
-          const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
           if (lines.length < 2) {
             showToast("CSV file is empty or invalid", "error");
             return;
           }
           
-          showLoading("Importing CSV items…");
-          const upserts = [];
-          
-          // Simple CSV line parser that respects quotes
           const parseCSVLine = (line) => {
             const result = [];
             let current = "";
@@ -7119,36 +7118,63 @@
               if (char === '"') {
                 inQuotes = !inQuotes;
               } else if (char === ',' && !inQuotes) {
-                result.push(current.trim());
+                result.push(current.trim().replace(/^"|"$/g, ''));
                 current = "";
               } else {
                 current += char;
               }
             }
-            result.push(current.trim());
+            result.push(current.trim().replace(/^"|"$/g, ''));
             return result;
           };
           
+          const headerCols = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+          
+          const findCol = (terms, defaultIdx) => {
+            const idx = headerCols.findIndex(h => terms.some(t => h.includes(t)));
+            return idx !== -1 ? idx : defaultIdx;
+          };
+
+          const skuIdx = findCol(["sku", "id"], 0);
+          const brandIdx = findCol(["brand"], 1);
+          const nameIdx = findCol(["product name", "name"], 2);
+          const varIdx = findCol(["variant", "spec"], 3);
+          const sizeIdx = findCol(["size"], 4);
+          const priceEurIdx = findCol(["price eur", "price_eur", "eur"], 5);
+          const rateIdx = findCol(["rate"], 6);
+          const delIdx = findCol(["delivery"], 7);
+          const retailIdx = findCol(["retail"], 9);
+          const stockEuIdx = findCol(["stock eu", "eu stock", "stock_eu"], 12);
+          const stockDzIdx = findCol(["stock dz", "dz stock", "stock_dz", "stock"], 13);
+          const typeIdx = findCol(["type", "category"], 14);
+
+          const parsedItems = [];
+          const diffs = [];
+          let countNew = 0;
+          let countMod = 0;
+
           for (let i = 1; i < lines.length; i++) {
             const cols = parseCSVLine(lines[i]);
             if (cols.length < 3) continue;
-            
-            const id = cols[0];
-            const brand = cols[1];
-            const name = cols[2];
-            const variant_spec = cols[3] || null;
-            const size = cols[4] || null;
-            const price_eur = parseFloat(cols[5]) || 0;
-            const rate = parseFloat(cols[6]) || 250;
-            const delivery_dzd = parseFloat(cols[7]) || 0;
-            const retail_dzd = parseFloat(cols[8]) || 0;
-            const stock = parseInt(cols[9]) || 0;
-            
+
+            const id = (cols[skuIdx] || "").trim();
+            const brand = (cols[brandIdx] || "").trim();
+            const name = (cols[nameIdx] || "").trim();
+            const variant_spec = (cols[varIdx] || "").trim() || null;
+            const size = (cols[sizeIdx] || "").trim() || null;
+            const price_eur = parseFloat(cols[priceEurIdx]) || 0;
+            const rate = parseFloat(cols[rateIdx]) || parseFloat(settings.budget_rate) || 280;
+            const delivery_dzd = parseFloat(cols[delIdx]) || 0;
+            const retail_dzd = parseFloat(cols[retailIdx]) || 0;
+            const stock_eu = parseInt(cols[stockEuIdx]) || 0;
+            const stock = parseInt(cols[stockDzIdx]) || 0;
+            const type = (cols[typeIdx] || activeInventoryTab || "supplement").trim();
+
             if (!id || !name) continue;
-            
-            upserts.push({
+
+            const itemPayload = {
               id,
-              type: activeInventoryTab,
+              type,
               brand,
               name,
               variant_spec,
@@ -7157,43 +7183,106 @@
               rate,
               delivery_dzd,
               retail_dzd,
-              stock
-            });
+              stock_eu,
+              stock,
+              _lastUpdated: new Date().toISOString()
+            };
+
+            parsedItems.push(itemPayload);
+
+            const existing = inventoryItems.find(x => String(x.id).trim().toLowerCase() === id.toLowerCase());
+
+            if (!existing) {
+              countNew++;
+              diffs.push({
+                item: itemPayload,
+                status: "NEW",
+                changesText: `➕ New Product [SKU: ${id}]: ${brand ? brand + ' - ' : ''}${name} (${variant_spec || 'No spec'}) — Stock EU: ${stock_eu}, Stock DZ: ${stock}, Retail: ${retail_dzd.toLocaleString()} DA`
+              });
+            } else {
+              const fieldChanges = [];
+              if ((existing.brand || "") !== brand) fieldChanges.push(`Brand: "${existing.brand || '—'}" → "${brand}"`);
+              if ((existing.name || "") !== name) fieldChanges.push(`Name: "${existing.name || '—'}" → "${name}"`);
+              if ((existing.variant_spec || "") !== (variant_spec || "")) fieldChanges.push(`Variant: "${existing.variant_spec || '—'}" → "${variant_spec || '—'}"`);
+              if (Number(existing.price_eur || 0) !== price_eur) fieldChanges.push(`Price €: ${existing.price_eur || 0} € → ${price_eur} €`);
+              if (Number(existing.retail_dzd || 0) !== retail_dzd) fieldChanges.push(`Retail DA: ${Number(existing.retail_dzd || 0).toLocaleString()} → ${retail_dzd.toLocaleString()} DA`);
+              if (Number(existing.stock_eu || 0) !== stock_eu) fieldChanges.push(`Stock EU: ${Number(existing.stock_eu || 0)} → ${stock_eu}`);
+              if (Number(existing.stock || 0) !== stock) fieldChanges.push(`Stock DZ: ${Number(existing.stock || 0)} → ${stock}`);
+
+              if (fieldChanges.length > 0) {
+                countMod++;
+                diffs.push({
+                  item: itemPayload,
+                  status: "MODIFIED",
+                  changesText: fieldChanges.join(" | ")
+                });
+              }
+            }
           }
-          
-          if (upserts.length === 0) {
-            showToast("No valid rows found in CSV", "error");
-            hideLoading();
+
+          if (diffs.length === 0) {
+            showToast("No changes or new items found in CSV file.", "info");
             return;
           }
-          
-          try {
-            const dbUpserts = upserts.map(_toDbInventoryPayload);
-            const { error } = await sb.from("inventory_items").upsert(dbUpserts, { onConflict: "id" });
-            if (error) console.warn("Supabase CSV upsert notice:", error.message);
-          } catch(err) {
-            console.warn("Failed to upsert CSV to Supabase, fallback to localStorage:", err);
+
+          _pendingCsvImportItems = parsedItems;
+
+          const badgeNew = document.getElementById("csv-badge-new");
+          const badgeMod = document.getElementById("csv-badge-mod");
+          const sumText = document.getElementById("csv-import-summary-text");
+          if (badgeNew) badgeNew.textContent = `${countNew} New`;
+          if (badgeMod) badgeMod.textContent = `${countMod} Modified`;
+          if (sumText) sumText.innerHTML = `Found <strong style="color:var(--black);">${diffs.length} item change(s)</strong> (${countNew} New, ${countMod} Modified) in the CSV file.`;
+
+          const tbody = document.getElementById("csv-import-diff-table-body");
+          if (tbody) {
+            tbody.innerHTML = diffs.map(d => `
+              <tr>
+                <td><strong style="color:var(--black); font-size:11.5px;">${d.item.id}</strong></td>
+                <td>${d.item.brand ? d.item.brand + ' - ' : ''}${d.item.name}</td>
+                <td><span class="badge" style="${d.status === 'NEW' ? 'background:#dcfce7; color:#15803d;' : 'background:#e0f2fe; color:#0369a1;'} font-weight:700;">${d.status}</span></td>
+                <td style="font-size:11.5px; color:${d.status === 'NEW' ? '#166534' : '#0369a1'}; font-weight:500;">${d.changesText}</td>
+              </tr>
+            `).join("");
           }
+
+          openModal("csv-import-confirm-modal");
+        };
+
+        reader.readAsText(file);
+        event.target.value = "";
+      };
+
+      window.confirmSaveCsvImport = async function() {
+        if (!_pendingCsvImportItems || !_pendingCsvImportItems.length) return;
+
+        showLoading("Saving CSV changes to database & local inventory...");
+        try {
+          const dbPayloads = _pendingCsvImportItems.map(_toDbInventoryPayload);
           
-          // Update local cache
-          upserts.forEach(item => {
-            const idx = inventoryItems.findIndex(x => x.id === item.id);
-            if (idx >= 0) inventoryItems[idx] = item;
+          // Upsert to Supabase with onConflict: "id"
+          const { error } = await sb.from("inventory_items").upsert(dbPayloads, { onConflict: "id" });
+          if (error) console.warn("Supabase CSV upsert notice:", error.message);
+
+          // Update local state & localStorage
+          _pendingCsvImportItems.forEach(item => {
+            const idx = inventoryItems.findIndex(x => String(x.id).trim().toLowerCase() === String(item.id).trim().toLowerCase());
+            if (idx >= 0) inventoryItems[idx] = { ...inventoryItems[idx], ...item };
             else inventoryItems.push(item);
           });
           localStorage.setItem("bb_inventory_items", JSON.stringify(inventoryItems));
-          
-          showToast(`✓ Imported ${upserts.length} items successfully!`);
-          
-          // Sync any product variants linked to these items
+
+          _invalidateStaticCache();
+          closeModal("csv-import-confirm-modal");
+          showToast(`✓ Successfully updated ${dbPayloads.length} inventory item(s) from CSV!`);
+
           await syncAllLinkedProductsStock();
-          
-          hideLoading();
-          loadInventoryPage();
-        };
-        
-        reader.readAsText(file);
-        event.target.value = "";
+          renderInventoryList();
+          updateDashboard();
+        } catch(e) {
+          showToast("Error saving CSV import: " + e.message, "error");
+        }
+        hideLoading();
       };
 
 
