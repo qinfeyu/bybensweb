@@ -207,18 +207,27 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         try { const p2 = JSON.parse(String(fi)); return (p2 && typeof p2 === 'object' && !Array.isArray(p2)) ? p2 : {}; } catch(e) { return {}; }
       })());
 
-      // Reconstruct matrix values from variant flavorStock & flavorSkus
+      // Reconstruct matrix values from variant flavorStock & flavorSkus (auto-syncing live SKU stock)
       const matrix: Record<string, number> = {};
       const skuMatrix: Record<string, string> = {};
       initialVariants.forEach((v: ProductVariant, vIdx: number) => {
-        if (v.flavorStock) {
-          Object.entries(v.flavorStock).forEach(([flv, qty]) => {
-            matrix[`${vIdx}_${flv}`] = Number(qty) || 0;
-          });
-        }
         if (v.flavorSkus) {
           Object.entries(v.flavorSkus).forEach(([flv, sCode]) => {
-            skuMatrix[`${vIdx}_${flv}`] = String(sCode || '');
+            const skuVal = String(sCode || '').trim();
+            skuMatrix[`${vIdx}_${flv}`] = skuVal;
+            if (skuVal) {
+              const matchedInv = inventoryItems.find(inv => inv.id.trim().toLowerCase() === skuVal.toLowerCase());
+              if (matchedInv) {
+                matrix[`${vIdx}_${flv}`] = Number(matchedInv.stock) || 0;
+              }
+            }
+          });
+        }
+        if (v.flavorStock) {
+          Object.entries(v.flavorStock).forEach(([flv, qty]) => {
+            if (matrix[`${vIdx}_${flv}`] === undefined) {
+              matrix[`${vIdx}_${flv}`] = Number(qty) || 0;
+            }
           });
         }
       });

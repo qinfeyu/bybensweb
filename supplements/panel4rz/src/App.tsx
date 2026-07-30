@@ -205,40 +205,22 @@ export default function App() {
       } catch(e) {}
 
       const mergedInvMap = new Map<string, InventoryItem>();
-      localInv.forEach(item => { if (item.id) mergedInvMap.set(item.id, { ...item }); });
 
       cloudInv.forEach(cloudItem => {
         if (cloudItem.id) {
-          const existingLocal = mergedInvMap.get(cloudItem.id);
-          const localStockEu = existingLocal ? (Number(existingLocal.stock_eu) || 0) : 0;
+          const cloudStock = Number(cloudItem.stock) || 0;
           const cloudStockEu = (cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null) ? Number(cloudItem.stock_eu) || 0 : 0;
-          const finalStockEu = cloudStockEu > 0 ? cloudStockEu : localStockEu;
-
-          const localStock = existingLocal ? Number(existingLocal.stock) || 0 : undefined;
-          const cloudStock = (cloudItem.stock !== undefined && cloudItem.stock !== null) ? Number(cloudItem.stock) : 0;
-
-          let finalStock = cloudStock;
-          if (existingLocal && existingLocal._lastUpdated) {
-            const localTime = new Date(existingLocal._lastUpdated).getTime();
-            const cloudTime = cloudItem.created_at ? new Date(cloudItem.created_at).getTime() : 0;
-            if ((localTime > cloudTime || (localStock !== undefined && cloudStock !== localStock)) && localStock !== undefined) {
-              finalStock = localStock;
-            }
-          } else if (localStock !== undefined && localStock !== cloudStock) {
-            finalStock = localStock;
-          }
 
           mergedInvMap.set(cloudItem.id, {
-            ...existingLocal,
             ...cloudItem,
-            stock: finalStock,
-            stock_eu: finalStockEu
+            stock: cloudStock,
+            stock_eu: cloudStockEu
           });
         }
       });
 
       localInv.forEach(item => {
-        if (item.id && !cloudInv.some(c => c.id === item.id)) {
+        if (item.id && !mergedInvMap.has(item.id)) {
           mergedInvMap.set(item.id, item);
         }
       });
