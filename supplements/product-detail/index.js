@@ -632,11 +632,21 @@
         const p = selectedProduct;
         if (!p) return;
         const imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
+        let targetUrl = null; // Direct URL override (from flavorImages map)
         let targetImgIdx = 0; // Default to first image
         let found = false;
 
-        // 1. Try to find if selected flavor has a custom imageIndex
-        if (selectedFlavor && Array.isArray(p.flavors)) {
+        // 1. Check p.flavorImages dict (URL-keyed by flavor name) — set by admin panel
+        if (selectedFlavor && p.flavorImages && typeof p.flavorImages === "object") {
+          const directUrl = p.flavorImages[selectedFlavor];
+          if (directUrl) {
+            targetUrl = directUrl;
+            found = true;
+          }
+        }
+
+        // 2. Fallback: check if the flavor object itself has an imageIndex
+        if (!found && selectedFlavor && Array.isArray(p.flavors)) {
           const fObj = p.flavors.find(f => {
             const name = typeof f === "object" ? f.name : f;
             return String(name).trim().toLowerCase() === selectedFlavor.trim().toLowerCase();
@@ -650,7 +660,7 @@
           }
         }
 
-        // 2. Fallback to variant imageIndex
+        // 3. Fallback to variant imageIndex
         if (!found && Array.isArray(p.variants) && p.variants[selectedVariantIndex]) {
           const v = p.variants[selectedVariantIndex];
           if (v && v.imageIndex !== undefined && v.imageIndex !== null && v.imageIndex !== "") {
@@ -661,13 +671,21 @@
           }
         }
 
-        if (imgs[targetImgIdx]) {
+        // Apply: if we have a direct URL use it, otherwise use index
+        const finalUrl = targetUrl || imgs[targetImgIdx];
+        if (finalUrl) {
           const thumbs = document.querySelectorAll(".gallery-thumb");
-          if (thumbs.length > targetImgIdx) {
-            switchProductImg(imgs[targetImgIdx], thumbs[targetImgIdx]);
+          // Find the thumb whose inner img matches finalUrl
+          const matchingThumb = Array.from(thumbs).find(t => {
+            const inner = t.querySelector("img");
+            return inner && (inner.src === finalUrl || inner.getAttribute("src") === finalUrl);
+          });
+          if (matchingThumb) {
+            switchProductImg(finalUrl, matchingThumb);
           } else {
+            // No gallery thumb matches — swap main image directly (e.g. flavor image not in gallery)
             const mainImg = document.getElementById("productMainImg");
-            if (mainImg) mainImg.src = imgs[targetImgIdx];
+            if (mainImg) mainImg.src = finalUrl;
           }
         }
       }
