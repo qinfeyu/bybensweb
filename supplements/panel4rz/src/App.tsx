@@ -886,6 +886,7 @@ export default function App() {
               <PosPage
                 products={products}
                 inventoryItems={inventoryItems}
+                customers={customers}
                 showToast={showToast}
                 onCompleteSale={async (data) => {
                   await handleAddPosOrder({

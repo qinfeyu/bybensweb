@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Product, InventoryItem, Order } from '../types';
+import { Product, InventoryItem, Order, Customer } from '../types';
 import { Store, Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, User, Phone, Tag, Boxes, Receipt } from 'lucide-react';
 
 interface PosCartItem {
@@ -15,6 +15,7 @@ interface PosCartItem {
 interface PosPageProps {
   products: Product[];
   inventoryItems: InventoryItem[];
+  customers?: Customer[];
   onCompleteSale: (saleData: {
     cart: PosCartItem[];
     customerName: string;
@@ -47,6 +48,7 @@ const getVariantLabel = (v: any, index: number): string => {
 export const PosPage: React.FC<PosPageProps> = ({
   products,
   inventoryItems,
+  customers = [],
   onCompleteSale,
   showToast
 }) => {
@@ -424,6 +426,43 @@ export const PosPage: React.FC<PosPageProps> = ({
 
         {/* Customer & Total Controls */}
         <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
+          {/* Select Public Customer Autocomplete */}
+          <div>
+            <label className="font-semibold text-slate-600 flex items-center justify-between">
+              <span>Select Public Customer</span>
+              <span className="text-[10px] text-slate-400">🌐 Public Group</span>
+            </label>
+            <input
+              type="text"
+              list="pos-public-customers-datalist"
+              placeholder="Search existing customer by name or phone..."
+              onChange={(e) => {
+                const val = e.target.value;
+                const publicCusts = (customers || []).filter(c => (c.group || 'public').toLowerCase() === 'public');
+                const matched = publicCusts.find(c =>
+                  `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(val.toLowerCase()) ||
+                  (c.phone && c.phone.includes(val))
+                );
+                if (matched) {
+                  setCustomerName(matched.name || `${matched.first_name || ''} ${matched.last_name || ''}`.trim());
+                  setCustomerPhone(matched.phone || '');
+                } else {
+                  setCustomerName(val);
+                }
+              }}
+              className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
+            />
+            <datalist id="pos-public-customers-datalist">
+              {(customers || [])
+                .filter(c => (c.group || 'public').toLowerCase() === 'public')
+                .map(c => (
+                  <option key={c.id || c.phone} value={`${c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim()} (${c.phone})`}>
+                    {c.wilaya ? `${c.wilaya} - ${c.commune}` : 'Public Customer'}
+                  </option>
+                ))}
+            </datalist>
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="font-semibold text-slate-600">Customer Name</label>
