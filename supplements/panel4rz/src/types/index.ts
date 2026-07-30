@@ -172,4 +172,9 @@ export interface AppSettings {
   budget_dzd: string;
   budget_eur: string;
   budget_rate: string;
+  admin_username?: string;
+  admin_displayname?: string;
+  marquee_enabled?: string | boolean;
+  marquee_text?: string;
+  [key: string]: any;
 }

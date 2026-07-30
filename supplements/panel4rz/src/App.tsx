@@ -921,7 +921,17 @@ export default function App() {
             {activeTab === 'settings' && (
               <SettingsPage
                 settings={settings}
+                products={products}
+                inventoryItems={inventoryItems}
+                categories={categories}
+                subCategories={subCategories}
+                customers={customers}
+                orders={orders}
+                preorders={preorders}
+                preorderItems={preorderItems}
+                expenses={expenses}
                 onSaveSettings={handleSaveSettings}
+                showToast={showToast}
               />
             )}
           </div>
