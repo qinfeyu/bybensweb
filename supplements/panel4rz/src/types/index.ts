@@ -27,7 +27,35 @@ export interface ProductVariant {
   cost_eur?: number;
   stock: number;
   sku?: string;
+  imageIndex?: number;
   flavorStock?: Record<string, number>;
+}
+
+export interface BundleItem {
+  productId: string;
+  qty: number;
+  variant?: string;
+  flavor?: string;
+  name?: string;
+  brand?: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+}
+
+export interface SubCategory {
+  id: string;
+  name: string;
+  categoryIds: string[];
+}
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  status: 'active' | 'inactive';
+  applyToAll?: boolean;
 }
 
 export interface Product {
@@ -45,7 +73,7 @@ export interface Product {
   status: 'active' | 'draft' | 'archived';
   allowPromo?: boolean;
   promoCodeIds?: string[];
-  bundleItems?: Array<{ productId: string; qty: number }>;
+  bundleItems?: BundleItem[];
   variants?: ProductVariant[];
   flavors?: string[];
 }
