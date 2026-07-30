@@ -58,6 +58,10 @@ export const PosPage: React.FC<PosPageProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [discount, setDiscount] = useState<number>(0);
+  const [custSearchQuery, setCustSearchQuery] = useState('');
+  const [isCustDropdownOpen, setIsCustDropdownOpen] = useState(false);
+
+  const publicCustomers = (customers || []).filter(c => (c.group || 'public').toLowerCase() === 'public');
 
   // Modal Selection State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -426,41 +430,76 @@ export const PosPage: React.FC<PosPageProps> = ({
 
         {/* Customer & Total Controls */}
         <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
-          {/* Select Public Customer Autocomplete */}
-          <div>
+          {/* Select Public Customer Real-time Autocomplete */}
+          <div className="relative">
             <label className="font-semibold text-slate-600 flex items-center justify-between">
               <span>Select Public Customer</span>
-              <span className="text-[10px] text-slate-400">🌐 Public Group</span>
+              <span className="text-[10px] text-slate-400 font-bold">🌐 Public Group</span>
             </label>
-            <input
-              type="text"
-              list="pos-public-customers-datalist"
-              placeholder="Search existing customer by name or phone..."
-              onChange={(e) => {
-                const val = e.target.value;
-                const publicCusts = (customers || []).filter(c => (c.group || 'public').toLowerCase() === 'public');
-                const matched = publicCusts.find(c =>
-                  `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(val.toLowerCase()) ||
-                  (c.phone && c.phone.includes(val))
-                );
-                if (matched) {
-                  setCustomerName(matched.name || `${matched.first_name || ''} ${matched.last_name || ''}`.trim());
-                  setCustomerPhone(matched.phone || '');
-                } else {
+            <div className="relative mt-1">
+              <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Type customer name or phone..."
+                value={custSearchQuery}
+                onFocus={() => setIsCustDropdownOpen(true)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustSearchQuery(val);
                   setCustomerName(val);
-                }
-              }}
-              className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
-            />
-            <datalist id="pos-public-customers-datalist">
-              {(customers || [])
-                .filter(c => (c.group || 'public').toLowerCase() === 'public')
-                .map(c => (
-                  <option key={c.id || c.phone} value={`${c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim()} (${c.phone})`}>
-                    {c.wilaya ? `${c.wilaya} - ${c.commune}` : 'Public Customer'}
-                  </option>
-                ))}
-            </datalist>
+                  setIsCustDropdownOpen(true);
+                }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
+              />
+            </div>
+
+            {/* Real-time Floating Dropdown List */}
+            {isCustDropdownOpen && custSearchQuery.trim().length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95">
+                {publicCustomers.filter(c => {
+                  const q = custSearchQuery.toLowerCase().trim();
+                  const fullName = `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+                  const phone = c.phone || '';
+                  return fullName.includes(q) || phone.includes(q);
+                }).length === 0 ? (
+                  <div className="p-3 text-center text-slate-400 text-[11px]">
+                    No public customer found for "{custSearchQuery}"
+                  </div>
+                ) : (
+                  publicCustomers.filter(c => {
+                    const q = custSearchQuery.toLowerCase().trim();
+                    const fullName = `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+                    const phone = c.phone || '';
+                    return fullName.includes(q) || phone.includes(q);
+                  }).map(c => {
+                    const nameStr = c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Customer';
+
+                    return (
+                      <div
+                        key={c.id || c.phone}
+                        onClick={() => {
+                          setCustomerName(nameStr);
+                          setCustomerPhone(c.phone || '');
+                          setCustSearchQuery(nameStr);
+                          setIsCustDropdownOpen(false);
+                        }}
+                        className="p-2.5 hover:bg-red-50/60 cursor-pointer transition-colors flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-900">{nameStr}</div>
+                          <div className="text-[10px] text-slate-500 font-medium">
+                            {c.wilaya ? `${c.wilaya} - ${c.commune || ''}` : 'Public Customer'}
+                          </div>
+                        </div>
+                        <span className="font-bold text-red-700 text-[11px] bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                          📞 {c.phone || 'No phone'}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
