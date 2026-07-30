@@ -1050,21 +1050,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                             className="w-24 bg-white border border-slate-200 rounded p-1.5 font-bold"
                           />
 
-                          {/* INTERACTIVE SKU SEARCH / AUTOCOMPLETE INPUT */}
-                          <div className="flex-1 min-w-[160px]">
-                            <input
-                              type="text"
-                              list="inventory-skus-list"
-                              placeholder="Search SKU or Name..."
-                              value={v.sku || ''}
-                              onChange={(e) => {
-                                const next = [...variants];
-                                next[idx].sku = e.target.value;
-                                setVariants(next);
-                              }}
-                              className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs font-bold text-emerald-800"
-                            />
-                          </div>
+
 
                           <button onClick={() => setVariants(variants.filter((_, i) => i !== idx))} className="text-rose-600 p-1">
                             <Trash2 className="w-4 h-4" />
@@ -1227,34 +1213,37 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                         <div className="flex flex-col items-center gap-1 bg-slate-50/70 p-2 rounded-lg border border-slate-200/60">
                                           {/* SKU Link Selector */}
                                           <div className="w-full">
-                                            <input
-                                              type="text"
-                                              list={`sku-list-${vIdx}-${fIdx}`}
-                                              value={currentSku}
-                                              placeholder="Link SKU..."
+                                            <select
+                                              value={inventoryItems.some(inv => inv.id.toLowerCase() === currentSku.toLowerCase()) ? currentSku : (currentSku ? '__custom__' : '')}
                                               onChange={(e) => {
-                                                const newSku = e.target.value;
-                                                setFlavorSkuMatrix({
-                                                  ...flavorSkuMatrix,
-                                                  [cellKey]: newSku
-                                                });
-                                                const found = inventoryItems.find(item => String(item.id).trim().toLowerCase() === newSku.trim().toLowerCase());
+                                                const val = e.target.value;
+                                                if (val === '__custom__') {
+                                                  // Keep custom string or prompt
+                                                  return;
+                                                }
+                                                const newSkuMat = { ...flavorSkuMatrix, [cellKey]: val };
+                                                setFlavorSkuMatrix(newSkuMat);
+
+                                                const found = inventoryItems.find(item => String(item.id).trim().toLowerCase() === val.trim().toLowerCase());
                                                 if (found) {
-                                                  setFlavorStockMatrix({
-                                                    ...flavorStockMatrix,
+                                                  setFlavorStockMatrix(prev => ({
+                                                    ...prev,
                                                     [cellKey]: Number(found.stock) || 0
-                                                  });
+                                                  }));
                                                 }
                                               }}
-                                              className="w-full text-center text-[10px] font-mono font-bold bg-white border border-slate-300 rounded px-1 py-0.5 text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-red-500 focus:outline-none"
-                                            />
-                                            <datalist id={`sku-list-${vIdx}-${fIdx}`}>
+                                              className="w-full text-center text-[10px] font-mono font-bold bg-white border border-slate-300 rounded px-1 py-1 text-slate-800 focus:ring-1 focus:ring-red-500 focus:outline-none cursor-pointer truncate"
+                                            >
+                                              <option value="">-- Link SKU --</option>
                                               {inventoryItems.map(inv => (
                                                 <option key={inv.id} value={inv.id}>
-                                                  {inv.id} - {inv.name} ({inv.stock} DZ)
+                                                  {inv.id} ({inv.name} - {inv.stock} DZ)
                                                 </option>
                                               ))}
-                                            </datalist>
+                                              {currentSku && !inventoryItems.some(inv => inv.id.toLowerCase() === currentSku.toLowerCase()) && (
+                                                <option value="__custom__">SKU: {currentSku}</option>
+                                              )}
+                                            </select>
                                           </div>
 
                                           {/* Stock Quantity Input */}

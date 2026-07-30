@@ -514,8 +514,104 @@ export default function App() {
     showToast("✓ Product deleted!");
   };
 
+  // ── STOCK ADJUSTMENT HELPER FOR ORDERS ──
+  const adjustInventoryAndProductStock = async (items: any[], direction: number) => {
+    // direction: -1 = deduct stock (order placed/active), +1 = restore stock (order canceled/deleted)
+    if (!items || items.length === 0) return;
+
+    let updatedInventory = [...inventoryItems];
+    let updatedProducts = [...products];
+    const invUpdates: { id: string; stock: number }[] = [];
+    const prodUpdates: { id: string; variants: any[]; stock: number }[] = [];
+
+    for (const item of items) {
+      const qty = Number(item.qty) || 1;
+      const prodId = item.productId || item.product_id;
+      const itemVariantLabel = String(item.variant || '').trim().toLowerCase();
+      const itemFlavor = String(item.flavor || '').trim().toLowerCase();
+
+      const prod = updatedProducts.find(p => p.id === prodId || p.name.toLowerCase() === String(item.name || item.product_name || '').toLowerCase());
+      if (!prod) continue;
+
+      const variants = JSON.parse(JSON.stringify(prod.variants || []));
+      let matchedIdx = -1;
+      if (itemVariantLabel && variants.length > 0) {
+        matchedIdx = variants.findIndex((v: any) => {
+          const vLabel = v.weight
+            ? `${v.weight}${v.unit || ''}`.trim().toLowerCase()
+            : String(v.label || v.name || '').trim().toLowerCase();
+          return vLabel === itemVariantLabel;
+        });
+      }
+
+      if (matchedIdx < 0 && variants.length === 1) matchedIdx = 0;
+
+      if (matchedIdx >= 0) {
+        const v = variants[matchedIdx];
+        let matchedFlavorKey = '';
+        if (itemFlavor && v.flavorStock) {
+          matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === itemFlavor) || '';
+        }
+
+        let linkedSku = '';
+        if (matchedFlavorKey && v.flavorSkus) {
+          linkedSku = v.flavorSkus[matchedFlavorKey] || '';
+        }
+        if (!linkedSku && v.sku) linkedSku = v.sku;
+
+        if (matchedFlavorKey && v.flavorStock) {
+          const curFStock = Number(v.flavorStock[matchedFlavorKey]) || 0;
+          v.flavorStock[matchedFlavorKey] = Math.max(0, curFStock + direction * qty);
+          v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
+        } else {
+          v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
+        }
+
+        variants[matchedIdx] = v;
+        const newGlobalStock = variants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
+        prod.variants = variants;
+        prod.stock = newGlobalStock;
+        prodUpdates.push({ id: prod.id, variants, stock: newGlobalStock });
+
+        if (linkedSku) {
+          const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === linkedSku.toLowerCase());
+          if (invIdx >= 0) {
+            const invItem = { ...updatedInventory[invIdx] };
+            const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
+            invItem.stock = newInvStock;
+            updatedInventory[invIdx] = invItem;
+            invUpdates.push({ id: invItem.id, stock: newInvStock });
+          }
+        }
+      }
+    }
+
+    if (invUpdates.length > 0) setInventoryItems(updatedInventory);
+    if (prodUpdates.length > 0) setProducts(updatedProducts);
+
+    try {
+      for (const u of invUpdates) {
+        await supabase.from('inventory_items').update({ stock: u.stock }).eq('id', u.id);
+      }
+      for (const u of prodUpdates) {
+        await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
+      }
+    } catch (e) {
+      console.warn("Stock sync notice:", e);
+    }
+  };
+
   // ── ORDER MUTATIONS ──
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    const existing = orders.find(o => o.id === orderId);
+    if (existing && existing.status !== newStatus) {
+      if (newStatus === 'canceled' && existing.status !== 'canceled') {
+        await adjustInventoryAndProductStock(existing.items || [], +1);
+      } else if (existing.status === 'canceled' && newStatus !== 'canceled') {
+        await adjustInventoryAndProductStock(existing.items || [], -1);
+      }
+    }
+
     try {
       await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
     } catch(e) {}
@@ -525,12 +621,17 @@ export default function App() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
+    const existing = orders.find(o => o.id === orderId);
+    if (existing && existing.status !== 'canceled') {
+      await adjustInventoryAndProductStock(existing.items || [], +1);
+    }
+
     try {
       await supabase.from('orders').delete().eq('id', orderId);
     } catch(e) {}
 
     setOrders(prev => prev.filter(o => o.id !== orderId));
-    showToast("✓ Order deleted!");
+    showToast("✓ Order deleted & stock restored!");
   };
 
   const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string }) => {
@@ -552,6 +653,9 @@ export default function App() {
       status: 'delivered',
       date: new Date().toISOString()
     };
+
+    // Deduct stock for POS order
+    await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
     try {
       await supabase.from('orders').insert({

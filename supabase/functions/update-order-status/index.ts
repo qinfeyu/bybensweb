@@ -82,6 +82,17 @@ async function adjustStock(items: any[], direction: number) {
           await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} (${itemVariantLabel}) is now out of stock.`);
         }
       }
+      const linkedSku = (matchedFlavorKey && v.flavorSkus) ? v.flavorSkus[matchedFlavorKey] : v.sku;
+      if (linkedSku) {
+        try {
+          const { data: inv } = await sb.from("inventory_items").select("stock").eq("id", linkedSku).single();
+          if (inv) {
+            const newInvStock = Math.max(0, (Number(inv.stock) || 0) + direction * qty);
+            await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", linkedSku);
+          }
+        } catch (_) {}
+      }
+
       const newGlobal = variants.reduce((s: number, vv: any) => s + (typeof vv === "object" ? Number(vv.stock) || 0 : 0), 0);
       await sb.from("products").update({ variants, stock: newGlobal }).eq("id", item.productId);
       continue;
