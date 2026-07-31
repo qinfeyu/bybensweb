@@ -62,7 +62,7 @@ export const PosPage: React.FC<PosPageProps> = ({
   const [custSearchQuery, setCustSearchQuery] = useState('');
   const [isCustDropdownOpen, setIsCustDropdownOpen] = useState(false);
 
-  const publicCustomers = (customers || []).filter(c => (c.group || 'public').toLowerCase() === 'public');
+  const allCustomersList = customers || [];
 
   // Modal Selection State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -450,11 +450,11 @@ export const PosPage: React.FC<PosPageProps> = ({
 
         {/* Customer & Total Controls */}
         <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
-          {/* Select Public Customer Real-time Autocomplete */}
+          {/* Select Customer (Public & Private) Real-time Autocomplete */}
           <div className="relative">
             <label className="font-semibold text-slate-600 flex items-center justify-between">
-              <span>Select Public Customer</span>
-              <span className="text-[10px] text-slate-400 font-bold">🌐 Public Group</span>
+              <span>Select Customer (Public & Private)</span>
+              <span className="text-[10px] text-slate-400 font-bold">👥 All Clients ({allCustomersList.length})</span>
             </label>
             <div className="relative mt-1">
               <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -476,23 +476,24 @@ export const PosPage: React.FC<PosPageProps> = ({
             {/* Real-time Floating Dropdown List */}
             {isCustDropdownOpen && custSearchQuery.trim().length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95">
-                {publicCustomers.filter(c => {
+                {allCustomersList.filter(c => {
                   const q = custSearchQuery.toLowerCase().trim();
                   const fullName = `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
                   const phone = c.phone || '';
                   return fullName.includes(q) || phone.includes(q);
                 }).length === 0 ? (
                   <div className="p-3 text-center text-slate-400 text-[11px]">
-                    No public customer found for "{custSearchQuery}"
+                    No customer found for "{custSearchQuery}"
                   </div>
                 ) : (
-                  publicCustomers.filter(c => {
+                  allCustomersList.filter(c => {
                     const q = custSearchQuery.toLowerCase().trim();
                     const fullName = `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
                     const phone = c.phone || '';
                     return fullName.includes(q) || phone.includes(q);
                   }).map(c => {
                     const nameStr = c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Customer';
+                    const groupStr = (c.group || c.group_type || 'public').toUpperCase();
 
                     return (
                       <div
@@ -506,9 +507,14 @@ export const PosPage: React.FC<PosPageProps> = ({
                         className="p-2.5 hover:bg-red-50/60 cursor-pointer transition-colors flex items-center justify-between text-xs"
                       >
                         <div>
-                          <div className="font-bold text-slate-900">{nameStr}</div>
+                          <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                            <span>{nameStr}</span>
+                            <span className="text-[9px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200">
+                              {groupStr}
+                            </span>
+                          </div>
                           <div className="text-[10px] text-slate-500 font-medium">
-                            {c.wilaya ? `${c.wilaya} - ${c.commune || ''}` : 'Public Customer'}
+                            {c.wilaya ? `${c.wilaya} - ${c.commune || ''}` : 'Registered Customer'}
                           </div>
                         </div>
                         <span className="font-bold text-red-700 text-[11px] bg-red-50 px-2 py-0.5 rounded-md border border-red-200">

@@ -1167,6 +1167,7 @@ export default function App() {
                 preorderItems={preorderItems}
                 inventoryItems={inventoryItems}
                 products={products}
+                customers={customers}
                 onToggleStatus={handleTogglePreorderStatus}
                 onDeletePreorder={handleDeletePreorder}
                 onSavePreorder={handleSavePreorder}
