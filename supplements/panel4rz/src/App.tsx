@@ -647,20 +647,28 @@ export default function App() {
     }
   };
 
-  // ── DZD BUDGET ADJUSTMENT HELPER ──
-  const adjustDzdBudget = async (amount: number) => {
+  // ── BUDGET ADJUSTMENT HELPER (DZD & EUR) ──
+  const adjustBudget = async (currency: 'DZD' | 'EUR', amount: number) => {
     if (!amount || amount === 0) return;
-    const currentDzd = parseFloat(settings.budget_dzd) || 0;
-    const newDzd = Math.max(0, Math.round(currentDzd + amount)).toString();
 
-    setSettings(prev => ({ ...prev, budget_dzd: newDzd }));
-
-    try {
-      await supabase.from('settings').upsert([
-        { key: 'budget_dzd', value: newDzd }
-      ]);
-    } catch(e) {}
+    if (currency === 'EUR') {
+      const currentEur = parseFloat(settings.budget_eur) || 0;
+      const newEur = Math.max(0, parseFloat((currentEur + amount).toFixed(2))).toString();
+      setSettings(prev => ({ ...prev, budget_eur: newEur }));
+      try {
+        await supabase.from('settings').upsert([{ key: 'budget_eur', value: newEur }]);
+      } catch(e) {}
+    } else {
+      const currentDzd = parseFloat(settings.budget_dzd) || 0;
+      const newDzd = Math.max(0, Math.round(currentDzd + amount)).toString();
+      setSettings(prev => ({ ...prev, budget_dzd: newDzd }));
+      try {
+        await supabase.from('settings').upsert([{ key: 'budget_dzd', value: newDzd }]);
+      } catch(e) {}
+    }
   };
+
+  const adjustDzdBudget = (amount: number) => adjustBudget('DZD', amount);
 
   // ── ORDER MUTATIONS ──
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
@@ -931,21 +939,32 @@ export default function App() {
       date: exp.date || new Date().toISOString().split('T')[0]
     };
 
+    // Deduct expense amount from the corresponding budget (DZD or EUR)
+    if (newExp.amount > 0) {
+      await adjustBudget(newExp.currency, -newExp.amount);
+    }
+
     try {
       await supabase.from('expenses').insert(newExp);
     } catch(e) {}
 
     setExpenses(prev => [newExp, ...prev]);
-    showToast("✓ Expense recorded!");
+    showToast(`✓ Expense of ${newExp.currency === 'EUR' ? '€ ' : ''}${newExp.amount.toLocaleString()} ${newExp.currency === 'DZD' ? 'DA' : ''} recorded & deducted from ${newExp.currency} Budget!`);
   };
 
   const handleDeleteExpense = async (id: string) => {
+    const existing = expenses.find(x => x.id === id);
+    if (existing && existing.amount > 0) {
+      // Refund expense amount back to the corresponding budget (DZD or EUR)
+      await adjustBudget(existing.currency, +existing.amount);
+    }
+
     try {
       await supabase.from('expenses').delete().eq('id', id);
     } catch(e) {}
 
     setExpenses(prev => prev.filter(x => x.id !== id));
-    showToast("✓ Expense deleted!");
+    showToast("✓ Expense deleted & budget restored!");
   };
 
   // ── SETTINGS MUTATIONS ──
