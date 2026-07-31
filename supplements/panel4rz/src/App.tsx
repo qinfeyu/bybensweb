@@ -511,81 +511,113 @@ export default function App() {
 
     for (const item of items) {
       const qty = Number(item.qty) || 1;
-      const prodId = item.productId || item.product_id;
+      const rawProdId = String(item.productId || item.product_id || '').trim();
+      const rawItemName = String(item.name || item.product_name || '').trim().toLowerCase();
       const itemVariantLabel = String(item.variant || '').trim().toLowerCase();
       const itemFlavor = String(item.flavor || '').trim().toLowerCase();
+      const cleanVar = itemVariantLabel.split('/')[0].replace(/\s+/g, '');
 
-      const prod = updatedProducts.find(p => p.id === prodId || p.name.toLowerCase() === String(item.name || item.product_name || '').toLowerCase());
-      if (!prod) continue;
+      // 1. Try finding matching product in Catalog Products
+      let prod = updatedProducts.find(p => {
+        if (rawProdId && p.id === rawProdId) return true;
+        const pName = p.name.toLowerCase().trim();
+        if (pName === rawItemName || rawItemName.includes(pName) || pName.includes(rawItemName)) return true;
+        // Check if rawProdId matches any SKU inside product variants
+        if (rawProdId && p.variants && Array.isArray(p.variants)) {
+          return p.variants.some((v: any) => {
+            if (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase()) return true;
+            if (v.flavorSkus) {
+              return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === rawProdId.toLowerCase());
+            }
+            return false;
+          });
+        }
+        return false;
+      });
 
-      const variants = JSON.parse(JSON.stringify(prod.variants || []));
-      let matchedIdx = -1;
-      if (itemVariantLabel && variants.length > 0) {
-        matchedIdx = variants.findIndex((v: any) => {
-          const vLabel = v.weight
-            ? `${v.weight}${v.unit || ''}`.trim().toLowerCase()
-            : String(v.label || v.name || '').trim().toLowerCase();
-          return vLabel === itemVariantLabel;
-        });
+      if (prod) {
+        const variants = JSON.parse(JSON.stringify(prod.variants || []));
+        let matchedIdx = -1;
+
+        if (variants.length > 0) {
+          if (cleanVar) {
+            matchedIdx = variants.findIndex((v: any) => {
+              if (typeof v !== 'object') return String(v).toLowerCase().replace(/\s+/g, '') === cleanVar;
+              const vWeight = String(v.weight || '').toLowerCase().replace(/\s+/g, '');
+              const vUnit = String(v.unit || '').toLowerCase().replace(/\s+/g, '');
+              const vCombo = (vWeight + vUnit);
+              const vLabel = String(v.label || v.name || '').toLowerCase().replace(/\s+/g, '');
+              return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || cleanVar.includes(vWeight) || (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase());
+            });
+          }
+          if (matchedIdx < 0 && rawProdId) {
+            matchedIdx = variants.findIndex((v: any) => {
+              if (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase()) return true;
+              if (v.flavorSkus) {
+                return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === rawProdId.toLowerCase());
+              }
+              return false;
+            });
+          }
+          if (matchedIdx < 0 && variants.length === 1) matchedIdx = 0;
+        }
+
+        if (matchedIdx >= 0 && variants[matchedIdx]) {
+          const v = variants[matchedIdx];
+          let matchedFlavorKey = '';
+
+          if (itemFlavor && v.flavorStock) {
+            matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === itemFlavor) || '';
+          }
+          if (!matchedFlavorKey && v.flavorStock && Object.keys(v.flavorStock).length === 1) {
+            matchedFlavorKey = Object.keys(v.flavorStock)[0];
+          }
+
+          let linkedSku = '';
+          if (matchedFlavorKey && v.flavorSkus) {
+            linkedSku = v.flavorSkus[matchedFlavorKey] || '';
+          }
+          if (!linkedSku && v.sku) linkedSku = v.sku;
+
+          if (matchedFlavorKey && v.flavorStock) {
+            const curFStock = Number(v.flavorStock[matchedFlavorKey]) || 0;
+            v.flavorStock[matchedFlavorKey] = Math.max(0, curFStock + direction * qty);
+            v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
+          } else {
+            v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
+          }
+
+          variants[matchedIdx] = v;
+          const newGlobalStock = variants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
+          prod.variants = variants;
+          prod.stock = newGlobalStock;
+          prodUpdates.push({ id: prod.id, variants, stock: newGlobalStock });
+
+          // Also update linked SKU in Inventory
+          if (linkedSku && linkedSku.trim()) {
+            const skuClean = linkedSku.trim();
+            const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === skuClean.toLowerCase());
+            if (invIdx >= 0) {
+              const invItem = { ...updatedInventory[invIdx] };
+              const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
+              invItem.stock = newInvStock;
+              updatedInventory[invIdx] = invItem;
+              invUpdates.push({ id: invItem.id, stock: newInvStock });
+            }
+          }
+          continue;
+        }
       }
 
-      if (matchedIdx < 0 && variants.length === 1) matchedIdx = 0;
-
-      if (matchedIdx >= 0) {
-        const v = variants[matchedIdx];
-        let matchedFlavorKey = '';
-        if (itemFlavor && v.flavorStock) {
-          matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === itemFlavor) || '';
-        }
-
-        let linkedSku = '';
-        if (matchedFlavorKey && v.flavorSkus) {
-          linkedSku = v.flavorSkus[matchedFlavorKey] || '';
-        }
-        if (!linkedSku && v.sku) linkedSku = v.sku;
-
-        if (matchedFlavorKey && v.flavorStock) {
-          const curFStock = Number(v.flavorStock[matchedFlavorKey]) || 0;
-          v.flavorStock[matchedFlavorKey] = Math.max(0, curFStock + direction * qty);
-          v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
-        } else {
-          v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
-        }
-
-        variants[matchedIdx] = v;
-        const newGlobalStock = variants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
-        prod.variants = variants;
-        prod.stock = newGlobalStock;
-        prodUpdates.push({ id: prod.id, variants, stock: newGlobalStock });
-
-        if (linkedSku && linkedSku.trim()) {
-          const skuClean = linkedSku.trim();
-          const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === skuClean.toLowerCase());
-          if (invIdx >= 0) {
-            const invItem = { ...updatedInventory[invIdx] };
-            const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
-            invItem.stock = newInvStock;
-            updatedInventory[invIdx] = invItem;
-            invUpdates.push({ id: invItem.id, stock: newInvStock });
-          } else {
-            const v = variants[matchedIdx];
-            const curFStock = (matchedFlavorKey && v.flavorStock) ? Number(v.flavorStock[matchedFlavorKey]) : Number(v.stock);
-            const newInvStock = Math.max(0, (Number(curFStock) || 0) + direction * qty);
-            const newInvItem: InventoryItem = {
-              id: skuClean,
-              name: `${prod.name}${itemFlavor ? ' (' + itemFlavor + ')' : ''}`,
-              brand: prod.brand || '',
-              stock: newInvStock,
-              stock_eu: 0,
-              price_eur: 0,
-              rate: 280,
-              delivery_dzd: 0,
-              retail_dzd: Number(v.price) || 0,
-              type: 'supplement'
-            };
-            updatedInventory.push(newInvItem);
-            invUpdates.push({ id: newInvItem.id, stock: newInvStock, fullItem: newInvItem });
-          }
+      // 2. Fallback: Direct SKU deduction in Inventory Items if item was added directly from Inventory SKUs tab
+      if (rawProdId) {
+        const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === rawProdId.toLowerCase());
+        if (invIdx >= 0) {
+          const invItem = { ...updatedInventory[invIdx] };
+          const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
+          invItem.stock = newInvStock;
+          updatedInventory[invIdx] = invItem;
+          invUpdates.push({ id: invItem.id, stock: newInvStock });
         }
       }
     }
@@ -594,7 +626,9 @@ export default function App() {
       setInventoryItems([...updatedInventory]);
       localStorage.setItem('bb_inventory_items', JSON.stringify(updatedInventory));
     }
-    if (prodUpdates.length > 0) setProducts(updatedProducts);
+    if (prodUpdates.length > 0) {
+      setProducts([...updatedProducts]);
+    }
 
     try {
       for (const u of invUpdates) {
@@ -1231,7 +1265,7 @@ export default function App() {
                 showToast={showToast}
                 onCompleteSale={async (data) => {
                   await handleAddPosOrder({
-                    items: data.cart.map(c => ({ name: c.name, qty: c.qty, price: c.price, variant: c.variant, flavor: c.flavor })),
+                    items: data.cart.map(c => ({ productId: c.productId, name: c.name, qty: c.qty, price: c.price, variant: c.variant, flavor: c.flavor })),
                     subtotal: data.subtotal,
                     total: data.totalAmount,
                     firstName: data.customerName,
