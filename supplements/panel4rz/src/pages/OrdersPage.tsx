@@ -12,6 +12,14 @@ interface OrdersPageProps {
   defaultEurRate: number;
 }
 
+export function getSourceType(source?: string): 'pos' | 'pre-order' | 'storefront' {
+  if (!source) return 'storefront';
+  const s = source.toLowerCase().trim();
+  if (s === 'pos' || s.includes('pos')) return 'pos';
+  if (s.includes('pre')) return 'pre-order';
+  return 'storefront';
+}
+
 export const OrdersPage: React.FC<OrdersPageProps> = ({
   orders,
   inventoryItems,
@@ -25,24 +33,28 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const filteredOrders = orders.filter(o => {
-    if (o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true) return false;
+  // 1. Base active sales (excluding unpaid credit sales)
+  const baseActiveOrders = orders.filter(o => {
+    return o.status !== 'unpaid' && o.payment_status !== 'unpaid' && o.is_unpaid !== true;
+  });
+
+  // 2. Orders filtered by Source
+  const sourceFilteredOrders = baseActiveOrders.filter(o => {
+    if (selectedSource === 'all') return true;
+    return getSourceType(o.source) === selectedSource.toLowerCase();
+  });
+
+  // 3. Final Orders filtered by Source + Status + Search Query
+  const filteredOrders = sourceFilteredOrders.filter(o => {
     if (selectedStatus !== 'all' && o.status !== selectedStatus) return false;
-
-    if (selectedSource !== 'all') {
-      const oSource = (o.source || 'Online').toLowerCase();
-      const selSource = selectedSource.toLowerCase();
-      if (selSource === 'pos' && oSource !== 'pos') return false;
-      if (selSource === 'pre-order' && oSource !== 'pre-order') return false;
-      if (selSource === 'storefront' && (oSource === 'pos' || oSource === 'pre-order')) return false;
-    }
-
     if (!searchQuery.trim()) return true;
+
     const q = searchQuery.toLowerCase().trim();
     const id = (o.id || '').toLowerCase();
     const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.toLowerCase();
     const phone = (o.phone || '').toLowerCase();
     const source = (o.source || '').toLowerCase();
+
     return id.includes(q) || name.includes(q) || phone.includes(q) || source.includes(q);
   });
 
@@ -61,42 +73,53 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           {/* Status Filter Tabs */}
           <div className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto">
-            {['all', 'waiting', 'confirmed', 'delivered', 'canceled'].map(st => (
-              <button
-                key={st}
-                onClick={() => setSelectedStatus(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition-all ${
-                  selectedStatus === st ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {st} ({st === 'all' ? orders.filter(x => !x.is_unpaid).length : orders.filter(o => !o.is_unpaid && o.status === st).length})
-              </button>
-            ))}
+            {['all', 'waiting', 'confirmed', 'delivered', 'canceled'].map(st => {
+              const count = st === 'all'
+                ? sourceFilteredOrders.length
+                : sourceFilteredOrders.filter(o => o.status === st).length;
+
+              return (
+                <button
+                  key={st}
+                  onClick={() => setSelectedStatus(st)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition-all ${
+                    selectedStatus === st ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {st} ({count})
+                </button>
+              );
+            })}
           </div>
 
           {/* Source Filter Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-            <span className="text-[11px] font-bold text-slate-500 pl-2 hidden sm:inline flex items-center gap-1">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <span className="text-[11px] font-bold text-slate-500 pl-2 pr-1 hidden sm:inline flex items-center gap-1">
               <Filter className="w-3 h-3" />
               <span>Source:</span>
             </span>
             {[
-              { id: 'all', label: 'All Sources', icon: '🌐' },
-              { id: 'storefront', label: 'Storefront', icon: '🛒' },
-              { id: 'POS', label: 'POS', icon: '🏪' },
-              { id: 'Pre-Order', label: 'Pre-Order', icon: '📋' }
+              { id: 'all', label: 'All', icon: '🌐', count: baseActiveOrders.length },
+              { id: 'storefront', label: 'Storefront', icon: '🛒', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'storefront').length },
+              { id: 'pos', label: 'POS', icon: '🏪', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'pos').length },
+              { id: 'pre-order', label: 'Pre-Order', icon: '📋', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'pre-order').length }
             ].map(src => (
               <button
                 key={src.id}
                 onClick={() => setSelectedSource(src.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                   selectedSource === src.id
-                    ? 'bg-white text-slate-900 shadow-sm'
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 <span>{src.icon}</span>
                 <span>{src.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  selectedSource === src.id ? 'bg-slate-100 text-slate-900' : 'bg-slate-200/80 text-slate-600'
+                }`}>
+                  {src.count}
+                </span>
               </button>
             ))}
           </div>
