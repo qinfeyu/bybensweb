@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, InventoryItem, Order, Customer } from '../types';
-import { Store, Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, User, Phone, Tag, Boxes, Receipt } from 'lucide-react';
+import { Store, Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, User, Phone, Tag, Boxes, Receipt, Clock, CreditCard } from 'lucide-react';
 
 interface PosCartItem {
   productId: string;
@@ -23,6 +23,7 @@ interface PosPageProps {
     discount: number;
     subtotal: number;
     totalAmount: number;
+    paymentStatus?: 'paid' | 'unpaid';
   }) => Promise<void>;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -175,6 +176,7 @@ export const PosPage: React.FC<PosPageProps> = ({
     discount: number;
     totalAmount: number;
     orderId: string;
+    paymentStatus?: 'paid' | 'unpaid';
   }) => {
     const printWin = window.open('', '_blank', 'width=400,height=600');
     if (!printWin) return;
@@ -191,6 +193,12 @@ export const PosPage: React.FC<PosPageProps> = ({
         </td>
       </tr>
     `).join('');
+
+    const debtBanner = saleData.paymentStatus === 'unpaid' ? `
+      <div style="margin: 10px 0; padding: 8px; background: #fef3c7; border: 1.5px dashed #d97706; color: #92400e; text-align: center; font-weight: 800; font-size: 11px; border-radius: 6px;">
+        ⚠️ PAYMENT STATUS: UNPAID / DEBT (BUY NOW PAY LATER)
+      </div>
+    ` : '';
 
     printWin.document.write(`
       <!DOCTYPE html>
@@ -219,10 +227,13 @@ export const PosPage: React.FC<PosPageProps> = ({
         </div>
         <div class="receipt">
           <div class="header">
-            <div class="brand">BYBENS SUPPLEMENTS</div>
-            <div class="info">POS Sales Receipt • ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-            <div class="info">Customer: ${saleData.customerName || 'Walk-in Customer'} ${saleData.customerPhone ? `(${saleData.customerPhone})` : ''}</div>
+            <div class="brand">BYBENS NUTRITION</div>
+            <div class="info">Sports Nutrition & Supplements</div>
+            <div class="info" style="margin-top: 4px;">Ticket: #${saleData.orderId}</div>
+            <div class="info">Date: ${new Date().toLocaleString('fr-DZ')}</div>
+            <div class="info">Customer: ${saleData.customerName} (${saleData.customerPhone})</div>
           </div>
+          ${debtBanner}
           <table>
             <tbody>
               ${itemsHtml}
@@ -244,6 +255,8 @@ export const PosPage: React.FC<PosPageProps> = ({
     printWin.document.close();
   };
 
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid'>('paid');
+
   const handleCheckout = async () => {
     if (!cart.length) {
       showToast("Cart is empty!", "error");
@@ -262,7 +275,8 @@ export const PosPage: React.FC<PosPageProps> = ({
         customerPhone: cPhone,
         discount,
         subtotal,
-        totalAmount
+        totalAmount,
+        paymentStatus
       });
 
       // Print POS receipt ticket
@@ -273,14 +287,20 @@ export const PosPage: React.FC<PosPageProps> = ({
         subtotal,
         discount,
         totalAmount,
-        orderId
+        orderId,
+        paymentStatus
       });
 
       setCart([]);
       setCustomerName('');
       setCustomerPhone('');
       setDiscount(0);
-      showToast(`✓ POS Sale completed! Total: ${totalAmount.toLocaleString()} DA`);
+      setPaymentStatus('paid');
+      if (paymentStatus === 'unpaid') {
+        showToast(`✓ Unpaid Sale recorded! Added to Unpaid & Credit tab.`, 'info');
+      } else {
+        showToast(`✓ POS Sale completed! Total: ${totalAmount.toLocaleString()} DA`);
+      }
     } catch(e: any) {
       showToast("Error processing sale", "error");
     }
@@ -525,6 +545,45 @@ export const PosPage: React.FC<PosPageProps> = ({
             </div>
           </div>
 
+          {/* Payment Status Selector */}
+          <div className="space-y-1">
+            <label className="font-semibold text-slate-600 flex items-center justify-between text-xs">
+              <span>Payment Option</span>
+              {paymentStatus === 'unpaid' && (
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-2 py-0.5 rounded-md border border-amber-200">
+                  ⏳ Buy Now, Pay Later
+                </span>
+              )}
+            </label>
+            <div className="grid grid-cols-2 gap-1.5 mt-1">
+              <button
+                type="button"
+                onClick={() => setPaymentStatus('paid')}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  paymentStatus === 'paid'
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800 ring-2 ring-emerald-500/20'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Paid Now</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaymentStatus('unpaid')}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  paymentStatus === 'unpaid'
+                    ? 'bg-amber-50 border-amber-300 text-amber-800 ring-2 ring-amber-500/20'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Pay Later (Unpaid)</span>
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="font-semibold text-slate-600">Discount (DA)</label>
             <input
@@ -550,10 +609,14 @@ export const PosPage: React.FC<PosPageProps> = ({
           <button
             disabled={!cart.length}
             onClick={handleCheckout}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+            className={`w-full text-white font-bold text-xs py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+              paymentStatus === 'unpaid'
+                ? 'bg-amber-600 hover:bg-amber-700'
+                : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
           >
-            <Receipt className="w-4 h-4" />
-            <span>Complete Sale & Print Ticket</span>
+            {paymentStatus === 'unpaid' ? <Clock className="w-4 h-4" /> : <Receipt className="w-4 h-4" />}
+            <span>{paymentStatus === 'unpaid' ? 'Record Unpaid Sale (Credit)' : 'Complete Sale & Print Ticket'}</span>
           </button>
         </div>
       </div>

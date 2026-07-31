@@ -198,8 +198,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   useEffect(() => { const t = setTimeout(() => setLoaded(true), 80); return () => clearTimeout(t); }, []);
 
-  // ── Sorted orders ──
-  const allOrders = useMemo(() => [...orders].sort((a, b) => getDateMs(b) - getDateMs(a)), [orders]);
+  // ── Sorted paid orders (excluding unpaid credit sales until marked as paid) ──
+  const paidOrders = useMemo(() => {
+    return orders.filter(o => o.status !== 'unpaid' && o.payment_status !== 'unpaid' && o.is_unpaid !== true);
+  }, [orders]);
+  const allOrders = useMemo(() => [...paidOrders].sort((a, b) => getDateMs(b) - getDateMs(a)), [paidOrders]);
   const posOrders = useMemo(() => allOrders.filter(o => o.source === 'POS' || o.source === 'POS Checkout' || String(o.id || '').startsWith('POS-')), [allOrders]);
   const onlineOrders = useMemo(() => allOrders.filter(o => !posOrders.includes(o)), [allOrders, posOrders]);
 

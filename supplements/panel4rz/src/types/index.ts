@@ -1,4 +1,4 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'orders' | 'preorders' | 'pos' | 'expenses' | 'customers' | 'settings';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
 
 export interface InventoryItem {
   id: string; // SKU ID (e.g. SUP-8801)
@@ -115,7 +115,10 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   total: number;
-  status: 'waiting' | 'confirmed' | 'delivered' | 'canceled';
+  status: 'waiting' | 'confirmed' | 'delivered' | 'canceled' | 'unpaid';
+  payment_status?: 'paid' | 'unpaid';
+  is_unpaid?: boolean;
+  paid_at?: string;
   created_at?: string;
   date?: string;
   promoCode?: string;

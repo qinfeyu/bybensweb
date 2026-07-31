@@ -27,6 +27,7 @@ import { CategoriesPage } from './pages/CategoriesPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PreordersPage } from './pages/PreordersPage';
 import { PosPage } from './pages/PosPage';
+import { UnpaidOrdersPage } from './pages/UnpaidOrdersPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -643,8 +644,10 @@ export default function App() {
     showToast("✓ Order deleted & stock restored!");
   };
 
-  const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string }) => {
+  const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string; paymentStatus?: 'paid' | 'unpaid' }) => {
     const id = `POS-${Date.now()}`;
+    const isUnpaid = orderData.paymentStatus === 'unpaid';
+
     const newOrder: Order = {
       id,
       source: 'POS',
@@ -659,11 +662,13 @@ export default function App() {
       items: orderData.items || [],
       subtotal: orderData.subtotal || 0,
       total: orderData.total || 0,
-      status: 'delivered',
+      status: isUnpaid ? 'unpaid' : 'delivered',
+      payment_status: isUnpaid ? 'unpaid' : 'paid',
+      is_unpaid: isUnpaid,
       date: new Date().toISOString()
     };
 
-    // Deduct stock for POS order
+    // Deduct stock for POS order (runs for both paid and unpaid credit sales)
     await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
     try {
@@ -682,12 +687,42 @@ export default function App() {
         subtotal: newOrder.subtotal,
         total: newOrder.total,
         status: newOrder.status,
-        date: newOrder.date
+        created_at: newOrder.date
       });
     } catch(e) {}
 
     setOrders(prev => [newOrder, ...prev]);
-    showToast(`✓ POS Order #${id} recorded successfully!`);
+    if (isUnpaid) {
+      showToast(`✓ Unpaid Sale recorded! Added to Unpaid & Credit tab.`, 'info');
+    } else {
+      showToast(`✓ POS Order #${id} recorded successfully!`);
+    }
+  };
+
+  const handleMarkOrderAsPaid = async (orderId: string) => {
+    try {
+      await supabase.from('orders').update({
+        status: 'delivered',
+        payment_status: 'paid',
+        is_unpaid: false,
+        paid_at: new Date().toISOString()
+      }).eq('id', orderId);
+    } catch(e) {}
+
+    setOrders(prev => prev.map(o => {
+      if (o.id === orderId) {
+        return {
+          ...o,
+          status: 'delivered',
+          payment_status: 'paid',
+          is_unpaid: false,
+          paid_at: new Date().toISOString()
+        };
+      }
+      return o;
+    }));
+
+    showToast(`✓ Order #${orderId} marked as Paid! Moved to Sales.`);
   };
 
   // ── PREORDER MUTATIONS ──
@@ -951,6 +986,10 @@ export default function App() {
     return results.slice(0, 10);
   }, [searchQuery, orders, products, customers]);
 
+  const unpaidCount = useMemo(() => {
+    return orders.filter(o => o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true).length;
+  }, [orders]);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
       {/* Toast Notifications */}
@@ -982,6 +1021,7 @@ export default function App() {
           setIsCollapsed={setIsSidebarCollapsed}
           adminEmail={adminEmail}
           onLogout={handleLogout}
+          unpaidCount={unpaidCount}
         />
 
         {/* Content View Container */}
@@ -1146,9 +1186,21 @@ export default function App() {
                     subtotal: data.subtotal,
                     total: data.totalAmount,
                     firstName: data.customerName,
-                    phone: data.customerPhone
+                    phone: data.customerPhone,
+                    paymentStatus: data.paymentStatus
                   });
                 }}
+              />
+            )}
+
+            {activeTab === 'unpaid' && (
+              <UnpaidOrdersPage
+                orders={orders}
+                inventoryItems={inventoryItems}
+                products={products}
+                onMarkAsPaid={handleMarkOrderAsPaid}
+                onDeleteOrder={handleDeleteOrder}
+                showToast={showToast}
               />
             )}
 

@@ -7,7 +7,8 @@ import {
   Layers,
   ShoppingCart, 
   Clock, 
-  Calculator, 
+  Calculator,
+  CreditCard,
   Receipt, 
   Users, 
   Settings,
@@ -24,6 +25,7 @@ interface SidebarProps {
   setIsCollapsed: (collapsed: boolean) => void;
   adminEmail?: string;
   onLogout?: () => void;
+  unpaidCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,9 +34,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   setIsCollapsed,
   adminEmail,
-  onLogout
+  onLogout,
+  unpaidCount = 0
 }) => {
-  const menuItems: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
+  const menuItems: Array<{ id: TabType; label: string; icon: React.ReactNode; badge?: number }> = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'inventory', label: 'Inventory (SKUs)', icon: <Boxes className="w-4 h-4" /> },
     { id: 'products', label: 'Products Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
@@ -42,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'orders', label: 'Orders', icon: <ShoppingCart className="w-4 h-4" /> },
     { id: 'preorders', label: 'Pre-Orders', icon: <Clock className="w-4 h-4" /> },
     { id: 'pos', label: 'POS Terminal', icon: <Calculator className="w-4 h-4" /> },
+    { id: 'unpaid', label: 'Unpaid & Credit', icon: <CreditCard className="w-4 h-4 text-amber-400" />, badge: unpaidCount },
     { id: 'expenses', label: 'Expenses', icon: <Receipt className="w-4 h-4" /> },
     { id: 'customers', label: 'Customers', icon: <Users className="w-4 h-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
@@ -83,8 +87,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               } ${isCollapsed ? 'justify-center px-0' : ''}`}
               title={isCollapsed ? item.label : undefined}
             >
-              <span className="shrink-0">{item.icon}</span>
-              {!isCollapsed && <span>{item.label}</span>}
+              <span className="shrink-0 relative">
+                {item.icon}
+                {isCollapsed && !!item.badge && item.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 font-black text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                    {item.badge}
+                  </span>
+                )}
+              </span>
+              {!isCollapsed && <span className="flex-1 text-left">{item.label}</span>}
+              {!isCollapsed && !!item.badge && item.badge > 0 && (
+                <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}

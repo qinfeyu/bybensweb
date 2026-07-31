@@ -25,6 +25,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const filteredOrders = orders.filter(o => {
+    if (o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true) return false;
     if (selectedStatus !== 'all' && o.status !== selectedStatus) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
