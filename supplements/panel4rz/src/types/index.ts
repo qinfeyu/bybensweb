@@ -115,7 +115,7 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   total: number;
-  status: 'waiting' | 'confirmed' | 'delivered' | 'canceled' | 'unpaid';
+  status: 'waiting' | 'confirmed' | 'shipping' | 'delivered' | 'canceled' | 'unpaid';
   payment_status?: 'paid' | 'unpaid';
   is_unpaid?: boolean;
   paid_at?: string;

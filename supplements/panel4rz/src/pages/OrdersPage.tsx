@@ -137,9 +137,109 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
       </div>
 
-      {/* Orders Table */}
+      {/* Orders View: Desktop Table + Mobile Cards */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile Cards View (shown on screens < md) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {filteredOrders.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No orders found matching your filters.
+            </div>
+          ) : (
+            filteredOrders.map(o => {
+              const profit = calculateOrderProfit(o, inventoryItems, products, defaultEurRate);
+              const custName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'POS Customer';
+              const sLower = (o.source || '').toLowerCase();
+
+              return (
+                <div key={o.id} className="p-4 space-y-3 hover:bg-slate-50/60 transition-colors">
+                  {/* Top row: Order ID, Source badge & Date */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-slate-900 text-sm">{o.id}</span>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold inline-flex items-center gap-1 border ${
+                        sLower === 'pre-order'
+                          ? 'bg-amber-50 text-amber-900 border-amber-200'
+                          : sLower === 'pos'
+                          ? 'bg-indigo-50 text-indigo-900 border-indigo-200'
+                          : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                      }`}>
+                        <span>{sLower === 'pre-order' ? '📋' : sLower === 'pos' ? '🏪' : '🛒'}</span>
+                        <span>{o.source || 'Storefront'}</span>
+                      </span>
+                    </div>
+
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {o.date || o.created_at ? new Date(o.date || o.created_at || '').toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+
+                  {/* Customer Info & Financials */}
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <div>
+                      <div className="font-bold text-slate-900">{custName}</div>
+                      {o.phone && (
+                        <a href={`tel:${o.phone}`} className="text-[11px] text-blue-600 font-semibold flex items-center gap-1 mt-0.5">
+                          <span>📞</span>
+                          <span>{o.phone}</span>
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-black text-sm text-slate-900">{Number(o.total || 0).toLocaleString()} DA</div>
+                      <div className={`text-[10px] font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        Net: {profit >= 0 ? '+' : ''}{Math.round(profit).toLocaleString()} DA
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status & Actions Row */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                    <select
+                      value={o.status || 'waiting'}
+                      onChange={(e) => onUpdateStatus(o.id, e.target.value as Order['status'])}
+                      className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none transition-all ${
+                        o.status === 'delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                        o.status === 'confirmed' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+                        o.status === 'shipping' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                        o.status === 'waiting' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                        'bg-rose-50 text-rose-800 border-rose-200'
+                      }`}
+                    >
+                      <option value="waiting">⏳ Waiting</option>
+                      <option value="confirmed">✓ Confirmed</option>
+                      <option value="shipping">🚚 Shipping</option>
+                      <option value="delivered">✅ Delivered</option>
+                      <option value="canceled">❌ Canceled</option>
+                    </select>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSelectedOrder(o)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl flex items-center gap-1 transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Details</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete order [${o.id}]?`)) onDeleteOrder(o.id);
+                        }}
+                        className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View (shown on screens >= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-xs text-left text-slate-700 min-w-[700px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
@@ -183,19 +283,29 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       {profit >= 0 ? '+' : ''}{Math.round(profit).toLocaleString()} DA
                     </td>
                     <td className="p-3">
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold capitalize inline-flex items-center gap-1 ${
-                        o.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
-                        o.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                        o.status === 'waiting' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
-                      }`}>
-                        {o.status}
-                      </span>
+                      <select
+                        value={o.status || 'waiting'}
+                        onChange={(e) => onUpdateStatus(o.id, e.target.value as Order['status'])}
+                        className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none ${
+                          o.status === 'delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                          o.status === 'confirmed' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+                          o.status === 'shipping' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                          o.status === 'waiting' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                          'bg-rose-50 text-rose-800 border-rose-200'
+                        }`}
+                      >
+                        <option value="waiting">Waiting</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="shipping">Shipping</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="canceled">Canceled</option>
+                      </select>
                     </td>
                     <td className="p-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => setSelectedOrder(o)}
-                          className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg"
+                          className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
                           title="View Order Details"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -204,7 +314,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                           onClick={() => {
                             if (confirm(`Delete order [${o.id}]?`)) onDeleteOrder(o.id);
                           }}
-                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg"
+                          className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
+                          title="Delete Order"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
