@@ -121,10 +121,13 @@ export default function App() {
 
       if (!error && data.session) {
         const email = data.user?.email || loginEmailInput.trim();
-        setIsAuthenticated(true);
-        setAdminEmail(email);
         localStorage.setItem("bb_admin_auth", "1");
         localStorage.setItem("bb_admin_name", email);
+        setAdminEmail(email);
+        
+        // Fetch all initial data before opening dashboard view
+        await refreshAllData();
+        setIsAuthenticated(true);
         showToast("✓ Welcome back, Admin!");
       } else {
         setAuthErrorMsg(error?.message || "Invalid email or password");
@@ -1172,6 +1175,26 @@ export default function App() {
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
             <span>Supabase Authenticated Access</span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── RENDER INITIAL FULLSCREEN LOADER UNTIL DATA FETCHES ──
+  if (isAuthenticated && isLoading && inventoryItems.length === 0 && products.length === 0 && orders.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 font-sans antialiased">
+        <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in-95">
+          <div className="w-14 h-14 bg-red-700 rounded-3xl flex items-center justify-center font-black text-2xl text-white shadow-xl shadow-red-900/40 animate-pulse">
+            B
+          </div>
+          <div className="flex items-center gap-2.5 text-slate-200 font-extrabold text-base tracking-tight">
+            <RefreshCw className="w-5 h-5 animate-spin text-red-500" />
+            <span>Loading BYBENS Admin Panel...</span>
+          </div>
+          <p className="text-xs text-slate-400 font-medium text-center max-w-sm">
+            Fetching catalog products, inventory SKUs, orders, balances, and customer data...
+          </p>
         </div>
       </div>
     );
