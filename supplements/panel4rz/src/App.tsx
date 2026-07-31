@@ -191,7 +191,8 @@ export default function App() {
     rate: Number(item.rate) || 280,
     delivery_dzd: Number(item.delivery_dzd) || 0,
     retail_dzd: Number(item.retail_dzd) || 0,
-    stock: Number(item.stock) || 0
+    stock: Number(item.stock) || 0,
+    stock_eu: Number(item.stock_eu) || 0
   });
 
   // ── LOAD ALL DATA ──
