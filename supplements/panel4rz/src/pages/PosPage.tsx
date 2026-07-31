@@ -307,108 +307,156 @@ export const PosPage: React.FC<PosPageProps> = ({
     }
   };
 
+  const totalCartQty = cart.reduce((s, i) => s + i.qty, 0);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)] min-h-[600px]">
-      {/* Left: Product Selector (2 cols) */}
-      <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col space-y-4 overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Tab Selection: Catalog vs Inventory SKUs */}
-          <div className="flex p-1 bg-slate-100 rounded-xl gap-1">
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'products' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Store className="w-3.5 h-3.5 text-red-700" />
-              <span>Catalog Products</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('inventory')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'inventory' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Boxes className="w-3.5 h-3.5 text-blue-700" />
-              <span>Inventory SKUs</span>
-            </button>
-          </div>
-
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder={activeTab === 'products' ? 'Search product catalog...' : 'Search inventory SKU...'}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
-            />
-          </div>
-        </div>
-
-        {/* Catalog Products Grid */}
-        {activeTab === 'products' && (
-          <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pr-1">
-            {filteredProducts.map(p => {
-              const firstPrice = p.variants?.[0]?.price ? Number(p.variants[0].price) : 0;
-
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => handleOpenProductModal(p)}
-                  className="bg-slate-50 hover:bg-red-50/50 border border-slate-200 hover:border-red-300 p-3.5 rounded-xl cursor-pointer transition-all flex flex-col justify-between group"
-                >
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{p.brand || 'No Brand'}</span>
-                    <h4 className="font-bold text-slate-900 text-xs line-clamp-2 mt-0.5 group-hover:text-red-700">{p.name}</h4>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs font-black text-slate-900">
-                      {firstPrice > 0 ? `${firstPrice.toLocaleString()} DA` : 'Select Price'}
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Stock: {p.stock}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Inventory SKUs Grid */}
-        {activeTab === 'inventory' && (
-          <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pr-1">
-            {filteredInventory.map(item => (
-              <div
-                key={item.id}
-                onClick={() => handleAddInventoryToCart(item)}
-                className="bg-slate-50 hover:bg-blue-50/50 border border-slate-200 hover:border-blue-300 p-3.5 rounded-xl cursor-pointer transition-all flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-blue-700 uppercase">{item.id}</span>
-                    <span className="text-[10px] font-bold text-slate-400">{item.brand}</span>
-                  </div>
-                  <h4 className="font-bold text-slate-900 text-xs line-clamp-2 mt-1 group-hover:text-blue-700">{item.name}</h4>
-                  <div className="text-[10px] text-slate-500 mt-0.5">{item.variant_spec || item.size || 'Standard'}</div>
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-900">
-                    {item.retail_dzd ? `${item.retail_dzd.toLocaleString()} DA` : '0 DA'}
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    Stock: {item.stock}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+    <div className="flex flex-col space-y-4">
+      {/* Mobile View Switcher (Catalog vs Cart) */}
+      <div className="flex lg:hidden p-1 bg-slate-200/80 rounded-xl">
+        <button
+          onClick={() => setMobilePosView('catalog')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all ${
+            mobilePosView === 'catalog' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+          }`}
+        >
+          <Store className="w-4 h-4 text-red-700" />
+          <span>Catalog & SKUs ({activeTab === 'products' ? filteredProducts.length : filteredInventory.length})</span>
+        </button>
+        <button
+          onClick={() => setMobilePosView('cart')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all relative ${
+            mobilePosView === 'cart' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+          }`}
+        >
+          <ShoppingCart className="w-4 h-4 text-emerald-600" />
+          <span>Cart ({totalCartQty})</span>
+          {totalCartQty > 0 && (
+            <span className="bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full ml-1">
+              {totalAmount.toLocaleString()} DA
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Right: Cart & Checkout (1 col) */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh-140px)] min-h-[500px]">
+        {/* Left: Product Selector (2 cols) */}
+        <div className={`lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex-col space-y-4 overflow-hidden ${
+          mobilePosView === 'catalog' ? 'flex' : 'hidden lg:flex'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Tab Selection: Catalog vs Inventory SKUs */}
+            <div className="flex p-1 bg-slate-100 rounded-xl gap-1">
+              <button
+                onClick={() => setActiveTab('products')}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === 'products' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Store className="w-3.5 h-3.5 text-red-700" />
+                <span>Catalog Products</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('inventory')}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === 'inventory' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Boxes className="w-3.5 h-3.5 text-blue-700" />
+                <span>Inventory SKUs</span>
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder={activeTab === 'products' ? 'Search product catalog...' : 'Search inventory SKU...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 sm:py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
+              />
+            </div>
+          </div>
+
+          {/* Catalog Products Grid */}
+          {activeTab === 'products' && (
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 pr-1 max-h-[60vh] lg:max-h-none">
+              {filteredProducts.map(p => {
+                const firstPrice = p.variants?.[0]?.price ? Number(p.variants[0].price) : 0;
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => handleOpenProductModal(p)}
+                    className="bg-slate-50 hover:bg-red-50/50 border border-slate-200 hover:border-red-300 p-3 sm:p-3.5 rounded-xl cursor-pointer transition-all flex flex-col justify-between group active:scale-[0.98]"
+                  >
+                    <div>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">{p.brand || 'No Brand'}</span>
+                      <h4 className="font-bold text-slate-900 text-xs line-clamp-2 mt-0.5 group-hover:text-red-700">{p.name}</h4>
+                    </div>
+                    <div className="mt-2.5 flex items-center justify-between flex-wrap gap-1">
+                      <span className="text-xs font-black text-slate-900">
+                        {firstPrice > 0 ? `${firstPrice.toLocaleString()} DA` : 'Select Price'}
+                      </span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                        Stock: {p.stock}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Inventory SKUs Grid */}
+          {activeTab === 'inventory' && (
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 pr-1 max-h-[60vh] lg:max-h-none">
+              {filteredInventory.map(item => (
+                <div
+                  key={item.id}
+                  onClick={() => handleAddInventoryToCart(item)}
+                  className="bg-slate-50 hover:bg-blue-50/50 border border-slate-200 hover:border-blue-300 p-3 sm:p-3.5 rounded-xl cursor-pointer transition-all flex flex-col justify-between group active:scale-[0.98]"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-blue-700 uppercase">{item.id}</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 truncate max-w-[50%]">{item.brand}</span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-xs line-clamp-2 mt-1 group-hover:text-blue-700">{item.name}</h4>
+                    <div className="text-[10px] text-slate-500 mt-0.5">{item.variant_spec || item.size || 'Standard'}</div>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between flex-wrap gap-1">
+                    <span className="text-xs font-black text-slate-900">
+                      {item.retail_dzd ? `${item.retail_dzd.toLocaleString()} DA` : '0 DA'}
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                      Stock: {item.stock}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Mobile Sticky Floating Cart Bar */}
+          {mobilePosView === 'catalog' && totalCartQty > 0 && (
+            <button
+              onClick={() => setMobilePosView('cart')}
+              className="lg:hidden fixed bottom-16 left-3 right-3 bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow-xl flex items-center justify-between z-30 animate-in slide-in-from-bottom-2 active:scale-95"
+            >
+              <div className="flex items-center gap-2 text-xs">
+                <ShoppingCart className="w-4 h-4" />
+                <span>View Cart ({totalCartQty} items)</span>
+              </div>
+              <span className="font-black text-sm">{totalAmount.toLocaleString()} DA →</span>
+            </button>
+          )}
+        </div>
+
+        {/* Right: Cart & Checkout (1 col) */}
+        <div className={`bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex-col justify-between space-y-4 ${
+          mobilePosView === 'cart' ? 'flex' : 'hidden lg:flex'
+        }`}>
         <div>
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -627,6 +675,7 @@ export const PosPage: React.FC<PosPageProps> = ({
           </button>
         </div>
       </div>
+    </div>
 
       {/* ── VARIANT & FLAVOR SELECTOR MODAL ── */}
       {selectedProduct && (() => {
@@ -715,8 +764,8 @@ export const PosPage: React.FC<PosPageProps> = ({
             </div>
           </div>
         </div>
-        );
-      })()}
+      );
+    })()}
     </div>
   );
 };
