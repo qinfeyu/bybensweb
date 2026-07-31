@@ -1082,6 +1082,43 @@ export default function App() {
     showToast("✓ Settings updated successfully!");
   };
 
+  // ── Global search results ──
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const results: { type: string; title: string; sub: string; tab: string }[] = [];
+
+    // Search orders
+    orders.filter(o => {
+      const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim().toLowerCase();
+      const phone = (o.phone || '').toLowerCase();
+      return name.includes(q) || phone.includes(q) || String(o.id).toLowerCase().includes(q);
+    }).slice(0, 5).forEach(o => {
+      const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || '—';
+      results.push({ type: 'order', title: name, sub: `${o.status} · ${Number(o.total || 0).toLocaleString('fr-DZ')} DA`, tab: 'orders' });
+    });
+
+    // Search products
+    products.filter(p => p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q)).slice(0, 4).forEach(p => {
+      results.push({ type: 'product', title: `${p.brand ? p.brand + ' ' : ''}${p.name}`, sub: `${p.status} · ${(p.variants || []).length} variants`, tab: 'products' });
+    });
+
+    // Search customers
+    customers.filter(c => {
+      const name = `${c.first_name || ''} ${c.last_name || ''} ${c.name || ''}`.trim().toLowerCase();
+      return name.includes(q) || (c.phone || '').includes(q);
+    }).slice(0, 4).forEach(c => {
+      const name = `${c.first_name || ''} ${c.last_name || ''} ${c.name || ''}`.trim() || '—';
+      results.push({ type: 'customer', title: name, sub: `${c.phone || ''} · ${c.wilaya || ''}`, tab: 'customers' });
+    });
+
+    return results.slice(0, 10);
+  }, [searchQuery, orders, products, customers]);
+
+  const unpaidCount = useMemo(() => {
+    return orders.filter(o => o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true).length;
+  }, [orders]);
+
   // ── RENDER: session check loading screen ──
   if (isSessionChecking) {
     return (
@@ -1206,43 +1243,6 @@ export default function App() {
       await supabase.from('customers').delete().eq('id', id);
     } catch(e) {}
   };
-
-  // ── Global search results ──
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (q.length < 2) return [];
-    const results: { type: string; title: string; sub: string; tab: string }[] = [];
-
-    // Search orders
-    orders.filter(o => {
-      const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim().toLowerCase();
-      const phone = (o.phone || '').toLowerCase();
-      return name.includes(q) || phone.includes(q) || String(o.id).toLowerCase().includes(q);
-    }).slice(0, 5).forEach(o => {
-      const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || '—';
-      results.push({ type: 'order', title: name, sub: `${o.status} · ${Number(o.total || 0).toLocaleString('fr-DZ')} DA`, tab: 'orders' });
-    });
-
-    // Search products
-    products.filter(p => p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q)).slice(0, 4).forEach(p => {
-      results.push({ type: 'product', title: `${p.brand ? p.brand + ' ' : ''}${p.name}`, sub: `${p.status} · ${(p.variants || []).length} variants`, tab: 'products' });
-    });
-
-    // Search customers
-    customers.filter(c => {
-      const name = `${c.first_name || ''} ${c.last_name || ''} ${c.name || ''}`.trim().toLowerCase();
-      return name.includes(q) || (c.phone || '').includes(q);
-    }).slice(0, 4).forEach(c => {
-      const name = `${c.first_name || ''} ${c.last_name || ''} ${c.name || ''}`.trim() || '—';
-      results.push({ type: 'customer', title: name, sub: `${c.phone || ''} · ${c.wilaya || ''}`, tab: 'customers' });
-    });
-
-    return results.slice(0, 10);
-  }, [searchQuery, orders, products, customers]);
-
-  const unpaidCount = useMemo(() => {
-    return orders.filter(o => o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true).length;
-  }, [orders]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
