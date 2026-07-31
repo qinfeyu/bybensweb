@@ -67,9 +67,8 @@ export default function App() {
 
 
   // ── AUTHENTICATION STATE ──
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem("bb_admin_auth") === "1";
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isSessionChecking, setIsSessionChecking] = useState<boolean>(true); // true until we've verified the Supabase session
   const [adminEmail, setAdminEmail] = useState<string>(() => {
     return localStorage.getItem("bb_admin_name") || "admin@bybens.com";
   });
@@ -80,6 +79,8 @@ export default function App() {
 
   // Check Supabase session on mount
   useEffect(() => {
+    // On mount, check if there is a live Supabase session.
+    // If localStorage flag is set but there's no real session, clear the flag.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setIsAuthenticated(true);
@@ -87,16 +88,26 @@ export default function App() {
         setAdminEmail(email);
         localStorage.setItem("bb_admin_auth", "1");
         localStorage.setItem("bb_admin_name", email);
+      } else {
+        // No live Supabase session – clear any stale localStorage flag
+        localStorage.removeItem("bb_admin_auth");
+        setIsAuthenticated(false);
       }
+      // Done verifying – show login or dashboard
+      setIsSessionChecking(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setIsAuthenticated(true);
         const email = session.user.email || 'admin@bybens.com';
         setAdminEmail(email);
         localStorage.setItem("bb_admin_auth", "1");
         localStorage.setItem("bb_admin_name", email);
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        localStorage.removeItem("bb_admin_auth");
+        localStorage.removeItem("bb_admin_name");
       }
     });
 
@@ -120,14 +131,17 @@ export default function App() {
       });
 
       if (!error && data.session) {
-        const email = data.user?.email || loginEmailInput.trim();
-        setIsAuthenticated(true);
-        setAdminEmail(email);
-        localStorage.setItem("bb_admin_auth", "1");
-        localStorage.setItem("bb_admin_name", email);
+        // Auth state change listener will handle setting isAuthenticated
+        // We just show a welcome toast here
         showToast("✓ Welcome back, Admin!");
       } else {
-        setAuthErrorMsg(error?.message || "Invalid email or password");
+        const msg = error?.message || "Invalid email or password";
+        // Give a friendlier message for the common case
+        if (msg.includes('Invalid login credentials')) {
+          setAuthErrorMsg("Wrong email or password. Use admin@bybens.com with the admin password.");
+        } else {
+          setAuthErrorMsg(msg);
+        }
       }
     } catch(err: any) {
       setAuthErrorMsg("Connection error. Please try again.");
@@ -1099,6 +1113,23 @@ export default function App() {
     showToast("✓ Settings updated successfully!");
   };
 
+  // ── RENDER: session check loading screen ──
+  if (isSessionChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 bg-red-700 rounded-2xl flex items-center justify-center font-black text-xl text-white shadow-lg">
+            B
+          </div>
+          <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
+            <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
+            <span>Checking session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── RENDER SUPABASE LOGIN SCREEN IF NOT AUTHENTICATED ──
   if (!isAuthenticated) {
     return (
@@ -1111,6 +1142,7 @@ export default function App() {
             </div>
             <h1 className="text-2xl font-black tracking-tight text-white">BYBENS ADMIN</h1>
             <p className="text-xs text-slate-400 font-medium">Sign in to access the management portal</p>
+            <p className="text-[11px] text-slate-500">Use <span className="text-slate-300 font-mono">admin@bybens.com</span> or your registered email</p>
           </div>
 
           {/* Error Message */}
