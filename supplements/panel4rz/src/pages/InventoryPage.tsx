@@ -66,6 +66,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [activeTab, setActiveTab] = useState<'supplement' | 'snack'>('supplement');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSpreadsheetMode, setIsSpreadsheetMode] = useState(false);
+  const [pendingSpreadsheetEdits, setPendingSpreadsheetEdits] = useState<Record<string, InventoryItem>>({});
   const [sortField, setSortField] = useState<keyof InventoryItem | 'landed' | 'margin'>('id');
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -363,22 +364,44 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     showToast(`✓ Batch created ${batchItems.length} variant SKUs successfully!`);
   };
 
-  // Spreadsheet Inline Edit Handler
-  const handleSpreadsheetChange = async (id: string, field: keyof InventoryItem, value: any) => {
-    const existing = inventoryItems.find(x => x.id === id);
-    if (!existing) return;
+  // Save all spreadsheet draft edits to Database
+  const handleSaveAllSpreadsheetEdits = async () => {
+    const editedList = Object.values(pendingSpreadsheetEdits);
+    if (editedList.length === 0) {
+      showToast("No spreadsheet edits to save", "info");
+      return;
+    }
+
+    await onSaveBulkItems(editedList);
+    setPendingSpreadsheetEdits({});
+    showToast(`✓ Saved all spreadsheet changes for ${editedList.length} items to database!`);
+  };
+
+  // Discard pending draft edits
+  const handleDiscardSpreadsheetEdits = () => {
+    setPendingSpreadsheetEdits({});
+    showToast("Discarded pending spreadsheet edits.", "info");
+  };
+
+  // Spreadsheet Inline Edit Handler (Draft Accumulator)
+  const handleSpreadsheetChange = (id: string, field: keyof InventoryItem, value: any) => {
+    const base = pendingSpreadsheetEdits[id] || inventoryItems.find(x => x.id === id);
+    if (!base) return;
 
     let parsedVal: any = value;
     if (['price_eur', 'rate', 'delivery_dzd', 'retail_dzd', 'stock', 'stock_eu'].includes(field)) {
       parsedVal = parseFloat(value) || 0;
     }
 
-    const updated: InventoryItem = {
-      ...existing,
+    const updatedItem: InventoryItem = {
+      ...base,
       [field]: parsedVal
     };
 
-    await onSaveItem(updated);
+    setPendingSpreadsheetEdits(prev => ({
+      ...prev,
+      [id]: updatedItem
+    }));
   };
 
   // CSV Export Function
@@ -614,16 +637,44 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           </button>
 
           <button
-            onClick={() => setIsSpreadsheetMode(!isSpreadsheetMode)}
+            onClick={() => {
+              if (isSpreadsheetMode && Object.keys(pendingSpreadsheetEdits).length > 0) {
+                if (confirm("Save pending spreadsheet changes to database before exiting?")) {
+                  handleSaveAllSpreadsheetEdits();
+                }
+              }
+              setIsSpreadsheetMode(!isSpreadsheetMode);
+            }}
             className={`flex items-center gap-1.5 font-semibold text-xs px-3 py-2 rounded-xl border transition-all ${
               isSpreadsheetMode
-                ? 'bg-amber-100 border-amber-300 text-amber-900'
+                ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>{isSpreadsheetMode ? 'Exit Excel Edit' : 'Excel Edit Mode'}</span>
           </button>
+
+          {/* Explicit Save Button for Spreadsheet Mode Edits */}
+          {isSpreadsheetMode && Object.keys(pendingSpreadsheetEdits).length > 0 && (
+            <div className="flex items-center gap-1 animate-in fade-in zoom-in-95">
+              <button
+                onClick={handleSaveAllSpreadsheetEdits}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-md transition-all animate-pulse"
+                title="Commit all spreadsheet inline edits to database"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save All Edits ({Object.keys(pendingSpreadsheetEdits).length})</span>
+              </button>
+              <button
+                onClick={handleDiscardSpreadsheetEdits}
+                className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs transition-all"
+                title="Discard draft edits"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           <button
             onClick={handleExportCsv}
@@ -672,11 +723,11 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
         </div>
 
         {/* Search */}
-        <div className="relative max-w-md w-full">
+        <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search SKU, brand, or product..."
+            placeholder="Search by SKU, Brand, or Name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
@@ -684,47 +735,105 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
         </div>
       </div>
 
-      {/* Inventory Main Table */}
+      {/* Inventory Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left text-slate-700">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
-                <th onClick={() => toggleSort('id')} className="p-3 cursor-pointer select-none hover:bg-slate-100">SKU ⇅</th>
-                <th onClick={() => toggleSort('brand')} className="p-3 cursor-pointer select-none hover:bg-slate-100">Brand ⇅</th>
-                <th onClick={() => toggleSort('name')} className="p-3 cursor-pointer select-none hover:bg-slate-100">Product Name ⇅</th>
+                <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('id')}>
+                  <div className="flex items-center gap-1">
+                    <span>SKU</span>
+                    {sortField === 'id' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
+                <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('brand')}>
+                  <div className="flex items-center gap-1">
+                    <span>Brand</span>
+                    {sortField === 'brand' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
+                <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('name')}>
+                  <div className="flex items-center gap-1">
+                    <span>Product Name</span>
+                    {sortField === 'name' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
                 <th className="p-3">Variant / Spec</th>
                 <th className="p-3">Size</th>
-                <th onClick={() => toggleSort('price_eur')} className="p-3 cursor-pointer select-none hover:bg-slate-100">Price (€) ⇅</th>
+                <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('price_eur')}>
+                  <div className="flex items-center gap-1">
+                    <span>Price (€)</span>
+                    {sortField === 'price_eur' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
                 <th className="p-3">Rate</th>
                 <th className="p-3">Delivery</th>
-                <th onClick={() => toggleSort('landed')} className="p-3 cursor-pointer select-none hover:bg-slate-100">Landed (DA) ⇅</th>
-                <th onClick={() => toggleSort('retail_dzd')} className="p-3 cursor-pointer select-none hover:bg-slate-100">Retail (DA) ⇅</th>
-                <th onClick={() => toggleSort('margin')} className="p-3 cursor-pointer select-none hover:bg-slate-100">Margin ⇅</th>
-                <th onClick={() => toggleSort('stock_eu')} className="p-3 text-center cursor-pointer select-none hover:bg-slate-100 text-blue-600">EU ⇅</th>
-                <th onClick={() => toggleSort('stock')} className="p-3 text-center cursor-pointer select-none hover:bg-slate-100 text-emerald-600">DZ ⇅</th>
+                <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('landed')}>
+                  <div className="flex items-center gap-1">
+                    <span>Landed (DA)</span>
+                    {sortField === 'landed' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
+                <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('retail_dzd')}>
+                  <div className="flex items-center gap-1">
+                    <span>Retail (DA)</span>
+                    {sortField === 'retail_dzd' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
+                <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('margin')}>
+                  <div className="flex items-center gap-1">
+                    <span>Margin</span>
+                    {sortField === 'margin' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
+                <th className="p-3 text-center cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('stock_eu')}>
+                  <div className="flex items-center justify-center gap-1">
+                    <span>EU Stock</span>
+                    {sortField === 'stock_eu' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
+                <th className="p-3 text-center cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('stock')}>
+                  <div className="flex items-center justify-center gap-1">
+                    <span>DZ Stock</span>
+                    {sortField === 'stock' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
                 <th className="p-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {sortedItems.map((item) => {
-                const landed = calculateLandedCost(item.price_eur, item.rate, item.delivery_dzd);
-                const margin = calculateMargin(item.retail_dzd, landed);
-                const marginPct = calculateMarginPct(item.retail_dzd, margin).toFixed(1);
+                const displayItem = pendingSpreadsheetEdits[item.id] || item;
+                const isModified = Boolean(pendingSpreadsheetEdits[item.id]);
+
+                const landed = calculateLandedCost(displayItem.price_eur, displayItem.rate, displayItem.delivery_dzd);
+                const margin = calculateMargin(displayItem.retail_dzd, landed);
+                const marginPct = calculateMarginPct(displayItem.retail_dzd, margin).toFixed(1);
 
                 return (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr
+                    key={item.id}
+                    className={isModified ? 'bg-amber-50/70 hover:bg-amber-100/70 transition-colors border-l-4 border-l-amber-500 font-medium' : 'hover:bg-slate-50/80 transition-colors'}
+                  >
                     {/* SKU */}
-                    <td className="p-3 font-bold text-slate-900">{item.id}</td>
+                    <td className="p-3 font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>{item.id}</span>
+                      {isModified && (
+                        <span className="text-[10px] font-black bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded">
+                          EDITED
+                        </span>
+                      )}
+                    </td>
 
                     {/* Brand */}
                     <td className="p-3">
                       {isSpreadsheetMode ? (
                         <input
                           type="text"
-                          defaultValue={item.brand}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'brand', e.target.value)}
-                          className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs"
+                          value={displayItem.brand || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'brand', e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
                         item.brand || '—'
@@ -736,9 +845,9 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       {isSpreadsheetMode ? (
                         <input
                           type="text"
-                          defaultValue={item.name}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'name', e.target.value)}
-                          className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold"
+                          value={displayItem.name || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'name', e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
                         item.name
@@ -746,9 +855,9 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     </td>
 
                     {/* Variant Spec */}
-                    <td className="p-3 text-slate-500">{item.variant_spec || '—'}</td>
+                    <td className="p-3 text-slate-500">{displayItem.variant_spec || '—'}</td>
                     {/* Size */}
-                    <td className="p-3 text-slate-500">{item.size || '—'}</td>
+                    <td className="p-3 text-slate-500">{displayItem.size || '—'}</td>
 
                     {/* Price EUR */}
                     <td className="p-3 font-semibold text-slate-900">
@@ -756,19 +865,42 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                         <input
                           type="number"
                           step="0.1"
-                          defaultValue={item.price_eur}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'price_eur', e.target.value)}
-                          className="w-16 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold"
+                          value={displayItem.price_eur || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'price_eur', e.target.value)}
+                          className="w-20 bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        `€${item.price_eur.toFixed(2)}`
+                        `€${displayItem.price_eur.toFixed(2)}`
                       )}
                     </td>
 
                     {/* Rate */}
-                    <td className="p-3 text-slate-500">{item.rate}</td>
+                    <td className="p-3 text-slate-500">
+                      {isSpreadsheetMode ? (
+                        <input
+                          type="number"
+                          value={displayItem.rate || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'rate', e.target.value)}
+                          className="w-16 bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                        />
+                      ) : (
+                        displayItem.rate
+                      )}
+                    </td>
+
                     {/* Delivery */}
-                    <td className="p-3 text-slate-500">{item.delivery_dzd} DA</td>
+                    <td className="p-3 text-slate-500">
+                      {isSpreadsheetMode ? (
+                        <input
+                          type="number"
+                          value={displayItem.delivery_dzd || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'delivery_dzd', e.target.value)}
+                          className="w-20 bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                        />
+                      ) : (
+                        `${displayItem.delivery_dzd} DA`
+                      )}
+                    </td>
 
                     {/* Landed DA */}
                     <td className="p-3 font-bold text-slate-900">{landed.toLocaleString()} DA</td>
@@ -778,12 +910,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          defaultValue={item.retail_dzd}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'retail_dzd', e.target.value)}
-                          className="w-20 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold"
+                          value={displayItem.retail_dzd || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'retail_dzd', e.target.value)}
+                          className="w-24 bg-white border border-emerald-300 rounded px-1.5 py-1 text-xs font-extrabold text-emerald-900 focus:ring-2 focus:ring-emerald-500/20"
                         />
                       ) : (
-                        `${item.retail_dzd.toLocaleString()} DA`
+                        `${displayItem.retail_dzd.toLocaleString()} DA`
                       )}
                     </td>
 
@@ -801,12 +933,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          defaultValue={item.stock_eu || 0}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'stock_eu', e.target.value)}
-                          className="w-12 text-center bg-blue-50 border border-blue-200 rounded px-1 py-0.5 text-xs font-bold"
+                          value={displayItem.stock_eu !== undefined ? displayItem.stock_eu : ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'stock_eu', e.target.value)}
+                          className="w-16 text-center bg-blue-50 border border-blue-300 rounded px-1 py-1 text-xs font-bold text-blue-950 focus:ring-2 focus:ring-blue-500/20"
                         />
                       ) : (
-                        <span className="font-bold text-blue-700">{item.stock_eu || 0}</span>
+                        <span className="font-bold text-blue-700">{displayItem.stock_eu || 0}</span>
                       )}
                     </td>
 
@@ -815,12 +947,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          defaultValue={item.stock || 0}
-                          onBlur={(e) => handleSpreadsheetChange(item.id, 'stock', e.target.value)}
-                          className="w-12 text-center bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5 text-xs font-bold"
+                          value={displayItem.stock !== undefined ? displayItem.stock : ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'stock', e.target.value)}
+                          className="w-16 text-center bg-emerald-50 border border-emerald-300 rounded px-1 py-1 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500/20"
                         />
                       ) : (
-                        <span className="font-bold text-emerald-700">{item.stock || 0}</span>
+                        <span className="font-bold text-emerald-700">{displayItem.stock || 0}</span>
                       )}
                     </td>
 
@@ -883,6 +1015,32 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Sticky Floating Save Bar for Excel Edit Mode */}
+      {isSpreadsheetMode && Object.keys(pendingSpreadsheetEdits).length > 0 && (
+        <div className="fixed bottom-6 right-6 z-40 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 animate-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-xs font-bold">{Object.keys(pendingSpreadsheetEdits).length} inventory item(s) modified</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDiscardSpreadsheetEdits}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+            >
+              Discard
+            </button>
+            <button
+              onClick={handleSaveAllSpreadsheetEdits}
+              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center gap-1.5 transition-all"
+            >
+              <Check className="w-4 h-4" />
+              <span>Save All to Database</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── CSV CONFIRMATION & DIFF PREVIEW MODAL ── */}
       {isCsvConfirmOpen && (
