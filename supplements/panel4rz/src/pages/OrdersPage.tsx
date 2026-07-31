@@ -70,13 +70,13 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
       {/* Filter Bar */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Status Filter Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto">
-            {['all', 'waiting', 'confirmed', 'delivered', 'canceled'].map(st => {
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 overflow-x-auto max-w-full pb-1">
+          {/* Status Pills */}
+          <div className="flex p-1 bg-slate-100 rounded-xl overflow-x-auto shrink-0">
+            {['all', 'waiting', 'confirmed', 'shipping', 'delivered', 'canceled'].map(st => {
               const count = st === 'all'
-                ? sourceFilteredOrders.length
-                : sourceFilteredOrders.filter(o => o.status === st).length;
+                ? baseActiveOrders.length
+                : baseActiveOrders.filter(o => o.status === st).length;
 
               return (
                 <button
@@ -93,7 +93,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           </div>
 
           {/* Source Filter Selector */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto shrink-0">
             <span className="text-[11px] font-bold text-slate-500 pl-2 pr-1 hidden sm:inline flex items-center gap-1">
               <Filter className="w-3 h-3" />
               <span>Source:</span>
@@ -107,7 +107,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               <button
                 key={src.id}
                 onClick={() => setSelectedSource(src.id)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   selectedSource === src.id
                     ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
                     : 'text-slate-500 hover:text-slate-700'
@@ -140,7 +140,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       {/* Orders Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left text-slate-700">
+          <table className="w-full text-xs text-left text-slate-700 min-w-[700px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="p-3">Order ID</th>

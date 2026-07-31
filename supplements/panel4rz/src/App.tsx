@@ -14,7 +14,7 @@ import type {
   SubCategory,
   PromoCode
 } from './types';
-import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal } from 'lucide-react';
 
 // Layout
 import { Sidebar } from './components/Sidebar';
@@ -36,6 +36,7 @@ import { SettingsPage } from './pages/SettingsPage';
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // ── Notification bell + global search + Budget modal ──
   const [notifOpen, setNotifOpen] = useState(false);
@@ -1267,7 +1268,7 @@ export default function App() {
       </div>
 
       {/* Main Layout Grid */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -1276,56 +1277,70 @@ export default function App() {
           adminEmail={adminEmail}
           onLogout={handleLogout}
           unpaidCount={unpaidCount}
+          isMobileOpen={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
         {/* Content View Container */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-8">
           {/* Top bar: notification bell + search */}
-          <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-md border-b border-slate-200/60 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-end gap-2 print:hidden">
-            {/* Budget Counter Pill (EUR & DZD) */}
+          <div className="sticky top-0 z-30 bg-slate-50/90 backdrop-blur-md border-b border-slate-200/60 px-3 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-2 print:hidden">
+            {/* Mobile Hamburger Menu Button */}
             <button
-              onClick={() => setIsBudgetModalOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl border border-slate-700/80 hover:border-emerald-500/80 shadow-xs hover:shadow-md transition-all cursor-pointer group"
-              title="Click to view/manage budget balances or convert DZD to EUR"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 md:hidden flex items-center justify-center hover:bg-slate-100 transition-colors shrink-0"
+              title="Open Navigation Menu"
             >
-              <div className="flex items-center gap-1 text-xs font-black">
-                <span className="text-emerald-400">€</span>
-                <span className="font-extrabold text-white tracking-tight">
-                  {Number(settings.budget_eur || 0).toLocaleString('fr-DZ')}
-                </span>
-              </div>
-              <div className="h-3.5 w-px bg-slate-700 mx-0.5" />
-              <div className="flex items-center gap-1 text-xs font-black">
-                <span className="text-amber-400">DA</span>
-                <span className="font-extrabold text-slate-200 tracking-tight">
-                  {Number(settings.budget_dzd || 0).toLocaleString('fr-DZ')}
-                </span>
-              </div>
-              <RefreshCw className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 group-hover:rotate-180 transition-all duration-500 ml-1 shrink-0" />
+              <Menu className="w-4 h-4" />
             </button>
 
-            {/* Global Search Trigger */}
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 text-xs text-slate-400 bg-white border border-slate-200 rounded-xl px-3 py-2 hover:shadow-sm hover:border-slate-300 transition-all w-48 text-left"
-            >
-              <Search className="w-3.5 h-3.5 shrink-0" />
-              <span>Search...</span>
-              <kbd className="ml-auto text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-mono">/</kbd>
-            </button>
-            {/* Notification Bell */}
-            <div className="relative">
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Budget Counter Pill (EUR & DZD) */}
               <button
-                onClick={() => setNotifOpen(v => !v)}
-                className="relative p-2 rounded-xl bg-white border border-slate-200 hover:shadow-sm transition-all"
+                onClick={() => setIsBudgetModalOpen(true)}
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-slate-900 text-white rounded-xl border border-slate-700/80 hover:border-emerald-500/80 shadow-xs hover:shadow-md transition-all cursor-pointer group text-xs shrink-0"
+                title="Click to view/manage budget balances or convert DZD to EUR"
               >
-                <Bell className="w-4 h-4 text-slate-600" />
-                {orders.filter(o => o.status === 'waiting').length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                    {Math.min(orders.filter(o => o.status === 'waiting').length, 9)}
+                <div className="flex items-center gap-1 font-black">
+                  <span className="text-emerald-400">€</span>
+                  <span className="font-extrabold text-white tracking-tight">
+                    {Number(settings.budget_eur || 0).toLocaleString('fr-DZ')}
                   </span>
-                )}
+                </div>
+                <div className="h-3 w-px bg-slate-700 mx-0.5" />
+                <div className="flex items-center gap-1 font-black">
+                  <span className="text-amber-400">DA</span>
+                  <span className="font-extrabold text-slate-200 tracking-tight">
+                    {Number(settings.budget_dzd || 0).toLocaleString('fr-DZ')}
+                  </span>
+                </div>
+                <RefreshCw className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 group-hover:rotate-180 transition-all duration-500 ml-0.5 shrink-0 hidden sm:block" />
               </button>
+
+              {/* Global Search Trigger */}
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-2 text-xs text-slate-400 bg-white border border-slate-200 rounded-xl p-2 sm:px-3 sm:py-2 hover:shadow-sm hover:border-slate-300 transition-all w-9 sm:w-48 text-left justify-center sm:justify-start shrink-0"
+                title="Search..."
+              >
+                <Search className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                <span className="hidden sm:inline">Search...</span>
+                <kbd className="ml-auto text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-mono hidden sm:inline">/</kbd>
+              </button>
+
+              {/* Notification Bell */}
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => setNotifOpen(v => !v)}
+                  className="relative p-2 rounded-xl bg-white border border-slate-200 hover:shadow-sm transition-all flex items-center justify-center"
+                >
+                  <Bell className="w-4 h-4 text-slate-600" />
+                  {orders.filter(o => o.status === 'waiting').length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                      {Math.min(orders.filter(o => o.status === 'waiting').length, 9)}
+                    </span>
+                  )}
+                </button>
               {/* Notification Dropdown */}
               {notifOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
@@ -1367,6 +1382,7 @@ export default function App() {
                 </div>
               )}
             </div>
+          </div>
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
@@ -1519,6 +1535,74 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* ── Mobile Bottom Quick-Navigation Bar ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around text-white shadow-2xl">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+            activeTab === 'dashboard' ? 'text-red-500 bg-slate-800' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span>Home</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('inventory')}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+            activeTab === 'inventory' ? 'text-red-500 bg-slate-800' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Boxes className="w-4 h-4" />
+          <span>Stock</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+            activeTab === 'products' ? 'text-red-500 bg-slate-800' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>Products</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('orders')}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-[10px] font-bold transition-all relative ${
+            activeTab === 'orders' ? 'text-red-500 bg-slate-800' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <span className="relative">
+            <ShoppingCart className="w-4 h-4" />
+            {unpaidCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black text-[8px] w-3 h-3 rounded-full flex items-center justify-center">
+                {unpaidCount}
+              </span>
+            )}
+          </span>
+          <span>Orders</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('pos')}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+            activeTab === 'pos' ? 'text-red-500 bg-slate-800' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Calculator className="w-4 h-4" />
+          <span>POS</span>
+        </button>
+
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 hover:text-white transition-all"
+        >
+          <Menu className="w-4 h-4" />
+          <span>More</span>
+        </button>
+      </nav>
 
       {/* ── Global Search Modal ── */}
       {searchOpen && (

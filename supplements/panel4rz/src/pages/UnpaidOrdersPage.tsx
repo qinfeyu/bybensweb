@@ -246,8 +246,8 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
 
       {/* Unpaid Orders Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left text-slate-700">
+        <div className="overflow-x-auto border border-slate-200/80 rounded-2xl bg-white shadow-xs">
+          <table className="w-full text-xs text-left text-slate-700 min-w-[700px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="p-3.5">Ticket #</th>

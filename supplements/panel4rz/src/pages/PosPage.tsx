@@ -54,6 +54,7 @@ export const PosPage: React.FC<PosPageProps> = ({
   showToast
 }) => {
   const [activeTab, setActiveTab] = useState<'products' | 'inventory'>('products');
+  const [mobilePosView, setMobilePosView] = useState<'catalog' | 'cart'>('catalog');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<PosCartItem[]>([]);
   const [customerName, setCustomerName] = useState('');

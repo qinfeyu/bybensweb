@@ -737,8 +737,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* Inventory Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left text-slate-700">
+        <div className="overflow-x-auto border border-slate-200/80 rounded-2xl bg-white shadow-xs">
+          <table className="w-full text-xs text-left text-slate-700 min-w-[850px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('id')}>
@@ -1018,22 +1018,22 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* Sticky Floating Save Bar for Excel Edit Mode */}
       {isSpreadsheetMode && Object.keys(pendingSpreadsheetEdits).length > 0 && (
-        <div className="fixed bottom-6 right-6 z-40 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-16 md:bottom-6 left-3 right-3 md:left-auto md:right-6 z-40 bg-slate-900 text-white p-3.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-5">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-xs font-bold">{Object.keys(pendingSpreadsheetEdits).length} inventory item(s) modified</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={handleDiscardSpreadsheetEdits}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+              className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all text-center"
             >
               Discard
             </button>
             <button
               onClick={handleSaveAllSpreadsheetEdits}
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center gap-1.5 transition-all"
+              className="flex-1 sm:flex-initial px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center gap-1.5 transition-all"
             >
               <Check className="w-4 h-4" />
               <span>Save All to Database</span>
