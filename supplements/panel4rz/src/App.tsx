@@ -207,12 +207,24 @@ export default function App() {
         localInv = JSON.parse(localStorage.getItem('bb_inventory_items') || '[]');
       } catch(e) {}
 
+      let localEuMap: Record<string, number> = {};
+      try {
+        localEuMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');
+      } catch(e) {}
+
+      localInv.forEach(item => {
+        if (item.id && item.stock_eu !== undefined && item.stock_eu !== null) {
+          localEuMap[item.id] = Number(item.stock_eu) || 0;
+        }
+      });
+
       const mergedInvMap = new Map<string, InventoryItem>();
 
       cloudInv.forEach(cloudItem => {
         if (cloudItem.id) {
           const cloudStock = Number(cloudItem.stock) || 0;
-          const cloudStockEu = (cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null) ? Number(cloudItem.stock_eu) || 0 : 0;
+          const hasCloudEu = cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null;
+          const cloudStockEu = hasCloudEu ? (Number(cloudItem.stock_eu) || 0) : (localEuMap[cloudItem.id] ?? 0);
 
           mergedInvMap.set(cloudItem.id, {
             ...cloudItem,
@@ -231,6 +243,7 @@ export default function App() {
       const finalInv = Array.from(mergedInvMap.values());
       setInventoryItems(finalInv);
       localStorage.setItem('bb_inventory_items', JSON.stringify(finalInv));
+      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(localEuMap));
 
       // 2. Fetch Categories & Sub-Categories
       const catRes = await supabase.from('categories').select('*').order('created_at', { ascending: true });
@@ -356,6 +369,12 @@ export default function App() {
     const payload = { ...item, _lastUpdated: new Date().toISOString() };
     const dbPayload = toDbInventoryPayload(payload);
 
+    try {
+      const euMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');
+      euMap[item.id] = Number(item.stock_eu) || 0;
+      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
+    } catch(e) {}
+
     setInventoryItems(prev => {
       const nextInv = [...prev];
       const idx = nextInv.findIndex(x => x.id === item.id);
@@ -374,6 +393,14 @@ export default function App() {
   const handleSaveBulkInventoryItems = async (items: InventoryItem[]) => {
     const payloads = items.map(i => ({ ...i, _lastUpdated: new Date().toISOString() }));
     const dbPayloads = payloads.map(toDbInventoryPayload);
+
+    try {
+      const euMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');
+      items.forEach(i => {
+        euMap[i.id] = Number(i.stock_eu) || 0;
+      });
+      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
+    } catch(e) {}
 
     setInventoryItems(prev => {
       const nextInv = [...prev];
@@ -395,6 +422,12 @@ export default function App() {
   const handleDeleteInventoryItem = async (id: string) => {
     try {
       await supabase.from('inventory_items').delete().eq('id', id);
+    } catch(e) {}
+
+    try {
+      const euMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');
+      delete euMap[id];
+      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
     const nextInv = inventoryItems.filter(x => x.id !== id);
