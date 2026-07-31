@@ -67,6 +67,8 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
   ]);
 
   const filteredPreorders = preorders.filter(p => {
+    // Exclude fulfilled pre-orders so they disappear from Pre-Orders manager and exist under Orders manager
+    if (p.status === 'fulfilled') return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (p.customer_name || '').toLowerCase().includes(q) || (p.customer_phone || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
