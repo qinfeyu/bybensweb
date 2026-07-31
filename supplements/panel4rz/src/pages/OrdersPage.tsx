@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Order, InventoryItem, Product } from '../types';
 import { calculateOrderProfit } from '../lib/calculations';
-import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X } from 'lucide-react';
+import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter } from 'lucide-react';
 
 interface OrdersPageProps {
   orders: Order[];
@@ -22,17 +22,28 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const filteredOrders = orders.filter(o => {
     if (o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true) return false;
     if (selectedStatus !== 'all' && o.status !== selectedStatus) return false;
+
+    if (selectedSource !== 'all') {
+      const oSource = (o.source || 'Online').toLowerCase();
+      const selSource = selectedSource.toLowerCase();
+      if (selSource === 'pos' && oSource !== 'pos') return false;
+      if (selSource === 'pre-order' && oSource !== 'pre-order') return false;
+      if (selSource === 'storefront' && (oSource === 'pos' || oSource === 'pre-order')) return false;
+    }
+
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     const id = (o.id || '').toLowerCase();
     const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.toLowerCase();
     const phone = (o.phone || '').toLowerCase();
-    return id.includes(q) || name.includes(q) || phone.includes(q);
+    const source = (o.source || '').toLowerCase();
+    return id.includes(q) || name.includes(q) || phone.includes(q) || source.includes(q);
   });
 
   return (
@@ -46,22 +57,52 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
-          {['all', 'waiting', 'confirmed', 'delivered', 'canceled'].map(st => (
-            <button
-              key={st}
-              onClick={() => setSelectedStatus(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition-all ${
-                selectedStatus === st ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {st} ({st === 'all' ? orders.length : orders.filter(o => o.status === st).length})
-            </button>
-          ))}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Status Filter Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto">
+            {['all', 'waiting', 'confirmed', 'delivered', 'canceled'].map(st => (
+              <button
+                key={st}
+                onClick={() => setSelectedStatus(st)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition-all ${
+                  selectedStatus === st ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {st} ({st === 'all' ? orders.filter(x => !x.is_unpaid).length : orders.filter(o => !o.is_unpaid && o.status === st).length})
+              </button>
+            ))}
+          </div>
+
+          {/* Source Filter Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <span className="text-[11px] font-bold text-slate-500 pl-2 hidden sm:inline flex items-center gap-1">
+              <Filter className="w-3 h-3" />
+              <span>Source:</span>
+            </span>
+            {[
+              { id: 'all', label: 'All Sources', icon: '🌐' },
+              { id: 'storefront', label: 'Storefront', icon: '🛒' },
+              { id: 'POS', label: 'POS', icon: '🏪' },
+              { id: 'Pre-Order', label: 'Pre-Order', icon: '📋' }
+            ].map(src => (
+              <button
+                key={src.id}
+                onClick={() => setSelectedSource(src.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  selectedSource === src.id
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <span>{src.icon}</span>
+                <span>{src.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="relative w-full sm:w-72">
+        <div className="relative w-full lg:w-64 shrink-0">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
@@ -93,13 +134,27 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               {filteredOrders.map(o => {
                 const profit = calculateOrderProfit(o, inventoryItems, products, defaultEurRate);
                 const custName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'POS Customer';
+                const sLower = (o.source || '').toLowerCase();
 
                 return (
                   <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="p-3 font-bold text-slate-900">{o.id}</td>
                     <td className="p-3 font-semibold text-slate-900">{custName}</td>
                     <td className="p-3 text-slate-500">{o.phone || '—'}</td>
-                    <td className="p-3 font-medium text-slate-600">{o.source || 'Online Store'}</td>
+                    <td className="p-3">
+                      <span className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold inline-flex items-center gap-1.5 border ${
+                        sLower === 'pre-order'
+                          ? 'bg-amber-50 text-amber-900 border-amber-200/80'
+                          : sLower === 'pos'
+                          ? 'bg-indigo-50 text-indigo-900 border-indigo-200/80'
+                          : 'bg-emerald-50 text-emerald-900 border-emerald-200/80'
+                      }`}>
+                        <span>
+                          {sLower === 'pre-order' ? '📋' : sLower === 'pos' ? '🏪' : '🛒'}
+                        </span>
+                        <span>{o.source || 'Storefront'}</span>
+                      </span>
+                    </td>
                     <td className="p-3 font-bold text-slate-900">{Number(o.total || 0).toLocaleString()} DA</td>
                     <td className={`p-3 font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {profit >= 0 ? '+' : ''}{Math.round(profit).toLocaleString()} DA
