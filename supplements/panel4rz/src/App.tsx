@@ -801,8 +801,11 @@ export default function App() {
   };
 
   // ── PREORDER MUTATIONS ──
+  // ── PREORDER MUTATIONS ──
   const handleSavePreorder = async (preorderData: Partial<PreOrder>, items: any[]) => {
     const preId = preorderData.id || `PRE-${Date.now()}`;
+    const existing = preorders.find(p => p.id === preId);
+
     const newPreorder: PreOrder = {
       id: preId,
       customer_name: preorderData.customer_name || 'Customer',
@@ -823,6 +826,15 @@ export default function App() {
       qty: Number(itm.qty) || 1,
       unit_price: Number(itm.unit_price) || 0
     }));
+
+    // Check budget adjustment if status turned to/from fulfilled
+    if (newPreorder.total_amount > 0) {
+      if (newPreorder.status === 'fulfilled' && (!existing || existing.status !== 'fulfilled')) {
+        await adjustDzdBudget(+newPreorder.total_amount);
+      } else if (existing && existing.status === 'fulfilled' && newPreorder.status !== 'fulfilled') {
+        await adjustDzdBudget(-existing.total_amount);
+      }
+    }
 
     setPreorders(prev => {
       const idx = prev.findIndex(p => p.id === preId);
@@ -860,16 +872,44 @@ export default function App() {
   };
 
   const handleTogglePreorderStatus = async (preorderId: string, currentStatus: PreOrder['status']) => {
-    const nextStatus = currentStatus === 'fulfilled' ? 'pending' : 'fulfilled';
+    const nextStatus: PreOrder['status'] = currentStatus === 'fulfilled' ? 'pending' : 'fulfilled';
+    const targetPre = preorders.find(p => p.id === preorderId);
+    let totalAmt = targetPre?.total_amount || 0;
+
+    if (!totalAmt) {
+      const itemsForPre = preorderItems.filter(i => i.pre_order_id === preorderId);
+      totalAmt = itemsForPre.reduce((sum, i) => sum + (Number(i.unit_price || i.price || 0) * (Number(i.qty) || 1)), 0);
+    }
+
+    if (totalAmt > 0) {
+      if (currentStatus !== 'fulfilled') {
+        await adjustDzdBudget(+totalAmt);
+      } else {
+        await adjustDzdBudget(-totalAmt);
+      }
+    }
+
     try {
       await supabase.from('pre_orders').update({ status: nextStatus }).eq('id', preorderId);
     } catch(e) {}
 
     setPreorders(prev => prev.map(p => p.id === preorderId ? { ...p, status: nextStatus } : p));
-    showToast(`✓ Pre-order status changed to ${nextStatus}`);
+    showToast(`✓ Pre-order status changed to ${nextStatus}${nextStatus === 'fulfilled' ? ` (${totalAmt.toLocaleString()} DA added to DZD Budget)` : ''}`);
   };
 
   const handleDeletePreorder = async (preorderId: string) => {
+    const targetPre = preorders.find(p => p.id === preorderId);
+    if (targetPre && targetPre.status === 'fulfilled') {
+      let totalAmt = targetPre.total_amount || 0;
+      if (!totalAmt) {
+        const itemsForPre = preorderItems.filter(i => i.pre_order_id === preorderId);
+        totalAmt = itemsForPre.reduce((sum, i) => sum + (Number(i.unit_price || i.price || 0) * (Number(i.qty) || 1)), 0);
+      }
+      if (totalAmt > 0) {
+        await adjustDzdBudget(-totalAmt);
+      }
+    }
+
     try {
       await supabase.from('pre_order_items').delete().eq('pre_order_id', preorderId);
       await supabase.from('pre_orders').delete().eq('id', preorderId);
