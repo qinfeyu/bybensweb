@@ -647,14 +647,37 @@ export default function App() {
     }
   };
 
+  // ── DZD BUDGET ADJUSTMENT HELPER ──
+  const adjustDzdBudget = async (amount: number) => {
+    if (!amount || amount === 0) return;
+    const currentDzd = parseFloat(settings.budget_dzd) || 0;
+    const newDzd = Math.max(0, Math.round(currentDzd + amount)).toString();
+
+    setSettings(prev => ({ ...prev, budget_dzd: newDzd }));
+
+    try {
+      await supabase.from('settings').upsert([
+        { key: 'budget_dzd', value: newDzd }
+      ]);
+    } catch(e) {}
+  };
+
   // ── ORDER MUTATIONS ──
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     const existing = orders.find(o => o.id === orderId);
     if (existing && existing.status !== newStatus) {
       if (newStatus === 'canceled' && existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
+        // If order was previously paid, subtract its total from DZD Budget
+        if (existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
+          await adjustDzdBudget(-existing.total);
+        }
       } else if (existing.status === 'canceled' && newStatus !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], -1);
+        // If restoring from canceled to active paid order, add back to DZD Budget
+        if (newStatus !== 'unpaid') {
+          await adjustDzdBudget(+existing.total);
+        }
       }
     }
 
@@ -668,8 +691,14 @@ export default function App() {
 
   const handleDeleteOrder = async (orderId: string) => {
     const existing = orders.find(o => o.id === orderId);
-    if (existing && existing.status !== 'canceled') {
-      await adjustInventoryAndProductStock(existing.items || [], +1);
+    if (existing) {
+      if (existing.status !== 'canceled') {
+        await adjustInventoryAndProductStock(existing.items || [], +1);
+      }
+      // If order was paid (not canceled & not unpaid), subtract its total from DZD Budget
+      if (existing.status !== 'canceled' && existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
+        await adjustDzdBudget(-existing.total);
+      }
     }
 
     try {
@@ -677,21 +706,7 @@ export default function App() {
     } catch(e) {}
 
     setOrders(prev => prev.filter(o => o.id !== orderId));
-    showToast("✓ Order deleted & stock restored!");
-  };
-
-  const addOrderToDzdBudget = async (amount: number) => {
-    if (!amount || amount <= 0) return;
-    const currentDzd = parseFloat(settings.budget_dzd) || 0;
-    const newDzd = Math.round(currentDzd + amount).toString();
-
-    setSettings(prev => ({ ...prev, budget_dzd: newDzd }));
-
-    try {
-      await supabase.from('settings').upsert([
-        { key: 'budget_dzd', value: newDzd }
-      ]);
-    } catch(e) {}
+    showToast("✓ Order deleted, stock restored & DZD budget adjusted!");
   };
 
   const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string; paymentStatus?: 'paid' | 'unpaid' }) => {
@@ -723,7 +738,7 @@ export default function App() {
 
     // Add paid order total to DZD Budget
     if (!isUnpaid && newOrder.total > 0) {
-      await addOrderToDzdBudget(newOrder.total);
+      await adjustDzdBudget(+newOrder.total);
     }
 
     try {
@@ -757,7 +772,7 @@ export default function App() {
   const handleMarkOrderAsPaid = async (orderId: string) => {
     const target = orders.find(o => o.id === orderId);
     if (target && target.total > 0) {
-      await addOrderToDzdBudget(target.total);
+      await adjustDzdBudget(+target.total);
     }
 
     try {
