@@ -68,95 +68,64 @@ export default function App() {
 
   // ── AUTHENTICATION STATE ──
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isSessionChecking, setIsSessionChecking] = useState<boolean>(true); // true until we've verified the Supabase session
-  const [adminEmail, setAdminEmail] = useState<string>(() => {
-    return localStorage.getItem("bb_admin_name") || "admin@bybens.com";
-  });
+  const [isSessionChecking, setIsSessionChecking] = useState<boolean>(true);
+  const [adminEmail, setAdminEmail] = useState<string>('admin@bybens.com');
   const [loginEmailInput, setLoginEmailInput] = useState('');
   const [loginPasswordInput, setLoginPasswordInput] = useState('');
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const [authErrorMsg, setAuthErrorMsg] = useState('');
 
-  // Check Supabase session on mount
+  // On mount: check for a live Supabase session (async only, no sync callbacks)
   useEffect(() => {
-    // On mount, check if there is a live Supabase session.
-    // If localStorage flag is set but there's no real session, clear the flag.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setIsAuthenticated(true);
-        const email = session.user.email || 'admin@bybens.com';
-        setAdminEmail(email);
-        localStorage.setItem("bb_admin_auth", "1");
-        localStorage.setItem("bb_admin_name", email);
-      } else {
-        // No live Supabase session – clear any stale localStorage flag
-        localStorage.removeItem("bb_admin_auth");
-        setIsAuthenticated(false);
+        setAdminEmail(session.user.email || 'admin@bybens.com');
       }
-      // Done verifying – show login or dashboard
+      // Always dismiss the loading screen after the check
+      setIsSessionChecking(false);
+    }).catch(() => {
       setIsSessionChecking(false);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        const email = session.user.email || 'admin@bybens.com';
-        setAdminEmail(email);
-        localStorage.setItem("bb_admin_auth", "1");
-        localStorage.setItem("bb_admin_name", email);
-      } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        localStorage.removeItem("bb_admin_auth");
-        localStorage.removeItem("bb_admin_name");
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    // No onAuthStateChange listener – avoids React #310 (synchronous setState during render)
   }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmailInput.trim() || !loginPasswordInput.trim()) {
-      setAuthErrorMsg("Please enter email and password");
+      setAuthErrorMsg('Please enter email and password');
       return;
     }
-
     setIsAuthSubmitting(true);
     setAuthErrorMsg('');
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: loginEmailInput.trim(),
         password: loginPasswordInput.trim()
       });
-
       if (!error && data.session) {
-        // Auth state change listener will handle setting isAuthenticated
-        // We just show a welcome toast here
-        showToast("✓ Welcome back, Admin!");
+        setIsAuthenticated(true);
+        setAdminEmail(data.user?.email || loginEmailInput.trim());
+        showToast('✓ Welcome back, Admin!');
       } else {
-        const msg = error?.message || "Invalid email or password";
-        // Give a friendlier message for the common case
-        if (msg.includes('Invalid login credentials')) {
-          setAuthErrorMsg("Wrong email or password. Use admin@bybens.com with the admin password.");
-        } else {
-          setAuthErrorMsg(msg);
-        }
+        const msg = error?.message || 'Invalid email or password';
+        setAuthErrorMsg(
+          msg.includes('Invalid login credentials')
+            ? 'Wrong email or password. Try: admin@bybens.com / Bybens@Admin2024'
+            : msg
+        );
       }
-    } catch(err: any) {
-      setAuthErrorMsg("Connection error. Please try again.");
+    } catch {
+      setAuthErrorMsg('Connection error. Please try again.');
     }
     setIsAuthSubmitting(false);
   };
 
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch(e) {}
-    localStorage.removeItem("bb_admin_auth");
-    localStorage.removeItem("bb_admin_name");
+    try { await supabase.auth.signOut(); } catch {}
     setIsAuthenticated(false);
-    showToast("Signed out successfully", "info");
+    setAdminEmail('admin@bybens.com');
+    showToast('Signed out successfully', 'info');
   };
 
   // App Data States
