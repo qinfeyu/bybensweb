@@ -14,10 +14,11 @@ import type {
   SubCategory,
   PromoCode
 } from './types';
-import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet } from 'lucide-react';
 
 // Layout
 import { Sidebar } from './components/Sidebar';
+import { BudgetModal } from './components/BudgetModal';
 
 // Pages
 import { DashboardPage } from './pages/DashboardPage';
@@ -36,9 +37,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // ── Notification bell + global search ──
+  // ── Notification bell + global search + Budget modal ──
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -1028,6 +1030,28 @@ export default function App() {
         <main className="flex-1 overflow-y-auto">
           {/* Top bar: notification bell + search */}
           <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-md border-b border-slate-200/60 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-end gap-2 print:hidden">
+            {/* Budget Counter Pill (EUR & DZD) */}
+            <button
+              onClick={() => setIsBudgetModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl border border-slate-700/80 hover:border-emerald-500/80 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+              title="Click to view/manage budget balances or convert DZD to EUR"
+            >
+              <div className="flex items-center gap-1 text-xs font-black">
+                <span className="text-emerald-400">€</span>
+                <span className="font-extrabold text-white tracking-tight">
+                  {Number(settings.budget_eur || 0).toLocaleString('fr-DZ')}
+                </span>
+              </div>
+              <div className="h-3.5 w-px bg-slate-700 mx-0.5" />
+              <div className="flex items-center gap-1 text-xs font-black">
+                <span className="text-amber-400">DA</span>
+                <span className="font-extrabold text-slate-200 tracking-tight">
+                  {Number(settings.budget_dzd || 0).toLocaleString('fr-DZ')}
+                </span>
+              </div>
+              <RefreshCw className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 group-hover:rotate-180 transition-all duration-500 ml-1 shrink-0" />
+            </button>
+
             {/* Global Search Trigger */}
             <button
               onClick={() => setSearchOpen(true)}
@@ -1286,6 +1310,15 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ── Budget & Currency Exchange Modal ── */}
+      <BudgetModal
+        isOpen={isBudgetModalOpen}
+        onClose={() => setIsBudgetModalOpen(false)}
+        settings={settings}
+        onSaveSettings={handleSaveSettings}
+        showToast={showToast}
+      />
     </div>
   );
 }
