@@ -646,6 +646,20 @@ export default function App() {
     showToast("✓ Order deleted & stock restored!");
   };
 
+  const addOrderToDzdBudget = async (amount: number) => {
+    if (!amount || amount <= 0) return;
+    const currentDzd = parseFloat(settings.budget_dzd) || 0;
+    const newDzd = Math.round(currentDzd + amount).toString();
+
+    setSettings(prev => ({ ...prev, budget_dzd: newDzd }));
+
+    try {
+      await supabase.from('settings').upsert([
+        { key: 'budget_dzd', value: newDzd }
+      ]);
+    } catch(e) {}
+  };
+
   const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string; paymentStatus?: 'paid' | 'unpaid' }) => {
     const id = `POS-${Date.now()}`;
     const isUnpaid = orderData.paymentStatus === 'unpaid';
@@ -673,6 +687,11 @@ export default function App() {
     // Deduct stock for POS order (runs for both paid and unpaid credit sales)
     await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
+    // Add paid order total to DZD Budget
+    if (!isUnpaid && newOrder.total > 0) {
+      await addOrderToDzdBudget(newOrder.total);
+    }
+
     try {
       await supabase.from('orders').insert({
         id: newOrder.id,
@@ -697,11 +716,16 @@ export default function App() {
     if (isUnpaid) {
       showToast(`✓ Unpaid Sale recorded! Added to Unpaid & Credit tab.`, 'info');
     } else {
-      showToast(`✓ POS Order #${id} recorded successfully!`);
+      showToast(`✓ POS Order #${id} recorded! ${newOrder.total.toLocaleString()} DA added to DZD Budget.`);
     }
   };
 
   const handleMarkOrderAsPaid = async (orderId: string) => {
+    const target = orders.find(o => o.id === orderId);
+    if (target && target.total > 0) {
+      await addOrderToDzdBudget(target.total);
+    }
+
     try {
       await supabase.from('orders').update({
         status: 'delivered',
@@ -724,7 +748,7 @@ export default function App() {
       return o;
     }));
 
-    showToast(`✓ Order #${orderId} marked as Paid! Moved to Sales.`);
+    showToast(`✓ Order #${orderId} marked as Paid! Moved to Sales & added to DZD Budget.`);
   };
 
   // ── PREORDER MUTATIONS ──

@@ -307,6 +307,19 @@ Deno.serve(async (req: Request) => {
     // Deduct stock
     await adjustStock(items || [], -1);
 
+    // Add order total to DZD Budget in settings table
+    const orderTotal = Number(total) || 0;
+    if (orderTotal > 0) {
+      try {
+        const { data: setRows } = await sb.from("settings").select("value").eq("key", "budget_dzd").limit(1);
+        const currentDzd = setRows && setRows[0] ? (Number(setRows[0].value) || 0) : 0;
+        const newDzd = currentDzd + orderTotal;
+        await sb.from("settings").upsert({ key: "budget_dzd", value: String(Math.round(newDzd)) });
+      } catch (errBudget) {
+        console.error("Error updating DZD budget in submit-order:", errBudget);
+      }
+    }
+
     // Telegram notification
     const orderItems: any[] = items || [];
     const itemLines = orderItems.map((it: any) =>
