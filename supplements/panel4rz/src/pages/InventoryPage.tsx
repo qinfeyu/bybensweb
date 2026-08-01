@@ -240,6 +240,43 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     }
   };
 
+  const handleBulkStockAdjust = async (amount: number) => {
+    if (selectedSkuIds.length === 0) return;
+    try {
+      let count = 0;
+      for (const id of selectedSkuIds) {
+        const item = inventoryItems.find(i => i.id === id);
+        if (item) {
+          const newStock = Math.max(0, (Number(item.stock) || 0) + amount);
+          await onSaveItem({ ...item, stock: newStock });
+          count++;
+        }
+      }
+      setSelectedSkuIds([]);
+      showToast(`✓ Updated stock by ${amount > 0 ? '+' : ''}${amount} for ${count} SKUs`);
+    } catch (e) {
+      showToast("Error updating stock", "error");
+    }
+  };
+
+  const handleBulkTypeChange = async (newType: 'supplement' | 'snack') => {
+    if (selectedSkuIds.length === 0) return;
+    try {
+      let count = 0;
+      for (const id of selectedSkuIds) {
+        const item = inventoryItems.find(i => i.id === id);
+        if (item) {
+          await onSaveItem({ ...item, type: newType });
+          count++;
+        }
+      }
+      setSelectedSkuIds([]);
+      showToast(`✓ Changed type to ${newType} for ${count} SKUs`);
+    } catch (e) {
+      showToast("Error updating type", "error");
+    }
+  };
+
   // Open Modal for Add
   const handleOpenAddModal = () => {
     const nextSku = getNextSequentialSkuId('SUP-1001', inventoryItems, 0);
@@ -1095,6 +1132,77 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Sticky Floating Bulk Action Bar for Inventory */}
+      {selectedSkuIds.length > 0 && (
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-xl w-[94vw] animate-in slide-in-from-bottom-4">
+          <span className="text-xs font-black bg-red-600 px-2.5 py-1 rounded-lg shrink-0">
+            {selectedSkuIds.length} SKUs Selected
+          </span>
+
+          <div className="flex items-center gap-2 flex-1 justify-end overflow-x-auto text-xs">
+            {/* Bulk Restock Stock Pill Buttons */}
+            <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-xl shrink-0">
+              <span className="text-[10px] text-slate-400 font-bold px-1 hidden sm:inline">Stock:</span>
+              <button
+                type="button"
+                onClick={() => handleBulkStockAdjust(5)}
+                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded-lg transition-colors"
+                title="Add +5 DZ stock to all selected SKUs"
+              >
+                +5 DZ
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkStockAdjust(10)}
+                className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg transition-colors"
+                title="Add +10 DZ stock to all selected SKUs"
+              >
+                +10 DZ
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkStockAdjust(-1)}
+                className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] font-bold rounded-lg transition-colors"
+                title="Subtract -1 DZ stock from all selected SKUs"
+              >
+                -1 DZ
+              </button>
+            </div>
+
+            {/* Bulk Type Change Selector */}
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkTypeChange(e.target.value as 'supplement' | 'snack');
+                  e.target.value = '';
+                }
+              }}
+              className="bg-slate-800 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 focus:outline-none cursor-pointer shrink-0"
+            >
+              <option value="">Set Type...</option>
+              <option value="supplement">💊 Supplement</option>
+              <option value="snack">🍫 Snack & Bar</option>
+            </select>
+
+            <button
+              onClick={handleBulkDeleteInventory}
+              className="px-3 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-xs rounded-xl flex items-center gap-1 transition-colors shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => setSelectedSkuIds([])}
+            className="text-slate-400 hover:text-white p-1 rounded-lg shrink-0"
+            title="Clear Selection"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Sticky Floating Save Bar for Excel Edit Mode */}
       {isSpreadsheetMode && Object.keys(pendingSpreadsheetEdits).length > 0 && (
