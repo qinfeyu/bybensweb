@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Order, InventoryItem, Product } from '../types';
 import { calculateOrderProfit } from '../lib/calculations';
 import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter } from 'lucide-react';
+import { PhoneContactAction } from '../components/PhoneContactAction';
+import { WhatsAppTemplates } from '../lib/whatsapp';
 
 interface OrdersPageProps {
   orders: Order[];
@@ -250,12 +252,12 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
                     <div>
                       <div className="font-bold text-slate-900">{custName}</div>
-                      {o.phone && (
-                        <a href={`tel:${o.phone}`} className="text-[11px] text-blue-600 font-semibold flex items-center gap-1 mt-0.5">
-                          <span>📞</span>
-                          <span>{o.phone}</span>
-                        </a>
-                      )}
+                      <PhoneContactAction
+                        phone={o.phone}
+                        customerName={custName}
+                        message={WhatsAppTemplates.orderStatus(custName, o.id, o.status, Number(o.total || 0))}
+                        className="mt-1"
+                      />
                     </div>
 
                     <div className="text-right">
@@ -352,7 +354,13 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     </td>
                     <td className="p-3 font-bold text-slate-900">{o.id}</td>
                     <td className="p-3 font-semibold text-slate-900">{custName}</td>
-                    <td className="p-3 text-slate-500">{o.phone || '—'}</td>
+                    <td className="p-3">
+                      <PhoneContactAction
+                        phone={o.phone}
+                        customerName={custName}
+                        message={WhatsAppTemplates.orderStatus(custName, o.id, o.status, Number(o.total || 0))}
+                      />
+                    </td>
                     <td className="p-3">
                       <span className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold inline-flex items-center gap-1.5 border ${
                         sLower === 'pre-order'
@@ -477,7 +485,19 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               {/* Customer Info */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 gap-3">
                 <div><span className="text-slate-400 font-medium">Customer:</span> <strong className="text-slate-900">{selectedOrder.first_name || selectedOrder.firstName} {selectedOrder.last_name || selectedOrder.lastName}</strong></div>
-                <div><span className="text-slate-400 font-medium">Phone:</span> <strong className="text-slate-900">{selectedOrder.phone || '—'}</strong></div>
+                <div>
+                  <span className="text-slate-400 font-medium block mb-1">Phone / WhatsApp Contact:</span>
+                  <PhoneContactAction
+                    phone={selectedOrder.phone}
+                    customerName={`${selectedOrder.first_name || selectedOrder.firstName || ''} ${selectedOrder.last_name || selectedOrder.lastName || ''}`}
+                    message={WhatsAppTemplates.orderStatus(
+                      `${selectedOrder.first_name || selectedOrder.firstName || ''}`,
+                      selectedOrder.id,
+                      selectedOrder.status,
+                      Number(selectedOrder.total || 0)
+                    )}
+                  />
+                </div>
                 <div><span className="text-slate-400 font-medium">Source:</span> <strong className="text-slate-900">{selectedOrder.source || '—'}</strong></div>
                 <div><span className="text-slate-400 font-medium">Delivery:</span> <strong className="text-slate-900">{selectedOrder.delivery_type || selectedOrder.deliveryType || 'Standard'}</strong></div>
               </div>

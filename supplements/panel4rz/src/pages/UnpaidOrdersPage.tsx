@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Order, InventoryItem, Product } from '../types';
+import { PhoneContactAction } from '../components/PhoneContactAction';
+import { WhatsAppTemplates } from '../lib/whatsapp';
 import { 
   CreditCard, Search, CheckCircle2, Trash2, Printer, 
   User, Phone, Clock, AlertCircle, DollarSign, Calendar,
@@ -290,10 +292,12 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
                       {/* Customer */}
                       <td className="p-3.5">
                         <div className="font-bold text-slate-900 text-xs">{custName}</div>
-                        <div className="flex items-center gap-1 text-[11px] text-amber-700 font-semibold mt-0.5">
-                          <Phone className="w-3 h-3 shrink-0" />
-                          <span>{phone}</span>
-                        </div>
+                        <PhoneContactAction
+                          phone={order.phone}
+                          customerName={custName}
+                          message={WhatsAppTemplates.unpaidReminder(custName, Number(order.total || 0))}
+                          className="mt-1"
+                        />
                       </td>
 
                       {/* Date */}

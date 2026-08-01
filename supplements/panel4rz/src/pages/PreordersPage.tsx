@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { PreOrder, InventoryItem, Product, Customer } from '../types';
 import { calculatePreorderProfit, getProductPricingAndCost } from '../lib/calculations';
+import { PhoneContactAction } from '../components/PhoneContactAction';
+import { WhatsAppTemplates } from '../lib/whatsapp';
 import { 
   Clock, 
   Search, 
@@ -447,7 +449,13 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                   <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="p-3 text-slate-500">{new Date(p.date || p.created_at || '').toLocaleDateString()}</td>
                     <td className="p-3 font-bold text-slate-900">{p.customer_name}</td>
-                    <td className="p-3 text-slate-500">{p.customer_phone}</td>
+                    <td className="p-3">
+                      <PhoneContactAction
+                        phone={p.customer_phone}
+                        customerName={p.customer_name}
+                        message={WhatsAppTemplates.preorderUpdate(p.customer_name, p.id, `${pItems.length} item(s)`)}
+                      />
+                    </td>
                     <td className="p-3 text-center font-bold">{pItems.length} item(s)</td>
                     <td className="p-3 font-bold text-slate-900">{Number(p.total_amount || 0).toLocaleString()} DA</td>
                     <td className={`p-3 font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>

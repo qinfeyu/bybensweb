@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import type { Customer, Order } from '../types';
+import { PhoneContactAction } from '../components/PhoneContactAction';
+import { WhatsAppTemplates } from '../lib/whatsapp';
 import { 
   Users, 
   Search, 
@@ -309,9 +311,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     <h3 className="font-bold text-slate-900 text-sm">
                       {cust.first_name || cust.name || 'Customer'} {cust.last_name || ''}
                     </h3>
-                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      <span>{cust.phone || 'No Phone'}</span>
+                    <div className="mt-1">
+                      <PhoneContactAction
+                        phone={cust.phone}
+                        customerName={`${cust.first_name || cust.name || 'Customer'} ${cust.last_name || ''}`}
+                        message={WhatsAppTemplates.generalGreeting(`${cust.first_name || cust.name || ''}`)}
+                      />
                     </div>
                   </div>
                 </div>
