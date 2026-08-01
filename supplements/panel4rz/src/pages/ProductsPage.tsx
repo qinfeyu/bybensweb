@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Product, InventoryItem, ProductVariant, BundleItem, Category, SubCategory, PromoCode } from '../types';
 import { uploadToCloudinary } from '../lib/cloudinary';
 import { 
@@ -23,6 +23,155 @@ import {
   EyeOff,
   Filter
 } from 'lucide-react';
+
+interface SearchableSkuSelectProps {
+  value: string;
+  onChange: (sku: string) => void;
+  inventoryItems: InventoryItem[];
+}
+
+export const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
+  value,
+  onChange,
+  inventoryItems
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedItem = inventoryItems.find(inv => String(inv.id).trim().toLowerCase() === (value || '').trim().toLowerCase());
+
+  const filtered = inventoryItems.filter(inv => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase().trim();
+    return (
+      String(inv.id).toLowerCase().includes(q) ||
+      (inv.name || '').toLowerCase().includes(q) ||
+      (inv.brand || '').toLowerCase().includes(q) ||
+      (inv.variant_spec || inv.size || '').toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      {!isOpen ? (
+        <button
+          type="button"
+          onClick={() => {
+            setSearch('');
+            setIsOpen(true);
+          }}
+          className={`w-full text-center text-[10px] font-mono font-bold border rounded px-1.5 py-1 transition-all flex items-center justify-between gap-1 truncate ${
+            value
+              ? 'border-blue-300 text-blue-900 bg-blue-50/70 hover:bg-blue-100/80 shadow-2xs'
+              : 'border-slate-300 text-slate-500 bg-white hover:border-slate-400'
+          }`}
+          title={selectedItem ? `${selectedItem.id}: ${selectedItem.name} (${selectedItem.stock} DZ)` : 'Click to search & link SKU'}
+        >
+          <span className="truncate flex-1 text-center font-extrabold">
+            {selectedItem ? `${selectedItem.id}` : (value ? value : '-- Link SKU --')}
+          </span>
+          <Search className="w-3 h-3 text-slate-400 shrink-0" />
+        </button>
+      ) : (
+        <div className="absolute left-1/2 -translate-x-1/2 top-0 z-50 w-64 sm:w-72 bg-white border border-slate-300 rounded-xl shadow-2xl p-2 space-y-1.5 text-xs animate-in fade-in zoom-in-95">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 px-0.5">
+            <span className="font-extrabold text-[11px] text-slate-900 flex items-center gap-1">
+              <Search className="w-3.5 h-3.5 text-red-600" />
+              <span>Search Inventory SKU</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="relative">
+            <input
+              type="text"
+              autoFocus
+              placeholder="Type SKU code, name, or brand..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-2.5 pr-2 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+            />
+          </div>
+
+          <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-100 bg-slate-50/50">
+            <div
+              onClick={() => {
+                onChange('');
+                setIsOpen(false);
+              }}
+              className="p-1.5 hover:bg-slate-100 cursor-pointer text-[10px] text-slate-500 font-bold text-center"
+            >
+              🚫 Clear SKU Link
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="p-3 text-[11px] text-slate-400 text-center space-y-1">
+                <div>No matching inventory SKU found</div>
+                {search.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(search.trim().toUpperCase());
+                      setIsOpen(false);
+                    }}
+                    className="text-red-700 hover:text-red-800 underline font-bold block mx-auto text-[10px]"
+                  >
+                    Use custom SKU: "{search.trim().toUpperCase()}"
+                  </button>
+                )}
+              </div>
+            ) : (
+              filtered.map(inv => {
+                const isSelected = value.toLowerCase() === inv.id.toLowerCase();
+                return (
+                  <div
+                    key={inv.id}
+                    onClick={() => {
+                      onChange(inv.id);
+                      setIsOpen(false);
+                    }}
+                    className={`p-2 hover:bg-red-50/80 cursor-pointer transition-colors ${
+                      isSelected ? 'bg-red-50 font-bold border-l-2 border-red-600' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-mono font-black text-blue-700">{inv.id}</span>
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                        Stock: {inv.stock} DZ
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-900 font-bold truncate mt-0.5">{inv.name}</div>
+                    <div className="flex items-center justify-between text-[9px] text-slate-400 font-medium mt-0.5">
+                      <span>{inv.brand || 'No Brand'}</span>
+                      <span>{inv.variant_spec || inv.size || ''}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface ProductsPageProps {
   products: Product[];
@@ -1220,16 +1369,12 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                     return (
                                       <td key={fIdx} className="p-2 text-center align-top">
                                         <div className="flex flex-col items-center gap-1 bg-slate-50/70 p-2 rounded-lg border border-slate-200/60">
-                                          {/* SKU Link Selector */}
+                                          {/* Searchable SKU Link Selector */}
                                           <div className="w-full">
-                                            <select
-                                              value={inventoryItems.some(inv => inv.id.toLowerCase() === currentSku.toLowerCase()) ? currentSku : (currentSku ? '__custom__' : '')}
-                                              onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val === '__custom__') {
-                                                  // Keep custom string or prompt
-                                                  return;
-                                                }
+                                            <SearchableSkuSelect
+                                              value={currentSku}
+                                              inventoryItems={inventoryItems}
+                                              onChange={(val) => {
                                                 const newSkuMat = { ...flavorSkuMatrix, [cellKey]: val };
                                                 setFlavorSkuMatrix(newSkuMat);
 
@@ -1241,18 +1386,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                                   }));
                                                 }
                                               }}
-                                              className="w-full text-center text-[10px] font-mono font-bold bg-white border border-slate-300 rounded px-1 py-1 text-slate-800 focus:ring-1 focus:ring-red-500 focus:outline-none cursor-pointer truncate"
-                                            >
-                                              <option value="">-- Link SKU --</option>
-                                              {inventoryItems.map(inv => (
-                                                <option key={inv.id} value={inv.id}>
-                                                  {inv.id} ({inv.name} - {inv.stock} DZ)
-                                                </option>
-                                              ))}
-                                              {currentSku && !inventoryItems.some(inv => inv.id.toLowerCase() === currentSku.toLowerCase()) && (
-                                                <option value="__custom__">SKU: {currentSku}</option>
-                                              )}
-                                            </select>
+                                            />
                                           </div>
 
                                           {/* Stock Quantity Input */}
