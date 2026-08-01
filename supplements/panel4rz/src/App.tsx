@@ -14,7 +14,7 @@ import type {
   SubCategory,
   PromoCode
 } from './types';
-import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal, LogOut } from 'lucide-react';
 
 // Layout
 import { Sidebar } from './components/Sidebar';
@@ -1341,48 +1341,58 @@ export default function App() {
                     </span>
                   )}
                 </button>
-              {/* Notification Dropdown */}
-              {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                    <span className="font-bold text-sm text-slate-900">Notifications</span>
-                    <button onClick={() => setNotifOpen(false)}><X className="w-4 h-4 text-slate-400" /></button>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
-                    {orders.filter(o => o.status === 'waiting').length === 0 ? (
-                      <div className="p-4 text-xs text-slate-400 text-center">No pending orders</div>
-                    ) : orders.filter(o => o.status === 'waiting').slice(0, 8).map(o => (
-                      <div key={o.id} onClick={() => { setActiveTab('orders'); setNotifOpen(false); }} className="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center shrink-0"><Package className="w-3.5 h-3.5 text-amber-600" /></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-slate-900 truncate">
-                              {`${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || '—'}
+                {/* Notification Dropdown */}
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                      <span className="font-bold text-sm text-slate-900">Notifications</span>
+                      <button onClick={() => setNotifOpen(false)}><X className="w-4 h-4 text-slate-400" /></button>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
+                      {orders.filter(o => o.status === 'waiting').length === 0 ? (
+                        <div className="p-4 text-xs text-slate-400 text-center">No pending orders</div>
+                      ) : orders.filter(o => o.status === 'waiting').slice(0, 8).map(o => (
+                        <div key={o.id} onClick={() => { setActiveTab('orders'); setNotifOpen(false); }} className="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center shrink-0"><Package className="w-3.5 h-3.5 text-amber-600" /></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-slate-900 truncate">
+                                {`${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || '—'}
+                              </div>
+                              <div className="text-[10px] text-slate-400">{Number(o.total || 0).toLocaleString('fr-DZ')} DA · Waiting</div>
                             </div>
-                            <div className="text-[10px] text-slate-400">{Number(o.total || 0).toLocaleString('fr-DZ')} DA · Waiting</div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    {inventoryItems.filter(i => i.type !== 'snack' && (Number(i.stock) || 0) <= 2).slice(0, 5).map(i => (
-                      <div key={`stock-${i.id}`} onClick={() => { setActiveTab('inventory'); setNotifOpen(false); }} className="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center shrink-0"><span className="text-sm">⚠️</span></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-slate-900 truncate">{i.name}</div>
-                            <div className="text-[10px] text-slate-400">Low stock: {i.stock} units</div>
+                      ))}
+                      {inventoryItems.filter(i => i.type !== 'snack' && (Number(i.stock) || 0) <= 2).slice(0, 5).map(i => (
+                        <div key={`stock-${i.id}`} onClick={() => { setActiveTab('inventory'); setNotifOpen(false); }} className="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center shrink-0"><span className="text-sm">⚠️</span></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-slate-900 truncate">{i.name}</div>
+                              <div className="text-[10px] text-slate-400">Low stock: {i.stock} units</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div className="p-3 border-t border-slate-100">
+                      <button onClick={() => { setActiveTab('dashboard'); setNotifOpen(false); }} className="text-xs font-bold text-red-700 hover:text-red-800 w-full text-center">View all on Dashboard →</button>
+                    </div>
                   </div>
-                  <div className="p-3 border-t border-slate-100">
-                    <button onClick={() => { setActiveTab('dashboard'); setNotifOpen(false); }} className="text-xs font-bold text-red-700 hover:text-red-800 w-full text-center">View all on Dashboard →</button>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              {/* Sign Out Button (Top Right Near Bell) */}
+              <button
+                onClick={handleLogout}
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 hover:border-rose-300 transition-all flex items-center gap-1.5 font-bold text-xs shrink-0 active:scale-95 shadow-2xs ml-1"
+                title="Sign Out of Admin Panel"
+              >
+                <LogOut className="w-4 h-4 text-rose-600" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
             </div>
-          </div>
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
