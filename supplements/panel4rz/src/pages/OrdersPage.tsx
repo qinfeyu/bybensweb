@@ -33,6 +33,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+
   // 1. Base active sales (excluding unpaid credit sales)
   const baseActiveOrders = orders.filter(o => {
     return o.status !== 'unpaid' && o.payment_status !== 'unpaid' && o.is_unpaid !== true;
@@ -57,6 +59,49 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
     return id.includes(q) || name.includes(q) || phone.includes(q) || source.includes(q);
   });
+
+  // Checkbox Selection Helpers
+  const isAllSelected = filteredOrders.length > 0 && filteredOrders.every(o => selectedOrderIds.includes(o.id));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(filteredOrders.map(o => o.id));
+    }
+  };
+
+  const toggleSelectOrder = (id: string) => {
+    setSelectedOrderIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  // Bulk Operations
+  const handleBulkStatusChange = async (newStatus: Order['status']) => {
+    if (selectedOrderIds.length === 0) return;
+    try {
+      for (const id of selectedOrderIds) {
+        await onUpdateStatus(id, newStatus);
+      }
+      setSelectedOrderIds([]);
+    } catch (e) {
+      console.error("Bulk status error", e);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedOrderIds.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedOrderIds.length} selected orders?`)) return;
+    try {
+      for (const id of selectedOrderIds) {
+        await onDeleteOrder(id);
+      }
+      setSelectedOrderIds([]);
+    } catch (e) {
+      console.error("Bulk delete error", e);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -138,9 +183,29 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       </div>
 
       {/* Orders View: Desktop Table + Mobile Cards */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative">
         {/* Mobile Cards View (shown on screens < md) */}
         <div className="block md:hidden divide-y divide-slate-100">
+          {/* Mobile Select All Bar */}
+          {filteredOrders.length > 0 && (
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                />
+                <span>Select All Orders ({filteredOrders.length})</span>
+              </label>
+              {selectedOrderIds.length > 0 && (
+                <span className="text-[11px] font-black text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                  {selectedOrderIds.length} selected
+                </span>
+              )}
+            </div>
+          )}
+
           {filteredOrders.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-xs">
               No orders found matching your filters.
@@ -150,12 +215,19 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               const profit = calculateOrderProfit(o, inventoryItems, products, defaultEurRate);
               const custName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'POS Customer';
               const sLower = (o.source || '').toLowerCase();
+              const isSelected = selectedOrderIds.includes(o.id);
 
               return (
-                <div key={o.id} className="p-4 space-y-3 hover:bg-slate-50/60 transition-colors">
-                  {/* Top row: Order ID, Source badge & Date */}
+                <div key={o.id} className={`p-4 space-y-3 transition-colors ${isSelected ? 'bg-red-50/40' : 'hover:bg-slate-50/60'}`}>
+                  {/* Top row: Checkbox, Order ID, Source badge & Date */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectOrder(o.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
                       <span className="font-black text-slate-900 text-sm">{o.id}</span>
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold inline-flex items-center gap-1 border ${
                         sLower === 'pre-order'
@@ -243,6 +315,14 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           <table className="w-full text-xs text-left text-slate-700 min-w-[700px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
+                <th className="p-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                  />
+                </th>
                 <th className="p-3">Order ID</th>
                 <th className="p-3">Customer</th>
                 <th className="p-3">Phone</th>
@@ -258,9 +338,18 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 const profit = calculateOrderProfit(o, inventoryItems, products, defaultEurRate);
                 const custName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'POS Customer';
                 const sLower = (o.source || '').toLowerCase();
+                const isSelected = selectedOrderIds.includes(o.id);
 
                 return (
-                  <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={o.id} className={`transition-colors ${isSelected ? 'bg-red-50/50' : 'hover:bg-slate-50/80'}`}>
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectOrder(o.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="p-3 font-bold text-slate-900">{o.id}</td>
                     <td className="p-3 font-semibold text-slate-900">{custName}</td>
                     <td className="p-3 text-slate-500">{o.phone || '—'}</td>
@@ -328,6 +417,50 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Floating Bulk Action Bar for Orders */}
+      {selectedOrderIds.length > 0 && (
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-lg w-[92vw] animate-in slide-in-from-bottom-4">
+          <span className="text-xs font-black bg-red-600 px-2.5 py-1 rounded-lg shrink-0">
+            {selectedOrderIds.length} Selected
+          </span>
+
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkStatusChange(e.target.value as Order['status']);
+                  e.target.value = '';
+                }
+              }}
+              className="bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-slate-700 focus:outline-none cursor-pointer"
+            >
+              <option value="">Bulk Set Status...</option>
+              <option value="waiting">⏳ Waiting</option>
+              <option value="confirmed">✓ Confirmed</option>
+              <option value="shipping">🚚 Shipping</option>
+              <option value="delivered">✅ Delivered</option>
+              <option value="canceled">❌ Canceled</option>
+            </select>
+
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-xs rounded-xl flex items-center gap-1 transition-colors shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => setSelectedOrderIds([])}
+            className="text-slate-400 hover:text-white p-1 rounded-lg shrink-0"
+            title="Clear Selection"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ── ORDER DETAILS MODAL ── */}
       {selectedOrder && (

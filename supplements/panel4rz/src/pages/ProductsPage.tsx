@@ -267,6 +267,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   // Form tab state in modal
   const [modalTab, setModalTab] = useState<'basic' | 'images' | 'categories' | 'variants' | 'bundle'>('basic');
@@ -311,10 +312,57 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
     // Visibility Filter
     if (visibilityFilter === 'visible' && p.hidden === true) return false;
-    if (visibilityFilter === 'hidden' && p.hidden !== true) return false;
-
     return true;
   });
+
+  // Product Selection Helpers
+  const isAllSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedProductIds.includes(p.id));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedProductIds([]);
+    } else {
+      setSelectedProductIds(filteredProducts.map(p => p.id));
+    }
+  };
+
+  const toggleSelectProduct = (id: string) => {
+    setSelectedProductIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkStatusProducts = async (newStatus: 'active' | 'draft' | 'archived') => {
+    if (selectedProductIds.length === 0) return;
+    const count = selectedProductIds.length;
+    try {
+      for (const id of selectedProductIds) {
+        const target = products.find(p => p.id === id);
+        if (target) {
+          await onSaveProduct({ ...target, status: newStatus });
+        }
+      }
+      setSelectedProductIds([]);
+      showToast(`✓ Updated ${count} products to ${newStatus}`);
+    } catch (e) {
+      showToast("Error updating selected products", "error");
+    }
+  };
+
+  const handleBulkDeleteProducts = async () => {
+    if (selectedProductIds.length === 0) return;
+    const count = selectedProductIds.length;
+    if (!confirm(`Are you sure you want to delete ${count} selected products?`)) return;
+    try {
+      for (const id of selectedProductIds) {
+        await onDeleteProduct(id);
+      }
+      setSelectedProductIds([]);
+      showToast(`✓ Deleted ${count} products`);
+    } catch (e) {
+      showToast("Error deleting selected products", "error");
+    }
+  };
 
   const openEditor = (prod?: Product) => {
     if (prod) {
@@ -691,22 +739,55 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         </div>
       </div>
 
+      {/* Select All Bar */}
+      {filteredProducts.length > 0 && (
+        <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between text-xs">
+          <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+            <input
+              type="checkbox"
+              checked={isAllSelected}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <span>Select All Catalog Products ({filteredProducts.length})</span>
+          </label>
+          {selectedProductIds.length > 0 && (
+            <span className="text-[11px] font-black text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
+              {selectedProductIds.length} selected
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Product Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredProducts.map(prod => {
           const mainImg = Array.isArray(prod.imageUrl) ? prod.imageUrl[0] : prod.imageUrl;
+          const isSelected = selectedProductIds.includes(prod.id);
 
           return (
-            <div key={prod.id} className={`bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition-shadow space-y-3 relative ${
-              prod.hidden ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200/80'
+            <div key={prod.id} className={`bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all space-y-3 relative ${
+              isSelected
+                ? 'border-red-500 bg-red-50/20 ring-2 ring-red-500/20'
+                : prod.hidden
+                ? 'border-amber-300 bg-amber-50/20'
+                : 'border-slate-200/80'
             }`}>
               <div className="flex gap-3">
-                <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-slate-200">
-                  {mainImg ? (
-                    <img src={mainImg} alt={prod.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon className="w-6 h-6 text-slate-300" />
-                  )}
+                <div className="flex flex-col items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelectProduct(prod.id)}
+                    className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                  />
+                  <div className="w-14 h-14 bg-slate-100 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-slate-200">
+                    {mainImg ? (
+                      <img src={mainImg} alt={prod.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-slate-300" />
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -776,6 +857,48 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
           );
         })}
       </div>
+
+      {/* Floating Bulk Action Bar for Products */}
+      {selectedProductIds.length > 0 && (
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-lg w-[92vw] animate-in slide-in-from-bottom-4">
+          <span className="text-xs font-black bg-red-600 px-2.5 py-1 rounded-lg shrink-0">
+            {selectedProductIds.length} Selected
+          </span>
+
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkStatusProducts(e.target.value as 'active' | 'draft' | 'archived');
+                  e.target.value = '';
+                }
+              }}
+              className="bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-slate-700 focus:outline-none cursor-pointer"
+            >
+              <option value="">Bulk Set Status...</option>
+              <option value="active">🟢 Active</option>
+              <option value="draft">🟡 Draft</option>
+              <option value="archived">⚪ Archived</option>
+            </select>
+
+            <button
+              onClick={handleBulkDeleteProducts}
+              className="px-3.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-xs rounded-xl flex items-center gap-1 transition-colors shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete ({selectedProductIds.length})</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => setSelectedProductIds([])}
+            className="text-slate-400 hover:text-white p-1 rounded-lg shrink-0"
+            title="Clear Selection"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ── EDIT / ADD PRODUCT FULL MODAL ── */}
       {isModalOpen && (

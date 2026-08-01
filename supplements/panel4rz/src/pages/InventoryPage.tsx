@@ -69,6 +69,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [pendingSpreadsheetEdits, setPendingSpreadsheetEdits] = useState<Record<string, InventoryItem>>({});
   const [sortField, setSortField] = useState<keyof InventoryItem | 'landed' | 'margin'>('id');
   const [sortAsc, setSortAsc] = useState(true);
+  const [selectedSkuIds, setSelectedSkuIds] = useState<string[]>([]);
 
   // Default Sample Data Seeder
   const handleSeedSampleData = async () => {
@@ -204,6 +205,38 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     } else {
       setSortField(field);
       setSortAsc(true);
+    }
+  };
+
+  // Selection Helpers
+  const isAllSelected = sortedItems.length > 0 && sortedItems.every(i => selectedSkuIds.includes(i.id));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedSkuIds([]);
+    } else {
+      setSelectedSkuIds(sortedItems.map(i => i.id));
+    }
+  };
+
+  const toggleSelectSku = (id: string) => {
+    setSelectedSkuIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDeleteInventory = async () => {
+    if (selectedSkuIds.length === 0) return;
+    const count = selectedSkuIds.length;
+    if (!confirm(`Are you sure you want to delete ${count} selected SKUs?`)) return;
+    try {
+      for (const id of selectedSkuIds) {
+        await onDeleteItem(id);
+      }
+      setSelectedSkuIds([]);
+      showToast(`✓ Deleted ${count} SKUs`);
+    } catch (e) {
+      showToast("Error deleting selected SKUs", "error");
     }
   };
 
@@ -741,6 +774,14 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           <table className="w-full text-xs text-left text-slate-700 min-w-[850px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
+                <th className="p-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                  />
+                </th>
                 <th className="p-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('id')}>
                   <div className="flex items-center gap-1">
                     <span>SKU</span>
@@ -806,6 +847,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               {sortedItems.map((item) => {
                 const displayItem = pendingSpreadsheetEdits[item.id] || item;
                 const isModified = Boolean(pendingSpreadsheetEdits[item.id]);
+                const isSelected = selectedSkuIds.includes(item.id);
 
                 const landed = calculateLandedCost(displayItem.price_eur, displayItem.rate, displayItem.delivery_dzd);
                 const margin = calculateMargin(displayItem.retail_dzd, landed);
@@ -814,8 +856,24 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 return (
                   <tr
                     key={item.id}
-                    className={isModified ? 'bg-amber-50/70 hover:bg-amber-100/70 transition-colors border-l-4 border-l-amber-500 font-medium' : 'hover:bg-slate-50/80 transition-colors'}
+                    className={
+                      isSelected
+                        ? 'bg-red-50/50 hover:bg-red-100/50 transition-colors font-medium'
+                        : isModified
+                        ? 'bg-amber-50/70 hover:bg-amber-100/70 transition-colors border-l-4 border-l-amber-500 font-medium'
+                        : 'hover:bg-slate-50/80 transition-colors'
+                    }
                   >
+                    {/* Checkbox */}
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectSku(item.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                      />
+                    </td>
+
                     {/* SKU */}
                     <td className="p-3 font-bold text-slate-900 flex items-center gap-1.5">
                       <span>{item.id}</span>
@@ -833,99 +891,121 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                           type="text"
                           value={displayItem.brand || ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'brand', e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20"
+                          className="w-full bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        item.brand || '—'
+                        <span className="font-semibold text-slate-900">{displayItem.brand || '—'}</span>
                       )}
                     </td>
 
                     {/* Name */}
-                    <td className="p-3 font-semibold text-slate-900">
+                    <td className="p-3">
                       {isSpreadsheetMode ? (
                         <input
                           type="text"
                           value={displayItem.name || ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'name', e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold focus:ring-2 focus:ring-amber-500/20"
+                          className="w-full bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        item.name
+                        <span className="font-bold text-slate-900">{displayItem.name}</span>
                       )}
                     </td>
 
                     {/* Variant Spec */}
-                    <td className="p-3 text-slate-500">{displayItem.variant_spec || '—'}</td>
+                    <td className="p-3">
+                      {isSpreadsheetMode ? (
+                        <input
+                          type="text"
+                          value={displayItem.variant_spec || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'variant_spec', e.target.value)}
+                          className="w-full bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                        />
+                      ) : (
+                        <span className="text-slate-600">{displayItem.variant_spec || '—'}</span>
+                      )}
+                    </td>
+
                     {/* Size */}
-                    <td className="p-3 text-slate-500">{displayItem.size || '—'}</td>
+                    <td className="p-3">
+                      {isSpreadsheetMode ? (
+                        <input
+                          type="text"
+                          value={displayItem.size || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'size', e.target.value)}
+                          className="w-full bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                        />
+                      ) : (
+                        <span className="text-slate-600">{displayItem.size || '—'}</span>
+                      )}
+                    </td>
 
                     {/* Price EUR */}
-                    <td className="p-3 font-semibold text-slate-900">
+                    <td className="p-3">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          step="0.1"
-                          value={displayItem.price_eur || ''}
+                          step="any"
+                          value={displayItem.price_eur !== undefined ? displayItem.price_eur : ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'price_eur', e.target.value)}
-                          className="w-20 bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                          className="w-20 bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        `€${displayItem.price_eur.toFixed(2)}`
+                        <span className="font-semibold text-slate-900">€ {displayItem.price_eur ? Number(displayItem.price_eur).toFixed(2) : '0.00'}</span>
                       )}
                     </td>
 
                     {/* Rate */}
-                    <td className="p-3 text-slate-500">
+                    <td className="p-3">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          value={displayItem.rate || ''}
+                          step="any"
+                          value={displayItem.rate !== undefined ? displayItem.rate : ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'rate', e.target.value)}
-                          className="w-16 bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                          className="w-16 bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        displayItem.rate
+                        <span className="text-slate-500">{displayItem.rate || defaultEurRate}</span>
                       )}
                     </td>
 
                     {/* Delivery */}
-                    <td className="p-3 text-slate-500">
+                    <td className="p-3">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          value={displayItem.delivery_dzd || ''}
+                          value={displayItem.delivery_dzd !== undefined ? displayItem.delivery_dzd : ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'delivery_dzd', e.target.value)}
-                          className="w-20 bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                          className="w-20 bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        `${displayItem.delivery_dzd} DA`
+                        <span className="text-slate-600">{Number(displayItem.delivery_dzd || 0).toLocaleString('fr-DZ')} DA</span>
                       )}
                     </td>
 
                     {/* Landed DA */}
-                    <td className="p-3 font-bold text-slate-900">{landed.toLocaleString()} DA</td>
+                    <td className="p-3 font-semibold text-slate-900">{landed.toLocaleString('fr-DZ')} DA</td>
 
                     {/* Retail DA */}
-                    <td className="p-3 font-extrabold text-slate-900">
+                    <td className="p-3">
                       {isSpreadsheetMode ? (
                         <input
                           type="number"
-                          value={displayItem.retail_dzd || ''}
+                          value={displayItem.retail_dzd !== undefined ? displayItem.retail_dzd : ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'retail_dzd', e.target.value)}
-                          className="w-24 bg-white border border-emerald-300 rounded px-1.5 py-1 text-xs font-extrabold text-emerald-900 focus:ring-2 focus:ring-emerald-500/20"
+                          className="w-24 bg-amber-50/80 border border-amber-300 rounded px-1.5 py-1 text-xs font-black text-slate-950 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        `${displayItem.retail_dzd.toLocaleString()} DA`
+                        <span className="font-bold text-slate-900">{Number(displayItem.retail_dzd || 0).toLocaleString('fr-DZ')} DA</span>
                       )}
                     </td>
 
                     {/* Margin */}
                     <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                        margin >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                      }`}>
-                        {margin.toLocaleString()} DA ({marginPct}%)
-                      </span>
+                      <div className={`font-bold ${margin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {margin >= 0 ? '+' : ''}{margin.toLocaleString('fr-DZ')} DA ({marginPct}%)
+                      </div>
                     </td>
 
                     {/* EU Stock */}
@@ -935,10 +1015,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                           type="number"
                           value={displayItem.stock_eu !== undefined ? displayItem.stock_eu : ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'stock_eu', e.target.value)}
-                          className="w-16 text-center bg-blue-50 border border-blue-300 rounded px-1 py-1 text-xs font-bold text-blue-950 focus:ring-2 focus:ring-blue-500/20"
+                          className="w-16 text-center bg-amber-50/80 border border-amber-300 rounded px-1 py-1 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        <span className="font-bold text-blue-700">{displayItem.stock_eu || 0}</span>
+                        <span className="text-slate-600 font-semibold">{displayItem.stock_eu || 0}</span>
                       )}
                     </td>
 
@@ -949,10 +1029,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                           type="number"
                           value={displayItem.stock !== undefined ? displayItem.stock : ''}
                           onChange={(e) => handleSpreadsheetChange(item.id, 'stock', e.target.value)}
-                          className="w-16 text-center bg-emerald-50 border border-emerald-300 rounded px-1 py-1 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500/20"
+                          className="w-16 text-center bg-amber-50/80 border border-amber-300 rounded px-1 py-1 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                         />
                       ) : (
-                        <span className="font-bold text-emerald-700">{displayItem.stock || 0}</span>
+                        <span className="text-emerald-700 font-bold">{displayItem.stock || 0}</span>
                       )}
                     </td>
 
@@ -962,7 +1042,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                         <button
                           onClick={() => handleDuplicateItem(item)}
                           className="p-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded transition-colors"
-                          title="Duplicate / Clone SKU (Add next variant/flavor)"
+                          title="Duplicate / Clone SKU"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
