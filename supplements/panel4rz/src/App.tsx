@@ -14,7 +14,7 @@ import type {
   SubCategory,
   PromoCode
 } from './types';
-import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal, LogOut } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal, LogOut, Globe, ExternalLink } from 'lucide-react';
 
 // Layout
 import { Sidebar } from './components/Sidebar';
@@ -1316,6 +1316,19 @@ export default function App() {
                 </div>
                 <RefreshCw className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 group-hover:rotate-180 transition-all duration-500 ml-0.5 shrink-0 hidden sm:block" />
               </button>
+
+              {/* Quick Link to Storefront */}
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 hover:border-emerald-300 rounded-xl font-bold text-xs transition-all shrink-0 active:scale-95 shadow-2xs group"
+                title="Open live customer storefront website"
+              >
+                <Globe className="w-3.5 h-3.5 text-emerald-600 group-hover:rotate-12 transition-transform" />
+                <span className="hidden sm:inline">Storefront</span>
+                <ExternalLink className="w-3 h-3 text-emerald-600/70" />
+              </a>
 
               {/* Global Search Trigger */}
               <button

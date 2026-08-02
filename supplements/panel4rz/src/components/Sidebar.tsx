@@ -16,7 +16,9 @@ import {
   ChevronRight,
   LogOut,
   UserCheck,
-  X
+  X,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -127,6 +129,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
+
+      {/* Quick Link to Storefront */}
+      <div className="px-3 py-2 border-t border-slate-800 shrink-0">
+        <a
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/80 text-emerald-300 py-2 px-3 rounded-xl font-bold text-[11px] transition-all shadow-2xs group"
+          title="Open live customer storefront website"
+        >
+          <Globe className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
+          {(!isCollapsed || isMobileOpen) && <span>Visit Storefront</span>}
+          {(!isCollapsed || isMobileOpen) && <ExternalLink className="w-3 h-3 text-emerald-400/70 ml-auto" />}
+        </a>
+      </div>
 
       {/* Footer User & Auth Controls */}
       <div className="p-3 border-t border-slate-800 text-xs shrink-0">
