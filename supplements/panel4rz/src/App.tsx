@@ -26,6 +26,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { PromoCodesPage } from './pages/PromoCodesPage';
 import { DeliveryPricesPage } from './pages/DeliveryPricesPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PreordersPage } from './pages/PreordersPage';
@@ -400,6 +401,23 @@ export default function App() {
       });
 
       setDeliveryPrices(Array.from(dpMap.values()));
+
+      // 9. Fetch Promo Codes
+      const promoRes = await supabase.from('promo_codes').select('*').order('created_at', { ascending: false });
+      if (promoRes.data) {
+        setPromoCodes(promoRes.data.map((p: any) => ({
+          id: String(p.id),
+          code: p.code || '',
+          type: p.type || 'percent',
+          value: Number(p.value !== undefined ? p.value : 0),
+          minOrder: Number(p.min_order !== undefined ? p.min_order : (p.minOrder || 0)),
+          maxUses: p.max_uses !== undefined && p.max_uses !== null ? Number(p.max_uses) : (p.maxUses || null),
+          uses: Number(p.uses || 0),
+          expiry: p.expiry || '',
+          status: p.status || 'active',
+          applyToAll: p.apply_to_all === true || p.applyToAll === true
+        })));
+      }
     } catch (e: any) {
       console.warn("Data refresh notice:", e);
     }
@@ -523,6 +541,71 @@ export default function App() {
     try {
       await supabase.from('delivery_prices').upsert(dbPayloads, { onConflict: 'id' });
       await syncHiddenWilayasToDb(updatedList);
+      showToast(`Updated rates for ${dps.length} Wilayas!`);
+    } catch(e) {}
+  };
+
+  // ── PROMO CODE MUTATIONS ──
+  const handleSavePromoCode = async (promo: Partial<PromoCode>) => {
+    const promoId = promo.id || `promo_${Date.now()}`;
+    const dbPayload = {
+      id: promoId,
+      code: promo.code?.toUpperCase().trim(),
+      type: promo.type || 'percent',
+      value: Number(promo.value) || 0,
+      min_order: Number(promo.minOrder) || 0,
+      max_uses: promo.maxUses !== undefined && promo.maxUses !== null ? Number(promo.maxUses) : null,
+      expiry: promo.expiry || null,
+      status: promo.status || 'active',
+      apply_to_all: promo.applyToAll !== false
+    };
+
+    const newObj: PromoCode = {
+      id: promoId,
+      code: promo.code?.toUpperCase().trim() || '',
+      type: promo.type || 'percent',
+      value: Number(promo.value) || 0,
+      minOrder: Number(promo.minOrder) || 0,
+      maxUses: promo.maxUses !== undefined && promo.maxUses !== null ? Number(promo.maxUses) : null,
+      uses: promo.uses || 0,
+      expiry: promo.expiry || '',
+      status: promo.status || 'active',
+      applyToAll: promo.applyToAll !== false
+    };
+
+    setPromoCodes(prev => {
+      const idx = prev.findIndex(p => p.id === promoId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...newObj };
+        return next;
+      }
+      return [newObj, ...prev];
+    });
+
+    try {
+      const { error } = await supabase.from('promo_codes').upsert([dbPayload], { onConflict: 'id' });
+      if (error) throw error;
+      showToast(promo.id ? '✓ Promo code updated!' : '✓ Promo code created!');
+    } catch(e: any) {
+      console.error("Error saving promo code:", e.message);
+      showToast('Saved locally', 'info');
+    }
+  };
+
+  const handleDeletePromoCode = async (id: string) => {
+    setPromoCodes(prev => prev.filter(p => p.id !== id));
+    try {
+      await supabase.from('promo_codes').delete().eq('id', id);
+      showToast('Promo code deleted', 'info');
+    } catch(e) {}
+  };
+
+  const handleTogglePromoStatus = async (id: string, newStatus: 'active' | 'inactive') => {
+    setPromoCodes(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+    try {
+      await supabase.from('promo_codes').update({ status: newStatus }).eq('id', id);
+      showToast(`Promo status set to ${newStatus}`);
     } catch(e) {}
   };
 
@@ -1596,6 +1679,15 @@ export default function App() {
                 onDeleteCategory={handleDeleteCategory}
                 onDeleteSubCategory={handleDeleteSubCategory}
                 showToast={showToast}
+              />
+            )}
+
+            {activeTab === 'promos' && (
+              <PromoCodesPage
+                promoCodes={promoCodes}
+                onSavePromoCode={handleSavePromoCode}
+                onDeletePromoCode={handleDeletePromoCode}
+                onToggleStatus={handleTogglePromoStatus}
               />
             )}
 

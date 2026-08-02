@@ -1,4 +1,4 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
 
 export interface DeliveryPrice {
   id: string | number;
@@ -64,8 +64,15 @@ export interface SubCategory {
 export interface PromoCode {
   id: string;
   code: string;
+  type?: 'percent' | 'fixed' | 'free_delivery';
+  value?: number;
+  minOrder?: number;
+  maxUses?: number | null;
+  uses?: number;
+  expiry?: string;
   status: 'active' | 'inactive';
   applyToAll?: boolean;
+  created_at?: string;
 }
 
 export interface Product {
