@@ -497,48 +497,58 @@
         updateOrderSummary();
       }
 
-      // Returns whether a product accepts a given promo.
-      // Consistent with product-detail: allowPromo=true + empty promoCodeIds = accepts all promos.
       function _productAcceptsPromo(product, promo) {
-        if (!product) return false;
-        const allowPromo = product.allowPromo === true || String(product.allowPromo).toUpperCase() === "TRUE";
-        if (!allowPromo) return false;
-        
-        // If promo is global, it applies to all products that allow promos
-        if (promo.applyToAll === true || String(promo.applyToAll).toUpperCase() === "TRUE") return true;
+        if (!promo) return false;
 
-        // If the product has explicit promo code restrictions, this promo must be one of them
+        // If promo is storewide / global (applyToAll === true or apply_to_all === true), it applies to ALL products!
+        const isStorewide =
+          promo.applyToAll === true ||
+          String(promo.applyToAll).toUpperCase() === "TRUE" ||
+          promo.apply_to_all === true ||
+          String(promo.apply_to_all).toUpperCase() === "TRUE";
+
+        if (isStorewide) return true;
+
+        if (!product) return false;
+
+        const allowPromo = product.allowPromo !== false && String(product.allowPromo).toUpperCase() !== "FALSE";
+        if (!allowPromo) return false;
+
         if (product.promoCodeIds && product.promoCodeIds.length > 0) {
           return product.promoCodeIds.includes(promo.id);
         }
-        // allowPromo=true with no specific codes linked → accepts all promos
+
         return true;
       }
 
-      // Returns the subtotal of cart items eligible for this promo.
       function getEligibleSubtotal(items, promo) {
         const fullSubtotal = items.reduce((s, item) => s + item.unitPrice * item.qty, 0);
+        if (!promo) return 0;
+
+        const isStorewide =
+          promo.applyToAll === true ||
+          String(promo.applyToAll).toUpperCase() === "TRUE" ||
+          promo.apply_to_all === true ||
+          String(promo.apply_to_all).toUpperCase() === "TRUE";
+
+        if (isStorewide) return fullSubtotal;
 
         if (!_allProducts.length) return fullSubtotal;
 
         if (promo.type === "free_delivery") {
-          // Find products that explicitly restrict this promo via promoCodeIds
           const linkedProductIds = new Set(
             _allProducts
               .filter((p) => {
-                const allowPromo = p.allowPromo === true || String(p.allowPromo).toUpperCase() === "TRUE";
+                const allowPromo = p.allowPromo !== false && String(p.allowPromo).toUpperCase() !== "FALSE";
                 return allowPromo && p.promoCodeIds && p.promoCodeIds.length > 0 && p.promoCodeIds.includes(promo.id);
               })
               .map((p) => p.id)
           );
-          // No products explicitly linked → global free-delivery code, applies to any cart
           if (linkedProductIds.size === 0) return fullSubtotal;
-          // Otherwise at least one linked product must be in the cart
           const hasEligible = items.some((item) => linkedProductIds.has(item.productId));
           return hasEligible ? fullSubtotal : 0;
         }
 
-        // percent / fixed: sum of eligible items only
         return items.reduce((s, item) => {
           const product = _allProducts.find((p) => p.id === item.productId);
           if (!_productAcceptsPromo(product, promo)) return s;

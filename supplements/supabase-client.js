@@ -76,13 +76,21 @@
   }
 
   function _remapPromo(p) {
+    if (!p) return null;
+    const isApplyAll = p.applyToAll === true || String(p.applyToAll).toUpperCase() === "TRUE" ||
+                      p.apply_to_all === true || String(p.apply_to_all).toUpperCase() === "TRUE";
     return {
-      id: p.id, code: p.code, type: p.type, value: Number(p.value) || 0,
-      minOrder: Number(p.min_order) || 0,
-      maxUses: p.max_uses != null ? Number(p.max_uses) : null,
-      uses: Number(p.uses) || 0, expiry: p.expiry || "",
+      id: String(p.id),
+      code: p.code ? String(p.code).trim() : "",
+      type: p.type || "percent",
+      value: Number(p.value) || 0,
+      minOrder: Number(p.min_order !== undefined ? p.min_order : (p.minOrder || 0)),
+      maxUses: p.max_uses != null ? Number(p.max_uses) : (p.maxUses != null ? Number(p.maxUses) : null),
+      uses: Number(p.uses) || 0,
+      expiry: p.expiry || "",
       status: p.status || "active",
-      applyToAll: p.apply_to_all === true || p.apply_to_all === "true",
+      applyToAll: isApplyAll,
+      apply_to_all: isApplyAll,
       createdAt: p.created_at,
     };
   }
