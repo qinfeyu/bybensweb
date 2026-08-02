@@ -199,10 +199,16 @@
           _deliveryPrices = res.deliveryPrices || [];
           _allPromos = res.promos || [];
           _hiddenWilayas = [];
-          if (Array.isArray(res.settings)) {
-            const hRow = res.settings.find((s) => s.key === "hidden_wilayas");
-            if (hRow && hRow.value) {
-              try { _hiddenWilayas = JSON.parse(hRow.value); } catch(e) {}
+          if (res.settings) {
+            let val = null;
+            if (Array.isArray(res.settings)) {
+              const hRow = res.settings.find((s) => s && s.key === "hidden_wilayas");
+              if (hRow) val = hRow.value;
+            } else if (typeof res.settings === "object") {
+              val = res.settings.hidden_wilayas;
+            }
+            if (val) {
+              try { _hiddenWilayas = typeof val === "string" ? JSON.parse(val) : val; } catch(e) {}
             }
           }
           populateWilayas();
