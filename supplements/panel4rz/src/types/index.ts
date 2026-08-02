@@ -5,6 +5,7 @@ export interface DeliveryPrice {
   wilaya: string;
   home_price: number;
   office_price: number;
+  is_hidden?: boolean;
   created_at?: string;
 }
 

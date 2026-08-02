@@ -329,19 +329,9 @@ export default function App() {
       setCustomers(finalCusts);
       localStorage.setItem('bb_customers_cache', JSON.stringify(finalCusts));
 
-      // 7. Fetch Delivery Prices
-      const dpRes = await supabase.from('delivery_prices').select('*').order('wilaya', { ascending: true });
-      if (dpRes.data) {
-        setDeliveryPrices(dpRes.data.map((d: any) => ({
-          id: d.id,
-          wilaya: d.wilaya || '',
-          home_price: Number(d.home_price !== undefined ? d.home_price : (d.homePrice || 0)),
-          office_price: Number(d.office_price !== undefined ? d.office_price : (d.officePrice || 0))
-        })));
-      }
-
-      // 8. Fetch Settings
+      // 7. Fetch Settings & Hidden Wilayas
       const setRes = await supabase.from('settings').select('*');
+      let hiddenWilayasList: string[] = [];
       if (setRes.data) {
         const setMap: any = {};
         setRes.data.forEach((s: any) => setMap[s.key] = s.value);
@@ -350,6 +340,28 @@ export default function App() {
           budget_eur: setMap.budget_eur || '0',
           budget_rate: setMap.budget_rate || '280'
         });
+
+        try {
+          if (setMap.hidden_wilayas) {
+            hiddenWilayasList = JSON.parse(setMap.hidden_wilayas);
+          }
+        } catch(e) {}
+      }
+
+      // 8. Fetch Delivery Prices
+      const dpRes = await supabase.from('delivery_prices').select('*').order('wilaya', { ascending: true });
+      if (dpRes.data) {
+        setDeliveryPrices(dpRes.data.map((d: any) => {
+          const wName = d.wilaya || '';
+          const isHidden = Boolean(d.is_hidden) || hiddenWilayasList.includes(wName) || hiddenWilayasList.includes(String(d.id));
+          return {
+            id: d.id,
+            wilaya: wName,
+            home_price: Number(d.home_price !== undefined ? d.home_price : (d.homePrice || 0)),
+            office_price: Number(d.office_price !== undefined ? d.office_price : (d.officePrice || 0)),
+            is_hidden: isHidden
+          };
+        }));
       }
     } catch (e: any) {
       console.warn("Data refresh notice:", e);
@@ -419,6 +431,15 @@ export default function App() {
   };
 
   // ── DELIVERY PRICE MUTATIONS ──
+  const syncHiddenWilayasToDb = async (allDps: DeliveryPrice[]) => {
+    const hiddenWilayaNames = allDps.filter(d => d.is_hidden).map(d => d.wilaya);
+    try {
+      await supabase.from('settings').upsert([
+        { key: 'hidden_wilayas', value: JSON.stringify(hiddenWilayaNames) }
+      ], { onConflict: 'key' });
+    } catch(e) {}
+  };
+
   const handleSaveDeliveryPrice = async (dp: DeliveryPrice) => {
     const dbPayload = {
       id: dp.id,
@@ -427,18 +448,22 @@ export default function App() {
       office_price: Number(dp.office_price) || 0
     };
 
+    let updatedList: DeliveryPrice[] = [];
     setDeliveryPrices(prev => {
       const idx = prev.findIndex(x => String(x.id) === String(dp.id));
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = dp;
+        updatedList = next;
         return next;
       }
-      return [...prev, dp];
+      updatedList = [...prev, dp];
+      return updatedList;
     });
 
     try {
       await supabase.from('delivery_prices').upsert([dbPayload], { onConflict: 'id' });
+      await syncHiddenWilayasToDb(updatedList);
     } catch(e) {}
   };
 
@@ -450,21 +475,29 @@ export default function App() {
       office_price: Number(dp.office_price) || 0
     }));
 
+    let updatedList: DeliveryPrice[] = [];
     setDeliveryPrices(prev => {
       const map = new Map(prev.map(x => [String(x.id), x]));
       dps.forEach(dp => map.set(String(dp.id), dp));
-      return Array.from(map.values());
+      updatedList = Array.from(map.values());
+      return updatedList;
     });
 
     try {
       await supabase.from('delivery_prices').upsert(dbPayloads, { onConflict: 'id' });
+      await syncHiddenWilayasToDb(updatedList);
     } catch(e) {}
   };
 
   const handleDeleteDeliveryPrice = async (id: string | number) => {
-    setDeliveryPrices(prev => prev.filter(x => String(x.id) !== String(id)));
+    let updatedList: DeliveryPrice[] = [];
+    setDeliveryPrices(prev => {
+      updatedList = prev.filter(x => String(x.id) !== String(id));
+      return updatedList;
+    });
     try {
       await supabase.from('delivery_prices').delete().eq('id', id);
+      await syncHiddenWilayasToDb(updatedList);
     } catch(e) {}
   };
 
