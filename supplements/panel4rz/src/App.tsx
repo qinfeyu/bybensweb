@@ -13,7 +13,8 @@ import type {
   Category,
   SubCategory,
   PromoCode,
-  DeliveryPrice
+  DeliveryPrice,
+  BundleConfig
 } from './types';
 import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal, LogOut, Globe, ExternalLink } from 'lucide-react';
 
@@ -27,6 +28,7 @@ import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { PromoCodesPage } from './pages/PromoCodesPage';
+import { BundlePage } from './pages/BundlePage';
 import { DeliveryPricesPage } from './pages/DeliveryPricesPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PreordersPage } from './pages/PreordersPage';
@@ -139,6 +141,7 @@ export default function App() {
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [deliveryPrices, setDeliveryPrices] = useState<DeliveryPrice[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [bundleConfig, setBundleConfig] = useState<BundleConfig | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [preorders, setPreorders] = useState<PreOrder[]>([]);
   const [preorderItems, setPreorderItems] = useState<PreOrderItem[]>([]);
@@ -418,6 +421,22 @@ export default function App() {
           applyToAll: p.apply_to_all === true || p.applyToAll === true
         })));
       }
+
+      // 10. Fetch Bundle Configuration
+      const bundleRes = await supabase.from('bundle').select('*').limit(1);
+      if (bundleRes.data && bundleRes.data.length > 0) {
+        const b = bundleRes.data[0];
+        setBundleConfig({
+          id: b.id,
+          bundleId: b.bundle_id || '',
+          titleEn: b.title_en || '',
+          titleFr: b.title_fr || '',
+          titleAr: b.title_ar || '',
+          descriptionEn: b.description_en || '',
+          descriptionFr: b.description_fr || '',
+          descriptionAr: b.description_ar || ''
+        });
+      }
     } catch (e: any) {
       console.warn("Data refresh notice:", e);
     }
@@ -607,6 +626,31 @@ export default function App() {
       await supabase.from('promo_codes').update({ status: newStatus }).eq('id', id);
       showToast(`Promo status set to ${newStatus}`);
     } catch(e) {}
+  };
+
+  // ── BUNDLE MUTATIONS ──
+  const handleSaveBundle = async (bundle: BundleConfig) => {
+    const dbPayload = {
+      id: 1,
+      bundle_id: bundle.bundleId || '',
+      title_en: bundle.titleEn || null,
+      title_fr: bundle.titleFr || null,
+      title_ar: bundle.titleAr || null,
+      description_en: bundle.descriptionEn || null,
+      description_fr: bundle.descriptionFr || null,
+      description_ar: bundle.descriptionAr || null
+    };
+
+    setBundleConfig(bundle);
+
+    try {
+      const { error } = await supabase.from('bundle').upsert([dbPayload], { onConflict: 'id' });
+      if (error) throw error;
+      showToast('✓ Featured Bundle offer saved successfully!');
+    } catch(e: any) {
+      console.error("Error saving bundle:", e.message);
+      showToast('Saved locally', 'info');
+    }
   };
 
   const handleDeleteDeliveryPrice = async (id: string | number) => {
@@ -1688,6 +1732,15 @@ export default function App() {
                 onSavePromoCode={handleSavePromoCode}
                 onDeletePromoCode={handleDeletePromoCode}
                 onToggleStatus={handleTogglePromoStatus}
+              />
+            )}
+
+            {activeTab === 'bundle' && (
+              <BundlePage
+                products={products}
+                bundleConfig={bundleConfig}
+                onSaveBundle={handleSaveBundle}
+                showToast={showToast}
               />
             )}
 

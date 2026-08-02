@@ -1,4 +1,15 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'bundle' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
+
+export interface BundleConfig {
+  id?: number | string;
+  bundleId: string;
+  titleEn?: string;
+  titleFr?: string;
+  titleAr?: string;
+  descriptionEn?: string;
+  descriptionFr?: string;
+  descriptionAr?: string;
+}
 
 export interface DeliveryPrice {
   id: string | number;
