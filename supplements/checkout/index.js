@@ -7,6 +7,7 @@
       // getInitialData is provided by supabase-client.js
       const CART_KEY = "bybens_cart";
       let _deliveryPrices = [];
+      let _hiddenWilayas = [];
       let _allPromos = [];
       let appliedPromos = []; // all validated promo objects (stacked)
 
@@ -718,6 +719,13 @@
           _deliveryPrices = res.deliveryPrices || [];
           _allProducts = res.products || [];
           _allPromos = res.promos || [];
+          _hiddenWilayas = [];
+          if (Array.isArray(res.settings)) {
+            const hRow = res.settings.find((s) => s.key === "hidden_wilayas");
+            if (hRow && hRow.value) {
+              try { _hiddenWilayas = JSON.parse(hRow.value); } catch(e) {}
+            }
+          }
           const bundle = res.bundle || {};
           // Max quantity is 5 for individual items, regardless of stock
           if (bundle.bundleId) _bundleId = bundle.bundleId;
@@ -2914,11 +2922,34 @@
 
       function populateWilayas() {
         const optionsEl = document.getElementById("wilayaOptions");
+        if (!optionsEl) return;
         optionsEl.innerHTML = "";
+
+        const hiddenSet = new Set((_hiddenWilayas || []).map((w) => String(w).trim().toLowerCase()));
+        (_deliveryPrices || []).forEach((dp) => {
+          if (dp.is_hidden || dp.hidden) {
+            if (dp.wilaya) hiddenSet.add(dp.wilaya.trim().toLowerCase());
+            if (dp.id) hiddenSet.add(String(dp.id).trim().toLowerCase());
+          }
+        });
+
         Object.entries(WILAYAS)
           .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
           .forEach(([code, data]) => {
             const label = `${code} - ${data.name}`;
+            const codeStr = String(code).trim().toLowerCase();
+            const codePadded = codeStr.padStart(2, "0");
+            const nameStr = (data.name || "").trim().toLowerCase();
+
+            const isHidden =
+              hiddenSet.has(codeStr) ||
+              hiddenSet.has(codePadded) ||
+              hiddenSet.has(nameStr) ||
+              hiddenSet.has(`${codePadded} - ${nameStr}`) ||
+              hiddenSet.has(label.toLowerCase());
+
+            if (isHidden) return;
+
             const div = document.createElement("div");
             div.className = "dropdown-option";
             div.dataset.value = code;

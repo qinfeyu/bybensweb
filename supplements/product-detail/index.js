@@ -25,6 +25,7 @@
       let _allSubCategories = [];
       let _allProducts = [];
       let _deliveryPrices = [];
+      let _hiddenWilayas = [];
       let _bundleId = null;
       let _topSoldIds = [];
       let selectedProduct = null;
@@ -197,6 +198,14 @@
           _allSubCategories = res.subCategories || [];
           _deliveryPrices = res.deliveryPrices || [];
           _allPromos = res.promos || [];
+          _hiddenWilayas = [];
+          if (Array.isArray(res.settings)) {
+            const hRow = res.settings.find((s) => s.key === "hidden_wilayas");
+            if (hRow && hRow.value) {
+              try { _hiddenWilayas = JSON.parse(hRow.value); } catch(e) {}
+            }
+          }
+          populateWilayas();
           const bundle = res.bundle || {};
           if (bundle.bundleId) _bundleId = bundle.bundleId;
 
@@ -3088,11 +3097,34 @@
 
       function populateWilayas() {
         const optionsEl = document.getElementById("wilayaOptions");
+        if (!optionsEl) return;
         optionsEl.innerHTML = "";
+
+        const hiddenSet = new Set((_hiddenWilayas || []).map((w) => String(w).trim().toLowerCase()));
+        (_deliveryPrices || []).forEach((dp) => {
+          if (dp.is_hidden || dp.hidden) {
+            if (dp.wilaya) hiddenSet.add(dp.wilaya.trim().toLowerCase());
+            if (dp.id) hiddenSet.add(String(dp.id).trim().toLowerCase());
+          }
+        });
+
         Object.entries(WILAYAS)
           .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
           .forEach(([code, data]) => {
             const label = `${code} - ${data.name}`;
+            const codeStr = String(code).trim().toLowerCase();
+            const codePadded = codeStr.padStart(2, "0");
+            const nameStr = (data.name || "").trim().toLowerCase();
+
+            const isHidden =
+              hiddenSet.has(codeStr) ||
+              hiddenSet.has(codePadded) ||
+              hiddenSet.has(nameStr) ||
+              hiddenSet.has(`${codePadded} - ${nameStr}`) ||
+              hiddenSet.has(label.toLowerCase());
+
+            if (isHidden) return;
+
             const div = document.createElement("div");
             div.className = "dropdown-option";
             div.dataset.value = code;

@@ -88,7 +88,7 @@
   }
 
   function _remapDeliveryPrice(d) {
-    return { id: d.id, wilaya: d.wilaya, homePrice: Number(d.home_price) || 0, officePrice: Number(d.office_price) || 0, createdAt: d.created_at };
+    return { id: d.id, wilaya: d.wilaya, homePrice: Number(d.home_price) || 0, officePrice: Number(d.office_price) || 0, is_hidden: d.is_hidden === true || d.is_hidden === "true", createdAt: d.created_at };
   }
 
   function _remapOrder(o) {
