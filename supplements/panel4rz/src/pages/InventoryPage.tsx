@@ -71,70 +71,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedSkuIds, setSelectedSkuIds] = useState<string[]>([]);
 
-  // Default Sample Data Seeder
-  const handleSeedSampleData = async () => {
-    const sampleItems: InventoryItem[] = [
-      {
-        id: 'SUP-8801',
-        type: 'supplement',
-        brand: 'Optimum Nutrition',
-        name: '100% Whey Gold Standard 2.27kg',
-        variant_spec: '2.27kg',
-        size: '2.27kg',
-        price_eur: 55,
-        rate: defaultEurRate,
-        delivery_dzd: 1200,
-        retail_dzd: 19500,
-        stock: 12,
-        stock_eu: 5
-      },
-      {
-        id: 'SUP-8802',
-        type: 'supplement',
-        brand: 'Myprotein',
-        name: 'Impact Whey Isolate 1kg',
-        variant_spec: '1kg',
-        size: '1kg',
-        price_eur: 32,
-        rate: defaultEurRate,
-        delivery_dzd: 800,
-        retail_dzd: 11500,
-        stock: 8,
-        stock_eu: 10
-      },
-      {
-        id: 'SUP-8803',
-        type: 'supplement',
-        brand: 'Creapure',
-        name: 'Creatine Monohydrate 250g',
-        variant_spec: '250g',
-        size: '250g',
-        price_eur: 18,
-        rate: defaultEurRate,
-        delivery_dzd: 500,
-        retail_dzd: 6500,
-        stock: 20,
-        stock_eu: 15
-      },
-      {
-        id: 'SNK-9901',
-        type: 'snack',
-        brand: 'Barebells',
-        name: 'Protein Bar Cookies & Cream 55g',
-        variant_spec: '55g',
-        size: '55g',
-        price_eur: 2.2,
-        rate: defaultEurRate,
-        delivery_dzd: 100,
-        retail_dzd: 850,
-        stock: 48,
-        stock_eu: 24
-      }
-    ];
 
-    await onSaveBulkItems(sampleItems);
-    showToast("✓ Default inventory items restored!");
-  };
 
   // Bulk Restock Modal State
   const [isBulkRestockOpen, setIsBulkRestockOpen] = useState(false);
@@ -689,14 +626,6 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleSeedSampleData}
-            className="flex items-center gap-1.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all"
-            title="Restore default supplement SKUs"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restore Default SKUs</span>
-          </button>
 
           <button
             onClick={() => setIsBulkRestockOpen(true)}
@@ -1112,13 +1041,6 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       No inventory items found for {activeTab}s.
                     </div>
                     <div className="flex items-center justify-center gap-3 flex-wrap">
-                      <button
-                        onClick={handleSeedSampleData}
-                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-2"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        <span>Restore Default Inventory SKUs</span>
-                      </button>
                       <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-2">
                         <Upload className="w-4 h-4" />
                         <span>Import Inventory CSV File</span>
