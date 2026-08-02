@@ -234,7 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:flex flex-col transition-all duration-300 ${
+      <aside className={`hidden md:flex flex-col h-screen sticky top-0 shrink-0 z-40 transition-all duration-300 ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         {sidebarContent}

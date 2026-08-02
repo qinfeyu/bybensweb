@@ -1507,7 +1507,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
+    <div className="h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900 overflow-hidden">
       {/* Toast Notifications */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0">
         {toasts.map(toast => (
