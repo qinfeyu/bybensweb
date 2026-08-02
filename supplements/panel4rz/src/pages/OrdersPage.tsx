@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Order, InventoryItem, Product } from '../types';
 import { calculateOrderProfit } from '../lib/calculations';
-import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter } from 'lucide-react';
+import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter, Printer, MapPin, User, Calendar } from 'lucide-react';
 import { PhoneContactAction } from '../components/PhoneContactAction';
 import { WhatsAppTemplates } from '../lib/whatsapp';
 
@@ -36,6 +36,142 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+
+  const handlePrintInvoice = (o: Order) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=700');
+    if (!printWindow) {
+      alert("Pop-up blocked! Please allow pop-ups to print receipts.");
+      return;
+    }
+
+    const custName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'Valued Customer';
+    const dateStr = o.date || o.created_at ? new Date(o.date || o.created_at || '').toLocaleString('fr-FR') : new Date().toLocaleDateString();
+
+    const itemsHtml = (o.items || []).map(it => {
+      const uPrice = Number(it.unitPrice || it.unit_price || it.price || 0);
+      const lTotal = Number(it.lineTotal || it.line_total || ((it.qty || 1) * uPrice) || 0);
+      return `
+        <tr>
+          <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;"><strong>${it.name || it.product_name || '—'}</strong></td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;">${it.flavor || '—'}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;">${it.variant || '—'}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:center;">${it.qty || 1}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;">${uPrice.toLocaleString()} DA</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold;">${lTotal.toLocaleString()} DA</td>
+        </tr>
+      `;
+    }).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice - ${o.id}</title>
+        <style>
+          body { font-family: 'Inter', system-ui, sans-serif; padding: 30px; color: #0f172a; line-height: 1.5; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 15px; margin-bottom: 20px; }
+          .logo { font-size: 24px; font-weight: 900; color: #dc2626; letter-spacing: -0.5px; }
+          .sub { font-size: 12px; color: #64748b; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+          .grid-item { font-size: 13px; }
+          .label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 2px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+          th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 800; border-bottom: 1px solid #cbd5e1; }
+          .summary { float: right; width: 300px; font-size: 13px; margin-top: 10px; background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; }
+          .summary-row { display: flex; justify-content: space-between; padding: 4px 0; }
+          .total-row { border-top: 2px solid #0f172a; padding-top: 8px; font-weight: 900; font-size: 16px; color: #0f172a; margin-top: 4px; }
+          .no-print { margin-bottom: 20px; text-align: right; }
+          .btn-print { padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          @media print { .no-print { display: none !important; } }
+        </style>
+      </head>
+      <body>
+        <div class="no-print">
+          <button class="btn-print" onclick="window.print()">🖨️ Print Invoice / Save PDF</button>
+        </div>
+        <div class="header">
+          <div>
+            <div class="logo">BYBENS NUTRITION</div>
+            <div class="sub">Premium Storefront & Distribution</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 900; font-size: 18px; color: #0f172a;">INVOICE #${o.id}</div>
+            <div class="sub">Date: ${dateStr}</div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="grid-item">
+            <span class="label">Customer Name</span>
+            <strong>${custName}</strong>
+          </div>
+          <div class="grid-item">
+            <span class="label">Phone Contact</span>
+            <strong>${o.phone || '—'}</strong>
+          </div>
+          <div class="grid-item">
+            <span class="label">Wilaya & Commune</span>
+            <strong>${o.wilaya || '—'} ${o.commune ? `(${o.commune})` : ''}</strong>
+          </div>
+          <div class="grid-item">
+            <span class="label">Delivery Address</span>
+            <strong>${o.address || '—'}</strong>
+          </div>
+          <div class="grid-item">
+            <span class="label">Delivery Option</span>
+            <strong>${o.delivery_type === 'home' || o.deliveryType === 'home' ? '🏠 Home Delivery' : '📦 Office Pickup'}</strong>
+          </div>
+          <div class="grid-item">
+            <span class="label">Order Source</span>
+            <strong>${o.source || 'Storefront'}</strong>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Flavor</th>
+              <th>Variant</th>
+              <th style="text-align:center">Qty</th>
+              <th style="text-align:right">Unit Price</th>
+              <th style="text-align:right">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          <div class="summary-row">
+            <span>Subtotal:</span>
+            <span>${Number(o.subtotal || o.total || 0).toLocaleString()} DA</span>
+          </div>
+          ${Number(o.delivery_cost || o.deliveryCost || 0) > 0 ? `
+            <div class="summary-row">
+              <span>Delivery Fee:</span>
+              <span>${Number(o.delivery_cost || o.deliveryCost || 0).toLocaleString()} DA</span>
+            </div>
+          ` : ''}
+          ${Number(o.promoDiscount || (o as any).promo_discount || 0) > 0 ? `
+            <div class="summary-row" style="color:#16a34a;">
+              <span>Discount (${o.promoCode || (o as any).promo_code || 'PROMO'}):</span>
+              <span>-${Number(o.promoDiscount || (o as any).promo_discount || 0).toLocaleString()} DA</span>
+            </div>
+          ` : ''}
+          <div class="summary-row total-row">
+            <span>Total:</span>
+            <span>${Number(o.total || 0).toLocaleString()} DA</span>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
 
   // 1. Base active sales (excluding unpaid credit sales)
   const baseActiveOrders = orders.filter(o => {
@@ -314,7 +450,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
         {/* Desktop Table View (shown on screens >= md) */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-xs text-left text-slate-700 min-w-[700px]">
+          <table className="w-full text-xs text-left text-slate-700 min-w-[950px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="p-3 w-10 text-center">
@@ -328,9 +464,13 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 <th className="p-3">Order ID</th>
                 <th className="p-3">Customer</th>
                 <th className="p-3">Phone</th>
-                <th className="p-3">Source</th>
+                <th className="p-3">Wilaya</th>
+                <th className="p-3">Address</th>
+                <th className="p-3 text-center">Items</th>
                 <th className="p-3">Total</th>
                 <th className="p-3">Est. Benefit</th>
+                <th className="p-3">Source</th>
+                <th className="p-3">Date</th>
                 <th className="p-3">Status</th>
                 <th className="p-3 text-center">Actions</th>
               </tr>
@@ -341,6 +481,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 const custName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'POS Customer';
                 const sLower = (o.source || '').toLowerCase();
                 const isSelected = selectedOrderIds.includes(o.id);
+                const itemCount = Array.isArray(o.items) ? o.items.length : 0;
+                const formattedDate = o.date || o.created_at ? new Date(o.date || o.created_at || '').toLocaleDateString('fr-FR') : '—';
 
                 return (
                   <tr key={o.id} className={`transition-colors ${isSelected ? 'bg-red-50/50' : 'hover:bg-slate-50/80'}`}>
@@ -352,7 +494,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
                       />
                     </td>
-                    <td className="p-3 font-bold text-slate-900">{o.id}</td>
+                    <td className="p-3 font-bold text-slate-900 font-mono text-[11px]">{o.id}</td>
                     <td className="p-3 font-semibold text-slate-900">{custName}</td>
                     <td className="p-3">
                       <PhoneContactAction
@@ -360,6 +502,15 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         customerName={custName}
                         message={WhatsAppTemplates.orderStatus(custName, o.id, o.status, Number(o.total || 0))}
                       />
+                    </td>
+                    <td className="p-3 font-medium text-slate-800">{o.wilaya || '—'}</td>
+                    <td className="p-3 max-w-[150px] truncate text-slate-600" title={o.address || o.commune || ''}>
+                      {o.address || o.commune || '—'}
+                    </td>
+                    <td className="p-3 text-center font-bold text-slate-700">{itemCount}</td>
+                    <td className="p-3 font-bold text-slate-900">{Number(o.total || 0).toLocaleString()} DA</td>
+                    <td className={`p-3 font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {profit >= 0 ? '+' : ''}{Math.round(profit).toLocaleString()} DA
                     </td>
                     <td className="p-3">
                       <span className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold inline-flex items-center gap-1.5 border ${
@@ -375,10 +526,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         <span>{o.source || 'Storefront'}</span>
                       </span>
                     </td>
-                    <td className="p-3 font-bold text-slate-900">{Number(o.total || 0).toLocaleString()} DA</td>
-                    <td className={`p-3 font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {profit >= 0 ? '+' : ''}{Math.round(profit).toLocaleString()} DA
-                    </td>
+                    <td className="p-3 text-slate-500 font-medium whitespace-nowrap">{formattedDate}</td>
                     <td className="p-3">
                       <select
                         value={o.status || 'waiting'}
@@ -402,7 +550,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => setSelectedOrder(o)}
-                          className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                          className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-bold"
                           title="View Order Details"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -411,7 +559,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                           onClick={() => {
                             if (confirm(`Delete order [${o.id}]?`)) onDeleteOrder(o.id);
                           }}
-                          className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
+                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
                           title="Delete Order"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -483,10 +631,14 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
             <div className="p-6 space-y-5 text-xs">
               {/* Customer Info */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 gap-3">
-                <div><span className="text-slate-400 font-medium">Customer:</span> <strong className="text-slate-900">{selectedOrder.first_name || selectedOrder.firstName} {selectedOrder.last_name || selectedOrder.lastName}</strong></div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <span className="text-slate-400 font-medium block mb-1">Phone / WhatsApp Contact:</span>
+                  <span className="text-slate-400 font-medium text-[11px] block">Customer Name</span>
+                  <strong className="text-slate-900 text-xs">{selectedOrder.first_name || selectedOrder.firstName} {selectedOrder.last_name || selectedOrder.lastName}</strong>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 font-medium text-[11px] block mb-1">Phone / WhatsApp Contact</span>
                   <PhoneContactAction
                     phone={selectedOrder.phone}
                     customerName={`${selectedOrder.first_name || selectedOrder.firstName || ''} ${selectedOrder.last_name || selectedOrder.lastName || ''}`}
@@ -498,8 +650,42 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     )}
                   />
                 </div>
-                <div><span className="text-slate-400 font-medium">Source:</span> <strong className="text-slate-900">{selectedOrder.source || '—'}</strong></div>
-                <div><span className="text-slate-400 font-medium">Delivery:</span> <strong className="text-slate-900">{selectedOrder.delivery_type || selectedOrder.deliveryType || 'Standard'}</strong></div>
+
+                <div>
+                  <span className="text-slate-400 font-medium text-[11px] block">Wilaya</span>
+                  <strong className="text-slate-900 text-xs">{selectedOrder.wilaya || '—'}</strong>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 font-medium text-[11px] block">Commune</span>
+                  <strong className="text-slate-900 text-xs">{selectedOrder.commune || '—'}</strong>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className="text-slate-400 font-medium text-[11px] block">Delivery Address</span>
+                  <strong className="text-slate-900 text-xs">{selectedOrder.address || '—'}</strong>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 font-medium text-[11px] block">Delivery Option</span>
+                  <strong className="text-slate-900 text-xs">
+                    {selectedOrder.delivery_type === 'home' || selectedOrder.deliveryType === 'home' 
+                      ? '🏠 Home Delivery' 
+                      : '📦 Office Pickup / Stop-Desk'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 font-medium text-[11px] block">Order Source</span>
+                  <strong className="text-slate-900 text-xs">{selectedOrder.source || 'Storefront'}</strong>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 font-medium text-[11px] block">Order Date</span>
+                  <strong className="text-slate-900 text-xs">
+                    {selectedOrder.date || selectedOrder.created_at ? new Date(selectedOrder.date || selectedOrder.created_at || '').toLocaleString('fr-FR') : '—'}
+                  </strong>
+                </div>
               </div>
 
               {/* Items */}
@@ -520,7 +706,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     <tbody className="divide-y divide-slate-100">
                       {(selectedOrder.items || []).map((it, idx) => {
                         const uPrice = Number(it.unitPrice || it.unit_price || it.price || 0);
-                        const lTotal = Number(it.lineTotal || it.line_total || (it.qty * uPrice) || 0);
+                        const lTotal = Number(it.lineTotal || it.line_total || ((it.qty || 1) * uPrice) || 0);
                         return (
                           <tr key={idx}>
                             <td className="p-2.5 font-bold">{it.name || it.product_name || '—'}</td>
@@ -558,11 +744,20 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       <span>Subtotal</span>
                       <span className="font-bold">{Number(selectedOrder.subtotal || 0).toLocaleString()} DA</span>
                     </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Delivery Fee</span>
-                      <span>{Number(selectedOrder.delivery_cost || selectedOrder.deliveryCost || 0).toLocaleString()} DA</span>
-                    </div>
+                    {Number(selectedOrder.delivery_cost || selectedOrder.deliveryCost || 0) > 0 && (
+                      <div className="flex justify-between text-slate-600">
+                        <span>Delivery Fee ({selectedOrder.delivery_type === 'home' || selectedOrder.deliveryType === 'home' ? 'Home' : 'Office'})</span>
+                        <span>{Number(selectedOrder.delivery_cost || selectedOrder.deliveryCost || 0).toLocaleString()} DA</span>
+                      </div>
+                    )}
                   </>
+                )}
+
+                {(Number(selectedOrder.promoDiscount || (selectedOrder as any).promo_discount || 0) > 0 || selectedOrder.promoCode || (selectedOrder as any).promo_code) && (
+                  <div className="flex justify-between text-emerald-600 font-medium">
+                    <span>Promo Discount ({selectedOrder.promoCode || (selectedOrder as any).promo_code || 'PROMO'})</span>
+                    <span>-{Number(selectedOrder.promoDiscount || (selectedOrder as any).promo_discount || 0).toLocaleString()} DA</span>
+                  </div>
                 )}
 
                 <div className="flex justify-between text-slate-900 font-black text-sm pt-2 border-t border-slate-200">
@@ -573,7 +768,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 <div className="flex justify-between items-center pt-2 border-t border-dashed border-slate-300 font-bold text-xs">
                   <span>Estimated Benefit</span>
                   <span className={calculateOrderProfit(selectedOrder, inventoryItems, products, defaultEurRate) >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                    +{Math.round(calculateOrderProfit(selectedOrder, inventoryItems, products, defaultEurRate)).toLocaleString()} DA
+                    {calculateOrderProfit(selectedOrder, inventoryItems, products, defaultEurRate) >= 0 ? '+' : ''}
+                    {Math.round(calculateOrderProfit(selectedOrder, inventoryItems, products, defaultEurRate)).toLocaleString()} DA
                   </span>
                 </div>
               </div>
@@ -599,6 +795,30 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Bottom Action Bar: Print Invoice & Delete Order */}
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                <button
+                  onClick={() => handlePrintInvoice(selectedOrder)}
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-xs transition-colors shadow-sm"
+                >
+                  <Printer className="w-4 h-4 text-red-500" />
+                  <span>Print Customer Invoice / Receipt</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete order #${selectedOrder.id}?`)) {
+                      onDeleteOrder(selectedOrder.id);
+                      setSelectedOrder(null);
+                    }
+                  }}
+                  className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center gap-1.5 text-xs transition-colors border border-rose-200"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Order</span>
+                </button>
               </div>
             </div>
           </div>
