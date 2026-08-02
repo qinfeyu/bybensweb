@@ -12,7 +12,8 @@ import type {
   AppSettings,
   Category,
   SubCategory,
-  PromoCode
+  PromoCode,
+  DeliveryPrice
 } from './types';
 import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal, LogOut, Globe, ExternalLink } from 'lucide-react';
 
@@ -25,6 +26,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { DeliveryPricesPage } from './pages/DeliveryPricesPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PreordersPage } from './pages/PreordersPage';
 import { PosPage } from './pages/PosPage';
@@ -134,6 +136,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
+  const [deliveryPrices, setDeliveryPrices] = useState<DeliveryPrice[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [preorders, setPreorders] = useState<PreOrder[]>([]);
@@ -326,7 +329,18 @@ export default function App() {
       setCustomers(finalCusts);
       localStorage.setItem('bb_customers_cache', JSON.stringify(finalCusts));
 
-      // 7. Fetch Settings
+      // 7. Fetch Delivery Prices
+      const dpRes = await supabase.from('delivery_prices').select('*').order('wilaya', { ascending: true });
+      if (dpRes.data) {
+        setDeliveryPrices(dpRes.data.map((d: any) => ({
+          id: d.id,
+          wilaya: d.wilaya || '',
+          home_price: Number(d.home_price !== undefined ? d.home_price : (d.homePrice || 0)),
+          office_price: Number(d.office_price !== undefined ? d.office_price : (d.officePrice || 0))
+        })));
+      }
+
+      // 8. Fetch Settings
       const setRes = await supabase.from('settings').select('*');
       if (setRes.data) {
         const setMap: any = {};
@@ -401,6 +415,56 @@ export default function App() {
     try {
       const { error } = await supabase.from('inventory_items').upsert(dbPayloads, { onConflict: 'id' });
       if (error) console.warn("Supabase bulk inventory upsert notice:", error.message);
+    } catch(e) {}
+  };
+
+  // ── DELIVERY PRICE MUTATIONS ──
+  const handleSaveDeliveryPrice = async (dp: DeliveryPrice) => {
+    const dbPayload = {
+      id: dp.id,
+      wilaya: dp.wilaya,
+      home_price: Number(dp.home_price) || 0,
+      office_price: Number(dp.office_price) || 0
+    };
+
+    setDeliveryPrices(prev => {
+      const idx = prev.findIndex(x => String(x.id) === String(dp.id));
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = dp;
+        return next;
+      }
+      return [...prev, dp];
+    });
+
+    try {
+      await supabase.from('delivery_prices').upsert([dbPayload], { onConflict: 'id' });
+    } catch(e) {}
+  };
+
+  const handleSaveBulkDeliveryPrices = async (dps: DeliveryPrice[]) => {
+    const dbPayloads = dps.map(dp => ({
+      id: dp.id,
+      wilaya: dp.wilaya,
+      home_price: Number(dp.home_price) || 0,
+      office_price: Number(dp.office_price) || 0
+    }));
+
+    setDeliveryPrices(prev => {
+      const map = new Map(prev.map(x => [String(x.id), x]));
+      dps.forEach(dp => map.set(String(dp.id), dp));
+      return Array.from(map.values());
+    });
+
+    try {
+      await supabase.from('delivery_prices').upsert(dbPayloads, { onConflict: 'id' });
+    } catch(e) {}
+  };
+
+  const handleDeleteDeliveryPrice = async (id: string | number) => {
+    setDeliveryPrices(prev => prev.filter(x => String(x.id) !== String(id)));
+    try {
+      await supabase.from('delivery_prices').delete().eq('id', id);
     } catch(e) {}
   };
 
@@ -1461,6 +1525,16 @@ export default function App() {
                 onSaveCategory={handleSaveCategory}
                 onDeleteCategory={handleDeleteCategory}
                 onDeleteSubCategory={handleDeleteSubCategory}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === 'delivery' && (
+              <DeliveryPricesPage
+                deliveryPrices={deliveryPrices}
+                onSaveDeliveryPrice={handleSaveDeliveryPrice}
+                onSaveBulkDeliveryPrices={handleSaveBulkDeliveryPrices}
+                onDeleteDeliveryPrice={handleDeleteDeliveryPrice}
                 showToast={showToast}
               />
             )}

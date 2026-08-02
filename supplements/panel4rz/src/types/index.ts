@@ -1,4 +1,12 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
+
+export interface DeliveryPrice {
+  id: string | number;
+  wilaya: string;
+  home_price: number;
+  office_price: number;
+  created_at?: string;
+}
 
 export interface InventoryItem {
   id: string; // SKU ID (e.g. SUP-8801)

@@ -18,7 +18,8 @@ import {
   UserCheck,
   X,
   Globe,
-  ExternalLink
+  ExternalLink,
+  Truck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -49,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'inventory', label: 'Inventory (SKUs)', icon: <Boxes className="w-4 h-4" /> },
     { id: 'products', label: 'Products Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'categories', label: 'Categories', icon: <Layers className="w-4 h-4" /> },
+    { id: 'delivery', label: 'Wilaya Delivery', icon: <Truck className="w-4 h-4 text-emerald-400" /> },
     { id: 'orders', label: 'Orders', icon: <ShoppingCart className="w-4 h-4" /> },
     { id: 'preorders', label: 'Pre-Orders', icon: <Clock className="w-4 h-4" /> },
     { id: 'pos', label: 'POS Terminal', icon: <Calculator className="w-4 h-4" /> },
