@@ -21,7 +21,8 @@ import {
   ExternalLink,
   Truck,
   Tag,
-  Package
+  Package,
+  ChevronDown
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -47,6 +48,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile
 }) => {
+  const [collapsedCategories, setCollapsedCategories] = React.useState<Record<string, boolean>>({});
+
+  const toggleCategoryCollapse = (title: string) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
   const menuGroups: Array<{
     title: string;
     items: Array<{ id: TabType; label: string; icon: React.ReactNode; badge?: number }>;
@@ -129,21 +138,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 p-2 space-y-4 overflow-y-auto thin-scrollbar">
+      <nav className="flex-1 p-2 space-y-3 overflow-y-auto thin-scrollbar">
         {menuGroups.map((group, groupIdx) => {
           const showCollapsed = isCollapsed && !isMobileOpen;
+          const isCategoryCollapsed = !!collapsedCategories[group.title];
 
           return (
             <div key={group.title} className="space-y-1">
               {!showCollapsed ? (
-                <div className="px-3 pt-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500/80">
-                  {group.title}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleCategoryCollapse(group.title)}
+                  className="w-full flex items-center justify-between px-3 pt-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 hover:text-white transition-colors group/hdr cursor-pointer select-none"
+                >
+                  <span>{group.title}</span>
+                  <ChevronDown className={`w-3 h-3 text-slate-500 group-hover/hdr:text-slate-300 transition-transform duration-200 ${
+                    isCategoryCollapsed ? '-rotate-90 text-slate-600' : 'rotate-0'
+                  }`} />
+                </button>
               ) : (
                 groupIdx > 0 && <div className="border-t border-slate-800 my-2 mx-2" />
               )}
 
-              {group.items.map(item => {
+              {(!isCategoryCollapsed || showCollapsed) && group.items.map(item => {
                 const isActive = activeTab === item.id;
 
                 return (
