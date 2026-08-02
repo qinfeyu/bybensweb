@@ -252,10 +252,10 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 overflow-x-auto max-w-full pb-1">
+      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 no-scrollbar max-w-full">
           {/* Status Pills */}
-          <div className="flex p-1 bg-slate-100 rounded-xl overflow-x-auto shrink-0">
+          <div className="flex flex-wrap p-1 bg-slate-100 rounded-xl no-scrollbar shrink-0 gap-0.5">
             {['all', 'waiting', 'confirmed', 'shipping', 'delivered', 'canceled'].map(st => {
               const count = st === 'all'
                 ? baseActiveOrders.length
@@ -276,8 +276,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           </div>
 
           {/* Source Filter Selector */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto shrink-0">
-            <span className="text-[11px] font-bold text-slate-500 pl-2 pr-1 hidden sm:inline flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl no-scrollbar shrink-0">
+            <span className="text-[11px] font-bold text-slate-500 pl-2 pr-1 hidden sm:inline-flex items-center gap-1">
               <Filter className="w-3 h-3" />
               <span>Source:</span>
             </span>
@@ -449,7 +449,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
 
         {/* Desktop Table View (shown on screens >= md) */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto no-scrollbar">
           <table className="w-full text-xs text-left text-slate-700 min-w-[950px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
