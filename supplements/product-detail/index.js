@@ -3100,10 +3100,32 @@
         if (!optionsEl) return;
         optionsEl.innerHTML = "";
 
-        const hiddenSet = new Set((_hiddenWilayas || []).map((w) => String(w).trim().toLowerCase()));
+        const hiddenSet = new Set();
+        (_hiddenWilayas || []).forEach((w) => {
+          if (w != null) {
+            const str = String(w).trim().toLowerCase();
+            hiddenSet.add(str);
+            const m = str.match(/^(\d+)\s*-\s*(.+)$/);
+            if (m) {
+              hiddenSet.add(m[1]);
+              hiddenSet.add(m[1].padStart(2, "0"));
+              hiddenSet.add(m[2].trim());
+            }
+          }
+        });
+
         (_deliveryPrices || []).forEach((dp) => {
           if (dp.is_hidden || dp.hidden) {
-            if (dp.wilaya) hiddenSet.add(dp.wilaya.trim().toLowerCase());
+            if (dp.wilaya) {
+              const wStr = String(dp.wilaya).trim().toLowerCase();
+              hiddenSet.add(wStr);
+              const m = wStr.match(/^(\d+)\s*-\s*(.+)$/);
+              if (m) {
+                hiddenSet.add(m[1]);
+                hiddenSet.add(m[1].padStart(2, "0"));
+                hiddenSet.add(m[2].trim());
+              }
+            }
             if (dp.id) hiddenSet.add(String(dp.id).trim().toLowerCase());
           }
         });

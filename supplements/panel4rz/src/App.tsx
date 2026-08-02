@@ -348,21 +348,58 @@ export default function App() {
         } catch(e) {}
       }
 
-      // 8. Fetch Delivery Prices
+      // 8. Fetch Delivery Prices & Merge Master 69 Wilayas
       const dpRes = await supabase.from('delivery_prices').select('*').order('wilaya', { ascending: true });
-      if (dpRes.data) {
-        setDeliveryPrices(dpRes.data.map((d: any) => {
-          const wName = d.wilaya || '';
-          const isHidden = Boolean(d.is_hidden) || hiddenWilayasList.includes(wName) || hiddenWilayasList.includes(String(d.id));
-          return {
-            id: d.id,
-            wilaya: wName,
-            home_price: Number(d.home_price !== undefined ? d.home_price : (d.homePrice || 0)),
-            office_price: Number(d.office_price !== undefined ? d.office_price : (d.officePrice || 0)),
+      const rawCloudDps = dpRes.data || [];
+      const dpMap = new Map<string, DeliveryPrice>();
+
+      rawCloudDps.forEach((d: any) => {
+        const wName = d.wilaya || '';
+        const isHidden = Boolean(d.is_hidden) || hiddenWilayasList.includes(wName) || hiddenWilayasList.includes(String(d.id));
+        dpMap.set(wName.toLowerCase(), {
+          id: d.id,
+          wilaya: wName,
+          home_price: Number(d.home_price !== undefined ? d.home_price : (d.homePrice || 0)),
+          office_price: Number(d.office_price !== undefined ? d.office_price : (d.officePrice || 0)),
+          is_hidden: isHidden
+        });
+      });
+
+      const MASTER_WILAYAS: Record<string, string> = {
+        "01": "Adrar", "02": "Chlef", "03": "Laghouat", "04": "Oum El Bouaghi", "05": "Batna",
+        "06": "Béjaïa", "07": "Biskra", "08": "Béchar", "09": "Blida", "10": "Bouira",
+        "11": "Tamanrasset", "12": "Tébessa", "13": "Tlemcen", "14": "Tiaret", "15": "Tizi Ouzou",
+        "16": "Alger", "17": "Djelfa", "18": "Jijel", "19": "Sétif", "20": "Saïda",
+        "21": "Skikda", "22": "Sidi Bel Abbès", "23": "Annaba", "24": "Guelma", "25": "Constantine",
+        "26": "Médéa", "27": "Mostaganem", "28": "M'Sila", "29": "Mascara", "30": "Ouargla",
+        "31": "Oran", "32": "El Bayadh", "33": "Illizi", "34": "Bordj Bou Arréridj", "35": "Boumerdès",
+        "36": "El Tarf", "37": "Tindouf", "38": "Tissemsilt", "39": "El Oued", "40": "Khenchela",
+        "41": "Souk Ahras", "42": "Tipaza", "43": "Mila", "44": "Aïn Defla", "45": "Naâma",
+        "46": "Aïn Témouchent", "47": "Ghardaïa", "48": "Relizane", "49": "Timimoun", "50": "Bordj Badji Mokhtar",
+        "51": "Ouled Djellal", "52": "Béni Abbès", "53": "In Salah", "54": "In Guezzam", "55": "Touggourt",
+        "56": "Djanet", "57": "El M'Ghair", "58": "El Meniaa", "59": "Aflou", "60": "El Abiodh Sidi Cheikh",
+        "61": "El Aricha", "62": "El Kantara", "63": "Barika", "64": "Bou Saada", "65": "Bir El Ater",
+        "66": "Ksar El Boukhari", "67": "Ksar Chellala", "68": "Ain Oussara", "69": "Messaad"
+      };
+
+      Object.entries(MASTER_WILAYAS).forEach(([code, name]) => {
+        const fullWilayaLabel = `${code} - ${name}`;
+        const key = fullWilayaLabel.toLowerCase();
+        // check if any existing key starts with code
+        const hasCodeMatch = Array.from(dpMap.keys()).some(k => k.startsWith(code.toLowerCase() + " ") || k.startsWith(code.toLowerCase() + "-"));
+        if (!hasCodeMatch && !dpMap.has(key)) {
+          const isHidden = hiddenWilayasList.includes(fullWilayaLabel) || hiddenWilayasList.includes(code) || hiddenWilayasList.includes(name);
+          dpMap.set(key, {
+            id: `dp_${code}`,
+            wilaya: fullWilayaLabel,
+            home_price: 600,
+            office_price: 400,
             is_hidden: isHidden
-          };
-        }));
-      }
+          });
+        }
+      });
+
+      setDeliveryPrices(Array.from(dpMap.values()));
     } catch (e: any) {
       console.warn("Data refresh notice:", e);
     }
