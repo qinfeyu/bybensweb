@@ -47,21 +47,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile
 }) => {
-  const menuItems: Array<{ id: TabType; label: string; icon: React.ReactNode; badge?: number }> = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'inventory', label: 'Inventory (SKUs)', icon: <Boxes className="w-4 h-4" /> },
-    { id: 'products', label: 'Products Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
-    { id: 'categories', label: 'Categories', icon: <Layers className="w-4 h-4" /> },
-    { id: 'promos', label: 'Promo Codes', icon: <Tag className="w-4 h-4 text-red-400" /> },
-    { id: 'bundle', label: 'Featured Bundle', icon: <Package className="w-4 h-4 text-amber-400" /> },
-    { id: 'delivery', label: 'Wilaya Delivery', icon: <Truck className="w-4 h-4 text-emerald-400" /> },
-    { id: 'orders', label: 'Orders', icon: <ShoppingCart className="w-4 h-4" /> },
-    { id: 'preorders', label: 'Pre-Orders', icon: <Clock className="w-4 h-4" /> },
-    { id: 'pos', label: 'POS Terminal', icon: <Calculator className="w-4 h-4" /> },
-    { id: 'unpaid', label: 'Unpaid & Credit', icon: <CreditCard className="w-4 h-4 text-amber-400" />, badge: unpaidCount },
-    { id: 'expenses', label: 'Expenses', icon: <Receipt className="w-4 h-4" /> },
-    { id: 'customers', label: 'Customers', icon: <Users className="w-4 h-4" /> },
-    { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+  const menuGroups: Array<{
+    title: string;
+    items: Array<{ id: TabType; label: string; icon: React.ReactNode; badge?: number }>;
+  }> = [
+    {
+      title: 'OVERVIEW',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> }
+      ]
+    },
+    {
+      title: 'CATALOG & OFFERS',
+      items: [
+        { id: 'inventory', label: 'Inventory (SKUs)', icon: <Boxes className="w-4 h-4" /> },
+        { id: 'products', label: 'Products Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
+        { id: 'categories', label: 'Categories', icon: <Layers className="w-4 h-4" /> },
+        { id: 'promos', label: 'Promo Codes', icon: <Tag className="w-4 h-4 text-red-400" /> },
+        { id: 'bundle', label: 'Featured Bundle', icon: <Package className="w-4 h-4 text-amber-400" /> }
+      ]
+    },
+    {
+      title: 'SALES & LOGISTICS',
+      items: [
+        { id: 'orders', label: 'Orders Manager', icon: <ShoppingCart className="w-4 h-4" /> },
+        { id: 'preorders', label: 'Pre-Orders', icon: <Clock className="w-4 h-4" /> },
+        { id: 'pos', label: 'POS Terminal', icon: <Calculator className="w-4 h-4" /> },
+        { id: 'delivery', label: 'Wilaya Delivery', icon: <Truck className="w-4 h-4 text-emerald-400" /> }
+      ]
+    },
+    {
+      title: 'FINANCE & CLIENTS',
+      items: [
+        { id: 'unpaid', label: 'Unpaid & Credit', icon: <CreditCard className="w-4 h-4 text-amber-400" />, badge: unpaidCount },
+        { id: 'expenses', label: 'Expenses', icon: <Receipt className="w-4 h-4 text-purple-400" /> },
+        { id: 'customers', label: 'Customers', icon: <Users className="w-4 h-4" /> }
+      ]
+    },
+    {
+      title: 'SYSTEM',
+      items: [
+        { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> }
+      ]
+    }
   ];
 
   const handleTabClick = (tab: TabType) => {
@@ -101,37 +129,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {menuItems.map(item => {
-          const isActive = activeTab === item.id;
+      <nav className="flex-1 p-2 space-y-4 overflow-y-auto thin-scrollbar">
+        {menuGroups.map((group, groupIdx) => {
           const showCollapsed = isCollapsed && !isMobileOpen;
 
           return (
-            <button
-              key={item.id}
-              onClick={() => handleTabClick(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${
-                isActive
-                  ? 'bg-red-700 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              } ${showCollapsed ? 'justify-center px-0' : ''}`}
-              title={showCollapsed ? item.label : undefined}
-            >
-              <span className="shrink-0 relative">
-                {item.icon}
-                {showCollapsed && !!item.badge && item.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 font-black text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center">
-                    {item.badge}
-                  </span>
-                )}
-              </span>
-              {!showCollapsed && <span className="flex-1 text-left">{item.label}</span>}
-              {!showCollapsed && !!item.badge && item.badge > 0 && (
-                <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
+            <div key={group.title} className="space-y-1">
+              {!showCollapsed ? (
+                <div className="px-3 pt-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500/80">
+                  {group.title}
+                </div>
+              ) : (
+                groupIdx > 0 && <div className="border-t border-slate-800 my-2 mx-2" />
               )}
-            </button>
+
+              {group.items.map(item => {
+                const isActive = activeTab === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabClick(item.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${
+                      isActive
+                        ? 'bg-red-700 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    } ${showCollapsed ? 'justify-center px-0' : ''}`}
+                    title={showCollapsed ? item.label : undefined}
+                  >
+                    <span className="shrink-0 relative">
+                      {item.icon}
+                      {showCollapsed && !!item.badge && item.badge > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 font-black text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                          {item.badge}
+                        </span>
+                      )}
+                    </span>
+                    {!showCollapsed && <span className="flex-1 text-left">{item.label}</span>}
+                    {!showCollapsed && !!item.badge && item.badge > 0 && (
+                      <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0.5 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
       </nav>
