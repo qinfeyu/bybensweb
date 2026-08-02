@@ -18,20 +18,40 @@
   scrollbar-width: none !important;
 }
 
+/* Thin sleek scrollbar for tables and filters */
+.thin-scrollbar::-webkit-scrollbar {
+  height: 5px !important;
+  width: 5px !important;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 0px;
+  width: 6px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f8fafc;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
+  background: #94a3b8;
 }

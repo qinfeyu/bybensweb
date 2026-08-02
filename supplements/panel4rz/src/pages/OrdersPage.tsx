@@ -252,10 +252,11 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 no-scrollbar max-w-full">
+      <div className="flex flex-col gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        {/* Top Filter Row: Status Pills + Search Bar */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           {/* Status Pills */}
-          <div className="flex flex-wrap p-1 bg-slate-100 rounded-xl no-scrollbar shrink-0 gap-0.5">
+          <div className="flex flex-wrap items-center p-1 bg-slate-100/90 rounded-xl gap-1 thin-scrollbar overflow-x-auto">
             {['all', 'waiting', 'confirmed', 'shipping', 'delivered', 'canceled'].map(st => {
               const count = st === 'all'
                 ? baseActiveOrders.length
@@ -266,7 +267,9 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   key={st}
                   onClick={() => setSelectedStatus(st)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition-all ${
-                    selectedStatus === st ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    selectedStatus === st 
+                      ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
                   }`}
                 >
                   {st} ({count})
@@ -275,25 +278,39 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             })}
           </div>
 
-          {/* Source Filter Selector */}
-          <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl no-scrollbar shrink-0">
-            <span className="text-[11px] font-bold text-slate-500 pl-2 pr-1 hidden sm:inline-flex items-center gap-1">
-              <Filter className="w-3 h-3" />
-              <span>Source:</span>
-            </span>
+          {/* Search Box */}
+          <div className="relative w-full lg:w-72 shrink-0">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search Order ID, name, or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
+            />
+          </div>
+        </div>
+
+        {/* Bottom Filter Row: Source Filter Selector */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap">
+          <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1 shrink-0">
+            <Filter className="w-3 h-3 text-slate-400" />
+            <span>Order Source:</span>
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl">
             {[
-              { id: 'all', label: 'All', icon: '🌐', count: baseActiveOrders.length },
+              { id: 'all', label: 'All Sources', icon: '🌐', count: baseActiveOrders.length },
               { id: 'storefront', label: 'Storefront', icon: '🛒', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'storefront').length },
-              { id: 'pos', label: 'POS', icon: '🏪', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'pos').length },
-              { id: 'pre-order', label: 'Pre-Order', icon: '📋', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'pre-order').length }
+              { id: 'pos', label: 'POS Checkout', icon: '🏪', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'pos').length },
+              { id: 'pre-order', label: 'Pre-Orders', icon: '📋', count: baseActiveOrders.filter(o => getSourceType(o.source) === 'pre-order').length }
             ].map(src => (
               <button
                 key={src.id}
                 onClick={() => setSelectedSource(src.id)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   selectedSource === src.id
                     ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
-                    : 'text-slate-500 hover:text-slate-700'
+                    : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <span>{src.icon}</span>
@@ -306,17 +323,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="relative w-full lg:w-64 shrink-0">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search Order ID, name, or phone..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
-          />
         </div>
       </div>
 
@@ -449,7 +455,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
 
         {/* Desktop Table View (shown on screens >= md) */}
-        <div className="hidden md:block overflow-x-auto no-scrollbar">
+        <div className="hidden md:block overflow-x-auto thin-scrollbar">
           <table className="w-full text-xs text-left text-slate-700 min-w-[950px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
