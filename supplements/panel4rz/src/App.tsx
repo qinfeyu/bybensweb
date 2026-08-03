@@ -752,29 +752,8 @@ export default function App() {
   };
 
   // ── PRODUCTS MUTATIONS ──
-  const handleSaveProduct = async (prod: Partial<Product>) => {
-    const prodId = prod.id || `prod_${Date.now()}`;
-    const payload: Product = {
-      id: prodId,
-      name: prod.name || 'Product',
-      status: prod.status || 'active',
-      hidden: prod.hidden || false,
-      stock: prod.stock ?? 10,
-      brand: prod.brand,
-      description: prod.description,
-      nutritionalFacts: prod.nutritionalFacts,
-      benefits: prod.benefits,
-      categoryIds: prod.categoryIds,
-      subCategoryIds: prod.subCategoryIds,
-      imageUrl: prod.imageUrl,
-      discount: prod.discount,
-      allowPromo: prod.allowPromo,
-      promoCodeIds: prod.promoCodeIds,
-      bundleItems: prod.bundleItems,
-      variants: prod.variants,
-      flavors: prod.flavors,
-      flavorImages: prod.flavorImages
-    };
+  const handleSaveProduct = async (prod: Product) => {
+    const payload = { ...prod, status: prod.status || 'active', hidden: prod.hidden || false };
     const dbPayload = {
       id: payload.id,
       name: payload.name,
@@ -863,41 +842,48 @@ export default function App() {
       });
 
       if (prod) {
-        // If product has bundleItems (multi-SKU bundle pack)
+        // 1a. If Product is a Composite Bundle Pack, unpack and deduct stock for each included SKU / product component
         if (prod.bundleItems && Array.isArray(prod.bundleItems) && prod.bundleItems.length > 0) {
           for (const bItem of prod.bundleItems) {
-            const targetSku = String(bItem.sku || bItem.productId || '').trim();
-            const bQty = (Number(bItem.qty) || 1) * qty;
-            if (!targetSku) continue;
+            const componentQty = (Number(bItem.qty) || 1) * qty;
+            const compTargetId = String(bItem.productId || bItem.sku || '').trim();
+            const compVariant = bItem.variant || '';
+            const compFlavor = bItem.flavor || '';
 
-            // Deduct from Inventory SKUs
-            const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === targetSku.toLowerCase());
-            if (invIdx >= 0) {
-              const invItem = { ...updatedInventory[invIdx] };
-              const newStock = Math.max(0, (Number(invItem.stock) || 0) + direction * bQty);
-              invItem.stock = newStock;
-              updatedInventory[invIdx] = invItem;
-              invUpdates.push({ id: invItem.id, stock: newStock });
+            // Deduct / restore stock for component SKU in Inventory
+            if (compTargetId) {
+              const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === compTargetId.toLowerCase());
+              if (invIdx >= 0) {
+                const invItem = { ...updatedInventory[invIdx] };
+                const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * componentQty);
+                invItem.stock = newInvStock;
+                updatedInventory[invIdx] = invItem;
+                invUpdates.push({ id: invItem.id, stock: newInvStock });
+              }
             }
 
-            // Deduct from Product Variants matching this SKU
-            updatedProducts.forEach(pObj => {
-              if (pObj.variants && Array.isArray(pObj.variants)) {
-                let pUpdated = false;
-                const pVars = JSON.parse(JSON.stringify(pObj.variants));
-                pVars.forEach((vObj: any) => {
-                  if (vObj.sku && String(vObj.sku).toLowerCase() === targetSku.toLowerCase()) {
-                    vObj.stock = Math.max(0, (Number(vObj.stock) || 0) + direction * bQty);
-                    pUpdated = true;
-                  }
-                });
-                if (pUpdated) {
-                  pObj.variants = pVars;
-                  pObj.stock = pVars.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
-                  prodUpdates.push({ id: pObj.id, variants: pVars, stock: pObj.stock });
+            // Deduct / restore stock for component in Catalog Products
+            const compProd = updatedProducts.find(p => p.id === compTargetId || (p.variants && p.variants.some((v: any) => v.sku === compTargetId)));
+            if (compProd && compProd.variants && compProd.variants.length > 0) {
+              const cVariants = JSON.parse(JSON.stringify(compProd.variants));
+              let cIdx = cVariants.findIndex((v: any) => v.sku === compTargetId || String(v.weight || v.label || '').toLowerCase().includes(compVariant.toLowerCase()));
+              if (cIdx < 0) cIdx = 0;
+              if (cVariants[cIdx]) {
+                const v = cVariants[cIdx];
+                if (compFlavor && v.flavorStock && v.flavorStock[compFlavor] !== undefined) {
+                  const curF = Number(v.flavorStock[compFlavor]) || 0;
+                  v.flavorStock[compFlavor] = Math.max(0, curF + direction * componentQty);
+                  v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
+                } else {
+                  v.stock = Math.max(0, (Number(v.stock) || 0) + direction * componentQty);
                 }
+                cVariants[cIdx] = v;
+                const cStock = cVariants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
+                compProd.variants = cVariants;
+                compProd.stock = cStock;
+                prodUpdates.push({ id: compProd.id, variants: cVariants, stock: cStock });
               }
-            });
+            }
           }
           continue;
         }
@@ -1825,10 +1811,8 @@ export default function App() {
             {activeTab === 'bundle' && (
               <BundlePage
                 products={products}
-                inventoryItems={inventoryItems}
                 bundleConfig={bundleConfig}
                 onSaveBundle={handleSaveBundle}
-                onSaveProduct={handleSaveProduct}
                 showToast={showToast}
               />
             )}

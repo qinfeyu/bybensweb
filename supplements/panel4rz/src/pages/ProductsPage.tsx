@@ -285,9 +285,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   // Bundle Items state
   const [isBundle, setIsBundle] = useState<boolean>(false);
   const [bundleItems, setBundleItems] = useState<BundleItem[]>([]);
-  const [selectedBundleProdId, setSelectedBundleProdId] = useState<string>('');
-  const [selectedBundleVariant, setSelectedBundleVariant] = useState<string>('');
-  const [selectedBundleFlavor, setSelectedBundleFlavor] = useState<string>('');
+  const [bundleSearchQuery, setBundleSearchQuery] = useState<string>('');
+  const [isBundleSearchOpen, setIsBundleSearchOpen] = useState<boolean>(false);
   const [bundleQty, setBundleQty] = useState<number>(1);
 
   // Variant Matrix Editor States
@@ -553,14 +552,100 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
     }
   };
 
-  // Bundle Items Handlers
-  const handleAddBundleItem = () => {
-    if (!selectedBundleProdId) return;
-    const targetProd = products.find(p => p.id === selectedBundleProdId);
-    if (!targetProd) return;
+  // Master candidate aggregator for bundle component selection (Search by SKU / Product Name / Brand)
+  const getBundleCandidates = () => {
+    const candidates: Array<{
+      id: string;
+      sku: string;
+      name: string;
+      brand: string;
+      variant?: string;
+      flavor?: string;
+      price: number;
+      cost: number;
+      stock: number;
+    }> = [];
 
+    // 1. Include Inventory SKUs
+    (inventoryItems || []).forEach(inv => {
+      const euroRate = 280;
+      const retailPrice = Number(inv.retail_dzd || 0);
+      const eurCost = Number(inv.price_eur || 0);
+      const deliveryCost = Number(inv.delivery_dzd || 0);
+      const calcCost = Math.round(eurCost * euroRate + deliveryCost);
+
+      candidates.push({
+        id: inv.id,
+        sku: inv.id,
+        name: inv.name,
+        brand: inv.brand || '',
+        variant: inv.variant_spec || inv.size || '',
+        price: retailPrice,
+        cost: calcCost,
+        stock: Number(inv.stock || 0)
+      });
+    });
+
+    // 2. Include Catalog Products & Variants
+    (products || []).forEach(p => {
+      if (p.id === editingProduct?.id) return; // Exclude self
+
+      const defaultPrice = p.price || (p.variants && p.variants[0] ? p.variants[0].price : 0);
+      const defaultCost = p.cost || (p.variants && p.variants[0] ? p.variants[0].cost : 0);
+
+      if (p.variants && p.variants.length > 0) {
+        p.variants.forEach(v => {
+          const vLabel = v.weight ? `${v.weight}${v.unit || ''}` : (v.label || v.name || '');
+          const vPrice = Number(v.price || defaultPrice);
+          const vCost = Number(v.cost || defaultCost);
+
+          if (v.flavorStock && Object.keys(v.flavorStock).length > 0) {
+            Object.entries(v.flavorStock).forEach(([fName, fQty]) => {
+              const fSku = (v.flavorSkus && v.flavorSkus[fName]) || v.sku || p.id;
+              candidates.push({
+                id: `${p.id}_${vLabel}_${fName}`,
+                sku: fSku,
+                name: `${p.name} (${fName})`,
+                brand: p.brand || '',
+                variant: vLabel,
+                flavor: fName,
+                price: vPrice,
+                cost: vCost,
+                stock: Number(fQty) || 0
+              });
+            });
+          } else {
+            candidates.push({
+              id: `${p.id}_${vLabel}`,
+              sku: v.sku || p.id,
+              name: `${p.name} (${vLabel})`,
+              brand: p.brand || '',
+              variant: vLabel,
+              price: vPrice,
+              cost: vCost,
+              stock: Number(v.stock) || 0
+            });
+          }
+        });
+      } else {
+        candidates.push({
+          id: p.id,
+          sku: p.sku || p.id,
+          name: p.name,
+          brand: p.brand || '',
+          price: Number(defaultPrice),
+          cost: Number(defaultCost),
+          stock: Number(p.stock || 0)
+        });
+      }
+    });
+
+    return candidates;
+  };
+
+  const handleAddBundleCandidate = (candidate: ReturnType<typeof getBundleCandidates>[0]) => {
     const existingIdx = bundleItems.findIndex(
-      b => b.productId === selectedBundleProdId && b.variant === selectedBundleVariant && b.flavor === selectedBundleFlavor
+      b => (b.sku && b.sku === candidate.sku) || (b.productId === candidate.id && b.variant === candidate.variant && b.flavor === candidate.flavor)
     );
 
     if (existingIdx >= 0) {
@@ -571,40 +656,50 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       setBundleItems([
         ...bundleItems,
         {
-          productId: selectedBundleProdId,
-          qty: bundleQty,
-          variant: selectedBundleVariant,
-          flavor: selectedBundleFlavor,
-          name: targetProd.name,
-          brand: targetProd.brand || ''
+          productId: candidate.id,
+          sku: candidate.sku,
+          name: candidate.name,
+          brand: candidate.brand,
+          variant: candidate.variant,
+          flavor: candidate.flavor,
+          price: candidate.price,
+          cost: candidate.cost,
+          qty: bundleQty
         }
       ]);
     }
 
-    setSelectedBundleProdId('');
-    setSelectedBundleVariant('');
-    setSelectedBundleFlavor('');
+    setBundleSearchQuery('');
+    setIsBundleSearchOpen(false);
     setBundleQty(1);
   };
 
-  // Calculate composite bundle stock
+  // Calculate composite bundle stock based on component inventory
   const calculateBundleStock = () => {
-    if (!bundleItems.length) return 0;
+    if (!bundleItems || !bundleItems.length) return 0;
     let minStock = Infinity;
 
     bundleItems.forEach(b => {
-      const p = products.find(prod => prod.id === b.productId);
-      if (p) {
-        let pStock = Number(p.stock) || 0;
-        if (b.variant && p.variants) {
-          const v = p.variants.find(x => (x.weight ? `${x.weight}${x.unit || ''}` : (x.label || x.name)) === b.variant);
-          if (v) pStock = Number(v.stock) || 0;
+      const bQty = Number(b.qty) || 1;
+      let componentStock = 0;
+
+      const invMatch = inventoryItems.find(i => 
+        String(i.id).trim().toLowerCase() === String(b.sku || b.productId || '').trim().toLowerCase()
+      );
+
+      if (invMatch) {
+        componentStock = Number(invMatch.stock) || 0;
+      } else {
+        const prodMatch = products.find(p => p.id === b.productId);
+        if (prodMatch) {
+          componentStock = Number(prodMatch.stock) || 0;
         }
-        minStock = Math.min(minStock, Math.floor(pStock / b.qty));
       }
+
+      minStock = Math.min(minStock, Math.floor(componentStock / bQty));
     });
 
-    return minStock === Infinity ? 0 : minStock;
+    return minStock === Infinity ? 0 : Math.max(0, minStock);
   };
 
   const handleSave = async () => {
@@ -1573,71 +1668,271 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
               {/* TAB 4 (BUNDLE): COMPOSITE BUNDLE PACK */}
               {modalTab === 'bundle' && isBundle && (
-                <div className="space-y-4">
-                  <div className="bg-purple-50 border border-purple-200 p-3 rounded-xl text-xs text-purple-900 space-y-1">
-                    <div className="font-bold">Composite Bundle Pack Builder</div>
-                    <div>Select existing items to include in this bundle pack. Total pack stock is calculated automatically.</div>
+                <div className="space-y-5">
+                  {/* Banner & Explanation */}
+                  <div className="bg-purple-950 text-purple-100 border border-purple-800/80 p-4 rounded-2xl shadow-sm space-y-1">
+                    <div className="font-extrabold text-sm text-purple-200 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span>Composite Bundle Pack Builder (2+ Items)</span>
+                    </div>
+                    <div className="text-xs text-purple-300">
+                      Search SKUs or product names to compose this bundle pack. Total price, cost, and available stock are auto-calculated from component items.
+                    </div>
                   </div>
 
-                  <div className="flex gap-2 items-center">
-                    <select
-                      value={selectedBundleProdId}
-                      onChange={(e) => setSelectedBundleProdId(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold flex-1"
-                    >
-                      <option value="">-- Select Product to Include --</option>
-                      {products.filter(p => p.id !== editingProduct?.id).map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.brand ? p.brand + ' - ' : ''}{p.name} (Stock: {p.stock})
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Qty"
-                      value={bundleQty}
-                      onChange={(e) => setBundleQty(parseInt(e.target.value) || 1)}
-                      className="w-16 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-center"
-                    />
-                    <button
-                      onClick={handleAddBundleItem}
-                      className="px-4 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl"
-                    >
-                      + Add to Pack
-                    </button>
+                  {/* Component SKU Search & Selection Bar */}
+                  <div className="space-y-2">
+                    <label className="font-bold text-slate-700 text-xs flex items-center justify-between">
+                      <span>Search Component SKU or Product Name</span>
+                      <span className="text-[10px] text-slate-400 font-semibold">🔍 Real-time SKU & Catalog Search</span>
+                    </label>
+
+                    <div className="flex gap-2 items-center relative">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          placeholder="Type SKU code (e.g. SUP-8801), Product Name, or Brand..."
+                          value={bundleSearchQuery}
+                          onFocus={() => setIsBundleSearchOpen(true)}
+                          onChange={(e) => {
+                            setBundleSearchQuery(e.target.value);
+                            setIsBundleSearchOpen(true);
+                          }}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600/20"
+                        />
+
+                        {/* Real-time Floating Candidates Dropdown */}
+                        {isBundleSearchOpen && (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95">
+                            {getBundleCandidates().filter(c => {
+                              if (!bundleSearchQuery.trim()) return true;
+                              const q = bundleSearchQuery.toLowerCase().trim();
+                              return (
+                                (c.sku || '').toLowerCase().includes(q) ||
+                                (c.name || '').toLowerCase().includes(q) ||
+                                (c.brand || '').toLowerCase().includes(q) ||
+                                (c.variant || '').toLowerCase().includes(q)
+                              );
+                            }).length === 0 ? (
+                              <div className="p-4 text-center text-slate-400 text-xs font-medium">
+                                No matching SKU or product found for "{bundleSearchQuery}"
+                              </div>
+                            ) : (
+                              getBundleCandidates().filter(c => {
+                                if (!bundleSearchQuery.trim()) return true;
+                                const q = bundleSearchQuery.toLowerCase().trim();
+                                return (
+                                  (c.sku || '').toLowerCase().includes(q) ||
+                                  (c.name || '').toLowerCase().includes(q) ||
+                                  (c.brand || '').toLowerCase().includes(q) ||
+                                  (c.variant || '').toLowerCase().includes(q)
+                                );
+                              }).slice(0, 15).map(c => (
+                                <div
+                                  key={c.id}
+                                  onClick={() => handleAddBundleCandidate(c)}
+                                  className="p-3 hover:bg-purple-50/80 cursor-pointer transition-colors flex items-center justify-between text-xs group"
+                                >
+                                  <div>
+                                    <div className="font-bold text-slate-900 flex items-center gap-2">
+                                      <span className="bg-slate-100 text-slate-700 font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-slate-200">
+                                        {c.sku}
+                                      </span>
+                                      <span>{c.brand ? `${c.brand} - ` : ''}{c.name}</span>
+                                    </div>
+                                    {c.variant && (
+                                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                        Spec: {c.variant} {c.flavor ? `| Flavor: ${c.flavor}` : ''}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="text-right shrink-0">
+                                    <div className="font-black text-slate-900 text-xs">
+                                      {c.price ? `${c.price.toLocaleString()} DA` : '0 DA'}
+                                    </div>
+                                    <div className={`text-[10px] font-bold ${c.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                      Stock: {c.stock} units
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quantity Input */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs font-bold text-slate-500">Qty:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={bundleQty}
+                          onChange={(e) => setBundleQty(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-16 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-black text-center"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-100 font-bold text-slate-600">
-                        <tr>
-                          <th className="p-2.5">Component Product</th>
-                          <th className="p-2.5 text-center">Quantity Per Pack</th>
-                          <th className="p-2.5 text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {bundleItems.map((b, idx) => (
-                          <tr key={idx}>
-                            <td className="p-2.5 font-bold">{b.brand ? b.brand + ' - ' : ''}{b.name}</td>
-                            <td className="p-2.5 text-center font-bold">{b.qty}</td>
-                            <td className="p-2.5 text-center">
-                              <button
-                                onClick={() => setBundleItems(bundleItems.filter((_, i) => i !== idx))}
-                                className="text-rose-600 hover:text-rose-800 p-1"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
+                  {/* Pricing & Cost Auto-Calculated Summary Banner */}
+                  {bundleItems.length > 0 && (() => {
+                    const priceSum = bundleItems.reduce((s, i) => s + (Number(i.price || 0) * Number(i.qty || 1)), 0);
+                    const costSum = bundleItems.reduce((s, i) => s + (Number(i.cost || 0) * Number(i.qty || 1)), 0);
+                    const profitMargin = priceSum - costSum;
+
+                    return (
+                      <div className="bg-gradient-to-r from-purple-900 via-slate-900 to-indigo-950 text-white p-4 rounded-2xl shadow-md space-y-3 border border-purple-800/60">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 font-black text-xs text-purple-200 uppercase tracking-wider">
+                            <Sparkles className="w-4 h-4 text-amber-400" />
+                            <span>Auto-Calculated Pack Valuation</span>
+                          </div>
+                          <span className="text-[10px] font-black bg-purple-800/80 px-2.5 py-0.5 rounded-full text-purple-200 border border-purple-700/60">
+                            {bundleItems.length} Component(s) Included
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10">
+                            <div className="text-[10px] font-extrabold text-purple-300 uppercase tracking-wider">Calculated Retail Value</div>
+                            <div className="text-lg font-black text-amber-300 mt-0.5">{priceSum.toLocaleString()} DA</div>
+                            <div className="text-[10px] text-purple-200/80">Sum of included retail prices</div>
+                          </div>
+
+                          <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10">
+                            <div className="text-[10px] font-extrabold text-purple-300 uppercase tracking-wider">Calculated Cost Basis</div>
+                            <div className="text-lg font-black text-slate-100 mt-0.5">{costSum.toLocaleString()} DA</div>
+                            <div className="text-[10px] text-purple-200/80">Cost of component items</div>
+                          </div>
+
+                          <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10">
+                            <div className="text-[10px] font-extrabold text-purple-300 uppercase tracking-wider">Estimated Profit Margin</div>
+                            <div className="text-lg font-black text-emerald-300 mt-0.5">+{profitMargin.toLocaleString()} DA</div>
+                            <div className="text-[10px] text-purple-200/80">Net margin per pack</div>
+                          </div>
+                        </div>
+
+                        {priceSum > 0 && (
+                          <div className="pt-2 flex items-center justify-between gap-3 border-t border-purple-800/80 flex-wrap">
+                            <div className="text-xs text-purple-200 font-medium">
+                              Current Set Price: <strong className="text-white font-black">{Number(editingProduct?.price || 0).toLocaleString()} DA</strong>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextVars = [...(variants || [])];
+                                if (nextVars.length > 0) {
+                                  nextVars[0].price = priceSum;
+                                  setVariants(nextVars);
+                                }
+                                setEditingProduct({ ...editingProduct, price: priceSum });
+                                showToast(`✓ Bundle price set to calculated sum: ${priceSum.toLocaleString()} DA`);
+                              }}
+                              className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 shrink-0"
+                            >
+                              <span>⚡ Use Calculated Sum ({priceSum.toLocaleString()} DA)</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Bundle Components Table */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Included Pack Components</h4>
+                      <span className="text-[10px] text-slate-500 font-semibold">Edit quantities or remove items</span>
+                    </div>
+
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-100 font-extrabold text-slate-600 uppercase tracking-wider text-[10px]">
+                          <tr>
+                            <th className="p-3">SKU & Item Name</th>
+                            <th className="p-3 text-right">Unit Price</th>
+                            <th className="p-3 text-center">Qty / Pack</th>
+                            <th className="p-3 text-right">Subtotal</th>
+                            <th className="p-3 text-center">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {bundleItems.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="p-8 text-center text-slate-400 text-xs font-medium">
+                                No components added yet. Use the SKU search bar above to add items to this bundle pack.
+                              </td>
+                            </tr>
+                          ) : (
+                            bundleItems.map((b, idx) => {
+                              const lineTotal = (Number(b.price || 0) * Number(b.qty || 1));
+
+                              return (
+                                <tr key={idx} className="hover:bg-purple-50/30 transition-colors">
+                                  <td className="p-3">
+                                    <div className="font-bold text-slate-900 flex items-center gap-2">
+                                      <span className="bg-slate-100 text-slate-700 font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-slate-200">
+                                        {b.sku || 'SKU-NONE'}
+                                      </span>
+                                      <span>{b.brand ? `${b.brand} - ` : ''}{b.name}</span>
+                                    </div>
+                                    {(b.variant || b.flavor) && (
+                                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                        {b.variant ? `Spec: ${b.variant}` : ''} {b.flavor ? `| Flavor: ${b.flavor}` : ''}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-slate-700">
+                                    {b.price ? `${Number(b.price).toLocaleString()} DA` : '0 DA'}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={b.qty}
+                                      onChange={(e) => {
+                                        const newQty = Math.max(1, parseInt(e.target.value) || 1);
+                                        const next = [...bundleItems];
+                                        next[idx].qty = newQty;
+                                        setBundleItems(next);
+                                      }}
+                                      className="w-14 text-center bg-slate-50 border border-slate-300 rounded-lg p-1 font-extrabold text-slate-900 text-xs focus:ring-2 focus:ring-purple-600/20"
+                                    />
+                                  </td>
+                                  <td className="p-3 text-right font-black text-purple-900">
+                                    {lineTotal.toLocaleString()} DA
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => setBundleItems(bundleItems.filter((_, i) => i !== idx))}
+                                      className="text-rose-600 hover:text-rose-800 p-1 rounded hover:bg-rose-50 transition-colors"
+                                      title="Remove from pack"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 font-bold text-slate-900">
-                    Calculated Composite Stock: <span className="text-purple-700 font-extrabold">{calculateBundleStock()} packs</span>
+                  {/* Calculated Composite Pack Stock */}
+                  <div className="bg-slate-900 text-white p-3.5 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 font-bold">
+                      <Boxes className="w-4 h-4 text-purple-400" />
+                      <span>Calculated Pack Available Stock (from Inventory):</span>
+                    </div>
+                    <span className="text-sm font-black text-amber-300 bg-purple-950 border border-purple-800 px-3 py-1 rounded-lg">
+                      📦 {calculateBundleStock()} Pack(s) Sellable
+                    </span>
                   </div>
                 </div>
               )}

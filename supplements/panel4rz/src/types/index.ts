@@ -53,14 +53,15 @@ export interface ProductVariant {
 }
 
 export interface BundleItem {
-  sku?: string;
   productId: string;
+  sku?: string;
   qty: number;
   variant?: string;
   flavor?: string;
   name?: string;
   brand?: string;
   price?: number;
+  cost?: number;
 }
 
 export interface Category {
@@ -92,6 +93,9 @@ export interface Product {
   id: string;
   brand?: string;
   name: string;
+  price?: number;
+  cost?: number;
+  sku?: string;
   description?: string;
   nutritionalFacts?: string;
   benefits?: string;
