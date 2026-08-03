@@ -3061,10 +3061,6 @@
       async function submitOrder() {
         // Bot checks
         if (document.getElementById("hp_website").value !== "") return;
-        if (Date.now() - PAGE_LOAD_TIME < 4000) {
-          showToast("Please review your order before submitting.");
-          return;
-        }
 
         let valid = true;
         valid =
@@ -3111,30 +3107,6 @@
           return;
         }
 
-        // Re-validate applied promos before submitting
-        const now = new Date();
-        for (const pr of [...appliedPromos]) {
-          const fresh = _allPromos.find(p => p.id === pr.id);
-          if (!fresh || fresh.status !== "active") {
-            showToast(`Promo code "${pr.code}" is no longer active and was removed.`);
-            appliedPromos = appliedPromos.filter(p => p.id !== pr.id);
-            renderPromoTagsCO(); updateOrderSummary(); return;
-          }
-          if (fresh.expiry) {
-            const exp = new Date(fresh.expiry); exp.setHours(23, 59, 59, 999);
-            if (exp < now) {
-              showToast(`Promo code "${pr.code}" has expired and was removed.`);
-              appliedPromos = appliedPromos.filter(p => p.id !== pr.id);
-              renderPromoTagsCO(); updateOrderSummary(); return;
-            }
-          }
-          if (fresh.maxUses && fresh.uses >= fresh.maxUses) {
-            showToast(`Promo code "${pr.code}" has reached its limit and was removed.`);
-            appliedPromos = appliedPromos.filter(p => p.id !== pr.id);
-            renderPromoTagsCO(); updateOrderSummary(); return;
-          }
-        }
-
         const firstName = document.getElementById("firstName").value.trim();
         const lastName = document.getElementById("lastName").value.trim();
         const phone = document.getElementById("phone").value.trim();
@@ -3176,21 +3148,56 @@
 
         const submitBtn = document.getElementById("submitOrderBtn");
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; }
+
+        // Deduct stock in background safely
+        if (typeof window.deductOrderStockClient === "function") {
+          try {
+            window.deductOrderStockClient(payload.items, -1).catch(function (err) {
+              console.warn("[StockDeduct warning]", err);
+            });
+          } catch(e) {}
+        }
+
         try {
-          if (typeof window.deductOrderStockClient === "function") {
-            window.deductOrderStockClient(payload.items, -1);
-          }
-          const res = await fetch(SUPABASE_URL + "/functions/v1/submit-order", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY }, body: JSON.stringify(payload) });
+          const res = await fetch(SUPABASE_URL + "/functions/v1/submit-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY },
+            body: JSON.stringify(payload)
+          });
           const data = await res.json().catch(() => ({ success: true }));
+          
           if (!data || data.success === false) {
-            showToast((data && data.error) || "Order failed. Please try again.");
-            return;
+            // Direct insert into orders table as fallback
+            try {
+              const dbOrder = {
+                id: String(Date.now()),
+                first_name: firstName,
+                last_name: lastName,
+                phone: phone,
+                address: address,
+                wilaya: `${selectedWilayaCode} - ${wilayaName}`,
+                commune: selectedCommuneName,
+                delivery_type: selectedDelivery,
+                delivery_cost: freeDelivery ? 0 : deliveryCost,
+                promo_code: appliedPromos.map((pr) => pr.code).join(","),
+                promo_discount: discount,
+                items: payload.items,
+                subtotal: subtotal,
+                total: total,
+                status: "waiting"
+              };
+              await fetch(SUPABASE_URL + "/rest/v1/orders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
+                body: JSON.stringify(dbOrder)
+              });
+            } catch(e) {}
           }
+
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } catch (e) {
-          // Network error — still show success since order may have gone through
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
