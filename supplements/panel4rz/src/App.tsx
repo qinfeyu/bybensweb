@@ -863,10 +863,24 @@ export default function App() {
             }
 
             // Deduct / restore stock for component in Catalog Products
-            const compProd = updatedProducts.find(p => p.id === compTargetId || (p.variants && p.variants.some((v: any) => v.sku === compTargetId)));
+            const compProd = updatedProducts.find(p => {
+              if (p.id === compTargetId) return true;
+              const vars = p.variants || [];
+              return vars.some((v: any) => {
+                if (v.sku && String(v.sku).toLowerCase() === compTargetId.toLowerCase()) return true;
+                if (v.flavorSkus) {
+                  return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === compTargetId.toLowerCase());
+                }
+                return false;
+              });
+            });
             if (compProd && compProd.variants && compProd.variants.length > 0) {
               const cVariants = JSON.parse(JSON.stringify(compProd.variants));
-              let cIdx = cVariants.findIndex((v: any) => v.sku === compTargetId || String(v.weight || v.label || '').toLowerCase().includes(compVariant.toLowerCase()));
+              let cIdx = cVariants.findIndex((v: any) => {
+                if (v.sku && String(v.sku).toLowerCase() === compTargetId.toLowerCase()) return true;
+                if (v.flavorSkus && Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === compTargetId.toLowerCase())) return true;
+                return String(v.weight || v.label || '').toLowerCase().includes(compVariant.toLowerCase());
+              });
               if (cIdx < 0) cIdx = 0;
               if (cVariants[cIdx]) {
                 const v = cVariants[cIdx];

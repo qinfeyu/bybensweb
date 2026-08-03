@@ -31,26 +31,65 @@ async function adjustStock(items: any[], direction: number) {
   if (!items || items.length === 0) return;
 
   for (const item of items) {
-    const prodId = item.productId || item.product_id;
-    if (!prodId) continue;
+    const targetSku = String(item.sku || item.productId || item.product_id || "").trim();
+    if (!targetSku) continue;
     const qty = Number(item.qty) || 1;
     const rawVariant = String(item.variant || "").trim().toLowerCase();
     const rawFlavor = String(item.flavor || "").trim();
     const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
 
-    const { data: rows } = await sb.from("products").select("*").eq("id", prodId).limit(1);
-    if (!rows || rows.length === 0) continue;
-    const prod = rows[0];
+    // 1. DEDUCT / RESTORE INVENTORY_ITEMS TABLE STOCK DIRECTLY BY SKU
+    try {
+      const { data: invRows } = await sb.from("inventory_items").select("*").ilike("id", targetSku).limit(1);
+      if (invRows && invRows.length > 0) {
+        const curStock = Number(invRows[0].stock) || 0;
+        const newInvStock = Math.max(0, curStock + direction * qty);
+        await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", invRows[0].id);
+      }
+    } catch (err) {
+      console.error("Error updating inventory_items:", err);
+    }
+
+    // 2. FIND MATCHING PRODUCT IN PRODUCTS TABLE
+    let prod = null;
+    const { data: rows } = await sb.from("products").select("*").eq("id", targetSku).limit(1);
+    if (rows && rows.length > 0) {
+      prod = rows[0];
+    } else {
+      const { data: allProds } = await sb.from("products").select("*");
+      if (allProds) {
+        prod = allProds.find((p: any) => {
+          if (p.id === targetSku) return true;
+          const vars = p.variants || [];
+          return vars.some((v: any) => {
+            if (v.sku && String(v.sku).toLowerCase() === targetSku.toLowerCase()) return true;
+            if (v.flavorSkus) {
+              return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === targetSku.toLowerCase());
+            }
+            return false;
+          });
+        });
+      }
+    }
+
+    if (!prod) continue;
 
     // Recursive stock adjustment for bundles
     if (prod.bundle_items && Array.isArray(prod.bundle_items) && prod.bundle_items.length > 0) {
       const nestedItems = prod.bundle_items.map((bItem: any) => ({
-        productId: bItem.productId,
+        productId: bItem.sku || bItem.productId,
+        sku: bItem.sku || bItem.productId,
         qty: (Number(bItem.qty) || 1) * qty,
         variant: bItem.variant || "",
         flavor: bItem.flavor || "",
       }));
       await adjustStock(nestedItems, direction);
+
+      // Deduct/restore bundle pack stock
+      const newBundleStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
+      const bVariants = prod.variants || [];
+      if (bVariants.length > 0) bVariants[0].stock = newBundleStock;
+      await sb.from("products").update({ variants: bVariants, stock: newBundleStock }).eq("id", prod.id);
       continue;
     }
 
@@ -96,52 +135,11 @@ async function adjustStock(items: any[], direction: number) {
         }
       }
 
-      // Find linked SKU
-      if (matchedFlavorKey && v.flavorSkus) {
-        linkedSku = v.flavorSkus[matchedFlavorKey] || "";
-      }
-      if (!linkedSku && v.flavorSkus && rawFlavor) {
-        const fk = Object.keys(v.flavorSkus).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase());
-        if (fk) linkedSku = v.flavorSkus[fk] || "";
-      }
-      if (!linkedSku && v.sku) linkedSku = v.sku;
-
       const newGlobal = variants.reduce((s: number, vv: any) => s + (typeof vv === "object" ? Number(vv.stock) || 0 : 0), 0);
-      await sb.from("products").update({ variants, stock: newGlobal }).eq("id", prodId);
+      await sb.from("products").update({ variants, stock: newGlobal }).eq("id", prod.id);
     } else {
       const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-      await sb.from("products").update({ stock: newStock }).eq("id", prodId);
-    }
-
-    // ── DEDUCT / RESTORE INVENTORY ITEM SKU STOCK ──
-    if (linkedSku && linkedSku.trim()) {
-      try {
-        const targetSku = linkedSku.trim();
-        const { data: invRows } = await sb.from("inventory_items").select("*").ilike("id", targetSku).limit(1);
-        if (invRows && invRows.length > 0) {
-          const curStock = Number(invRows[0].stock) || 0;
-          const newInvStock = Math.max(0, curStock + direction * qty);
-          await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", invRows[0].id);
-        } else {
-          // If SKU row is not in inventory_items yet, create/upsert it with updated stock!
-          const v = (matchedIdx >= 0 && variants[matchedIdx]) ? variants[matchedIdx] : null;
-          const currentFStock = (v && matchedFlavorKey && v.flavorStock) ? Number(v.flavorStock[matchedFlavorKey]) : (v ? Number(v.stock) : 0);
-          const newInvStock = Math.max(0, (Number(currentFStock) || 0) + direction * qty);
-          await sb.from("inventory_items").upsert({
-            id: targetSku,
-            name: `${prod.name}${rawFlavor ? ' (' + rawFlavor + ')' : ''}`,
-            brand: prod.brand || '',
-            stock: newInvStock,
-            price_eur: 0,
-            rate: 280,
-            delivery_dzd: 0,
-            retail_dzd: (v ? Number(v.price) : 0) || 0,
-            type: 'supplement'
-          }, { onConflict: 'id' });
-        }
-      } catch (err) {
-        console.error("Error updating SKU inventory stock:", err);
-      }
+      await sb.from("products").update({ stock: newStock }).eq("id", prod.id);
     }
   }
 }
