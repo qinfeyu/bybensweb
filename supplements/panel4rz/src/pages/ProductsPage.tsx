@@ -365,7 +365,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
   const openEditor = (prod?: Product) => {
     if (prod) {
-      setEditingProduct({ ...prod });
+      const pPrice = Number(prod.price || (prod.variants && prod.variants[0] ? prod.variants[0].price : 0));
+      setEditingProduct({ ...prod, price: pPrice });
       
       const imgs = Array.isArray(prod.imageUrl) ? [...prod.imageUrl] : (prod.imageUrl ? [prod.imageUrl] : []);
       setImageUrls(imgs);

@@ -567,7 +567,7 @@
         const p = selectedProduct;
         const variants = parseField(p.variants);
         const v = variants[selectedVariantIndex];
-        const basePrice = v ? Number(v.price) || 0 : 0;
+        const basePrice = (v && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
         const discount = Number(p.discount) || 0;
         const currentPrice =
           discount > 0
