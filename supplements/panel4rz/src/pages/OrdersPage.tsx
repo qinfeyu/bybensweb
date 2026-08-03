@@ -175,9 +175,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   // 1. Base active sales (excluding unpaid credit sales)
   const baseActiveOrders = orders.filter(o => {
-    if (o.status === 'unpaid' && (o.source || '').toLowerCase().includes('pos')) return false;
-    if (o.is_unpaid === true && o.status === 'unpaid') return false;
-    return true;
+    return o.status !== 'unpaid' && o.payment_status !== 'unpaid' && o.is_unpaid !== true;
   });
 
   // 2. Orders filtered by Source

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './lib/supabase';
+import { supabase } from './lib/supabase';
 import type { 
   TabType, 
   InventoryItem, 
@@ -295,49 +295,8 @@ export default function App() {
       localStorage.setItem('bb_products_cache', JSON.stringify(finalProds));
 
       // 4. Fetch Orders
-      let cloudOrdersRaw: any[] = [];
-      try {
-        const edgeRes = await fetch(SUPABASE_URL + '/functions/v1/update-order-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
-          body: JSON.stringify({ action: 'listOrders' })
-        });
-        const edgeData = await edgeRes.json();
-        if (edgeData && edgeData.success && Array.isArray(edgeData.orders)) {
-          cloudOrdersRaw = edgeData.orders;
-        }
-      } catch (e) {}
-
-      if (cloudOrdersRaw.length === 0) {
-        const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (ordersRes.data) cloudOrdersRaw = ordersRes.data;
-      }
-
-      if (cloudOrdersRaw && cloudOrdersRaw.length > 0) {
-        const mappedOrders: Order[] = cloudOrdersRaw.map((o: any) => ({
-          id: String(o.id),
-          source: o.source || 'storefront',
-          firstName: o.first_name || o.firstName || '',
-          lastName: o.last_name || o.lastName || '',
-          phone: o.phone || '',
-          address: o.address || '',
-          wilaya: o.wilaya || '',
-          commune: o.commune || '',
-          deliveryType: o.delivery_type || o.deliveryType || '',
-          deliveryCost: Number(o.delivery_cost !== undefined ? o.delivery_cost : (o.deliveryCost || 0)),
-          promoCode: o.promo_code || o.promoCode || '',
-          promoDiscount: Number(o.promo_discount !== undefined ? o.promo_discount : (o.promoDiscount || 0)),
-          items: typeof o.items === 'string' ? (JSON.parse(o.items) || []) : (o.items || []),
-          subtotal: Number(o.subtotal || 0),
-          total: Number(o.total || 0),
-          status: o.status || 'waiting',
-          payment_status: o.payment_status || (o.status === 'unpaid' ? 'unpaid' : 'pending'),
-          is_unpaid: o.is_unpaid !== undefined ? Boolean(o.is_unpaid) : (o.status === 'unpaid'),
-          date: o.created_at || o.date || new Date().toISOString(),
-          created_at: o.created_at || o.date || new Date().toISOString(),
-        }));
-        setOrders(mappedOrders);
-      }
+      const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (ordersRes.data) setOrders(ordersRes.data);
 
       // 5. Fetch Pre-Orders & Pre-Order Items
       const preRes = await supabase.from('pre_orders').select('*').order('date', { ascending: false });
@@ -361,7 +320,7 @@ export default function App() {
         group: c.group_type || c.group || 'public'
       }));
 
-      const orderCusts: Customer[] = (cloudOrdersRaw || []).filter((o: any) => o.phone || o.first_name || o.firstName).map((o: any) => {
+      const orderCusts: Customer[] = (ordersRes.data || []).filter((o: any) => o.phone || o.first_name || o.firstName).map((o: any) => {
         const p = o.phone || '';
         const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'Customer';
         return {
@@ -1098,21 +1057,18 @@ export default function App() {
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     const existing = orders.find(o => o.id === orderId);
     if (existing && existing.status !== newStatus) {
-      // 1. Stock adjustments (canceled vs active)
       if (newStatus === 'canceled' && existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
+        // If order was previously paid, subtract its total from DZD Budget
+        if (existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
+          await adjustDzdBudget(-existing.total);
+        }
       } else if (existing.status === 'canceled' && newStatus !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], -1);
-      }
-
-      // 2. Budget adjustments — Money is added to Budget ONLY when order is in Delivered status
-      const wasDelivered = existing.status === 'delivered';
-      const isNowDelivered = newStatus === 'delivered';
-
-      if (!wasDelivered && isNowDelivered) {
-        await adjustDzdBudget(+existing.total);
-      } else if (wasDelivered && !isNowDelivered) {
-        await adjustDzdBudget(-existing.total);
+        // If restoring from canceled to active paid order, add back to DZD Budget
+        if (newStatus !== 'unpaid') {
+          await adjustDzdBudget(+existing.total);
+        }
       }
     }
 
@@ -1130,8 +1086,8 @@ export default function App() {
       if (existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
       }
-      // Money is removed from Budget ONLY if the deleted order was Delivered
-      if (existing.status === 'delivered') {
+      // If order was paid (not canceled & not unpaid), subtract its total from DZD Budget
+      if (existing.status !== 'canceled' && existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
         await adjustDzdBudget(-existing.total);
       }
     }
@@ -1141,7 +1097,7 @@ export default function App() {
     } catch(e) {}
 
     setOrders(prev => prev.filter(o => o.id !== orderId));
-    showToast("✓ Order deleted, stock restored & DZD budget updated!");
+    showToast("✓ Order deleted, stock restored & DZD budget adjusted!");
   };
 
   const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string; paymentStatus?: 'paid' | 'unpaid' }) => {
@@ -1168,11 +1124,11 @@ export default function App() {
       date: new Date().toISOString()
     };
 
-    // Deduct stock for POS order
+    // Deduct stock for POS order (runs for both paid and unpaid credit sales)
     await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
-    // Add to DZD Budget ONLY if status is delivered
-    if (newOrder.status === 'delivered' && newOrder.total > 0) {
+    // Add paid order total to DZD Budget
+    if (!isUnpaid && newOrder.total > 0) {
       await adjustDzdBudget(+newOrder.total);
     }
 
@@ -1206,7 +1162,7 @@ export default function App() {
 
   const handleMarkOrderAsPaid = async (orderId: string) => {
     const target = orders.find(o => o.id === orderId);
-    if (target && target.status !== 'delivered' && target.total > 0) {
+    if (target && target.total > 0) {
       await adjustDzdBudget(+target.total);
     }
 

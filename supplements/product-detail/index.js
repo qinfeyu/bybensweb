@@ -3223,7 +3223,7 @@
         return true;
       }
 
-      async function submitOrder() {
+      function submitOrder() {
         if (!selectedProduct || getCurrentStock() <= 0) return;
         // Bot checks
         if (document.getElementById("hp_website").value !== "") return;
@@ -3333,7 +3333,7 @@
 
         // Deduct component & product stock across all tables
         if (window.deductStockForOrderItems) {
-          await window.deductStockForOrderItems(orderItemPayload);
+          window.deductStockForOrderItems(orderItemPayload);
         }
 
         document.getElementById("successMsg").textContent =
