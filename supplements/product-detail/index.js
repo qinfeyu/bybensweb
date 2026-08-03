@@ -3223,7 +3223,7 @@
         return true;
       }
 
-      function submitOrder() {
+      async function submitOrder() {
         if (!selectedProduct || getCurrentStock() <= 0) return;
         // Bot checks
         if (document.getElementById("hp_website").value !== "") return;
