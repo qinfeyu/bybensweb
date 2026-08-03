@@ -3296,6 +3296,10 @@
             : v.label || v.name || ""
           : "";
 
+        if (typeof window.deductOrderStockClient === "function") {
+          window.deductOrderStockClient([{ productId: p.id, name: p.name, flavor: selectedFlavor || "", variant: variantStr, qty: directOrderQty }], -1);
+        }
+
         fetch(SUPABASE_URL + "/functions/v1/submit-order", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY },

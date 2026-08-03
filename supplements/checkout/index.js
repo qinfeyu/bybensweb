@@ -3177,6 +3177,9 @@
         const submitBtn = document.getElementById("submitOrderBtn");
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; }
         try {
+          if (typeof window.deductOrderStockClient === "function") {
+            window.deductOrderStockClient(payload.items, -1);
+          }
           const res = await fetch(SUPABASE_URL + "/functions/v1/submit-order", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY }, body: JSON.stringify(payload) });
           const data = await res.json().catch(() => ({ success: true }));
           if (!data || data.success === false) {
