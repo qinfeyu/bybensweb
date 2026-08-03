@@ -713,6 +713,17 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
     if (isBundle) {
       computedStock = calculateBundleStock();
+      const bPrice = Number(editingProduct.price || 0);
+      const bCost = bundleItems.reduce((s, i) => s + (Number(i.cost || 0) * Number(i.qty || 1)), 0);
+      updatedVariants = [{
+        weight: '1',
+        unit: 'pack',
+        label: 'Bundle Pack',
+        price: bPrice,
+        cost: bCost,
+        stock: computedStock,
+        sku: editingProduct.id || ''
+      }];
     } else {
       updatedVariants = variants.map((v, vIdx) => {
         const fStock: Record<string, number> = {};
@@ -755,12 +766,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
     const payload: Product = {
       ...(editingProduct as Product),
+      price: isBundle ? Number(editingProduct.price || 0) : editingProduct.price,
       imageUrl: imageUrls,
       categoryIds: selectedCatIds,
       subCategoryIds: selectedSubCatIds,
       promoCodeIds: selectedPromoIds,
       bundleItems: isBundle ? bundleItems : [],
-      variants: isBundle ? [] : updatedVariants,
+      variants: updatedVariants,
       flavors: isBundle ? [] : flavors,
       flavorImages: isBundle ? {} : flavorImages,
       stock: computedStock,
@@ -1160,6 +1172,19 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                         </label>
                       </div>
                     </div>
+
+                    {isBundle && (
+                      <div>
+                        <label className="font-bold text-purple-700">Bundle Selling Price (DA) *</label>
+                        <input
+                          type="number"
+                          value={editingProduct?.price || 0}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })}
+                          placeholder="e.g. 12500"
+                          className="w-full mt-1 bg-purple-50 border border-purple-300 rounded-xl p-2.5 font-black text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-600/30"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1815,11 +1840,18 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                           </div>
                         </div>
 
-                        {priceSum > 0 && (
-                          <div className="pt-2 flex items-center justify-between gap-3 border-t border-purple-800/80 flex-wrap">
-                            <div className="text-xs text-purple-200 font-medium">
-                              Current Set Price: <strong className="text-white font-black">{Number(editingProduct?.price || 0).toLocaleString()} DA</strong>
-                            </div>
+                        <div className="pt-2 flex items-center justify-between gap-3 border-t border-purple-800/80 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-purple-200 font-bold">Bundle Selling Price (DA):</label>
+                            <input
+                              type="number"
+                              value={editingProduct?.price || 0}
+                              onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              className="w-32 bg-white text-slate-900 border border-amber-400 rounded-xl px-3 py-1.5 font-black text-xs text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                          </div>
+                          {priceSum > 0 && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1833,10 +1865,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                               }}
                               className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 shrink-0"
                             >
-                              <span>⚡ Use Calculated Sum ({priceSum.toLocaleString()} DA)</span>
+                              <span>⚡ Auto-Set Sum ({priceSum.toLocaleString()} DA)</span>
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     );
                   })()}
