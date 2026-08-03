@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { supabase } from './lib/supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './lib/supabase';
 import type { 
   TabType, 
   InventoryItem, 
@@ -295,9 +295,26 @@ export default function App() {
       localStorage.setItem('bb_products_cache', JSON.stringify(finalProds));
 
       // 4. Fetch Orders
-      const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (ordersRes.data) {
-        const mappedOrders: Order[] = ordersRes.data.map((o: any) => ({
+      let cloudOrdersRaw: any[] = [];
+      try {
+        const edgeRes = await fetch(SUPABASE_URL + '/functions/v1/update-order-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+          body: JSON.stringify({ action: 'listOrders' })
+        });
+        const edgeData = await edgeRes.json();
+        if (edgeData && edgeData.success && Array.isArray(edgeData.orders)) {
+          cloudOrdersRaw = edgeData.orders;
+        }
+      } catch (e) {}
+
+      if (cloudOrdersRaw.length === 0) {
+        const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        if (ordersRes.data) cloudOrdersRaw = ordersRes.data;
+      }
+
+      if (cloudOrdersRaw && cloudOrdersRaw.length > 0) {
+        const mappedOrders: Order[] = cloudOrdersRaw.map((o: any) => ({
           id: String(o.id),
           source: o.source || 'storefront',
           firstName: o.first_name || o.firstName || '',
@@ -344,7 +361,7 @@ export default function App() {
         group: c.group_type || c.group || 'public'
       }));
 
-      const orderCusts: Customer[] = (ordersRes.data || []).filter((o: any) => o.phone || o.first_name || o.firstName).map((o: any) => {
+      const orderCusts: Customer[] = (cloudOrdersRaw || []).filter((o: any) => o.phone || o.first_name || o.firstName).map((o: any) => {
         const p = o.phone || '';
         const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'Customer';
         return {

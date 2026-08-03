@@ -151,7 +151,21 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { id, status } = await req.json();
+    const body = await req.json();
+    const { action, id, status } = body;
+
+    if (action === "listOrders" || action === "list") {
+      const { data, error } = await sb.from("orders").select("*").order("created_at", { ascending: false });
+      if (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ success: true, orders: data || [] }), {
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+
     if (!id || !status) {
       return new Response(JSON.stringify({ success: false, error: "id and status required" }), {
         headers: { ...cors, "Content-Type": "application/json" },
