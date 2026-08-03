@@ -26,122 +26,104 @@ async function sendTelegram(message: string) {
   } catch (_) { /* silent */ }
 }
 
-// Port of _adjustStock from code.gs (direction: -1 deduct, +1 restore)
+// Port of _adjustStock (direction: -1 deduct, +1 restore)
 async function adjustStock(items: any[], direction: number) {
   if (!items || items.length === 0) return;
 
+  const { data: allProds } = await sb.from("products").select("*");
+  const { data: allInvs } = await sb.from("inventory_items").select("*");
+  const prods = Array.isArray(allProds) ? allProds : [];
+  const invs = Array.isArray(allInvs) ? allInvs : [];
+
   for (const item of items) {
-    const prodId = item.productId || item.product_id;
-    if (!prodId) continue;
+    const targetSku = String(item.sku || item.productId || item.product_id || '').trim();
+    if (!targetSku) continue;
     const qty = Number(item.qty) || 1;
     const rawVariant = String(item.variant || "").trim().toLowerCase();
     const rawFlavor = String(item.flavor || "").trim();
-    const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
 
-    const { data: rows } = await sb.from("products").select("*").eq("id", prodId).limit(1);
-    if (!rows || rows.length === 0) continue;
-    const prod = rows[0];
+    // 1. Deduct/Restore stock in inventory_items
+    const invMatch = invs.find(i => String(i.id).trim().toLowerCase() === targetSku.toLowerCase());
+    if (invMatch) {
+      const curInvStock = Number(invMatch.stock) || 0;
+      const newInvStock = Math.max(0, curInvStock + direction * qty);
+      await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", invMatch.id);
+    }
 
-    // Recursive stock adjustment for bundles
-    if (prod.bundle_items && Array.isArray(prod.bundle_items) && prod.bundle_items.length > 0) {
-      const nestedItems = prod.bundle_items.map((bItem: any) => ({
-        productId: bItem.productId,
+    // 2. Find product in catalog products
+    const prod = prods.find((p: any) => {
+      if (String(p.id).trim().toLowerCase() === targetSku.toLowerCase()) return true;
+      if (p.sku && String(p.sku).trim().toLowerCase() === targetSku.toLowerCase()) return true;
+      if (p.name && item.name && p.name.toLowerCase().trim() === item.name.toLowerCase().trim()) return true;
+      const vars = p.variants || [];
+      for (const v of vars) {
+        if (v.sku && String(v.sku).trim().toLowerCase() === targetSku.toLowerCase()) return true;
+        if (v.flavorSkus) {
+          for (const fs of Object.values(v.flavorSkus)) {
+            if (String(fs).trim().toLowerCase() === targetSku.toLowerCase()) return true;
+          }
+        }
+      }
+      return false;
+    });
+
+    if (!prod) continue;
+
+    // Check if Composite Bundle Pack
+    let bItems = prod.bundle_items || prod.bundleItems || [];
+    if (typeof bItems === "string") {
+      try { bItems = JSON.parse(bItems); } catch (_) { bItems = []; }
+    }
+
+    if (Array.isArray(bItems) && bItems.length > 0) {
+      const nestedItems = bItems.map((bItem: any) => ({
+        sku: bItem.sku || bItem.productId,
+        productId: bItem.productId || bItem.sku,
         qty: (Number(bItem.qty) || 1) * qty,
         variant: bItem.variant || "",
         flavor: bItem.flavor || "",
       }));
       await adjustStock(nestedItems, direction);
+
+      const newBundleStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
+      await sb.from("products").update({ stock: newBundleStock }).eq("id", prod.id);
       continue;
     }
 
+    // Standard Product Stock Deduction
     const variants: any[] = prod.variants || [];
     let matchedIdx = -1;
 
     if (variants.length > 0) {
-      if (cleanVar) {
-        matchedIdx = variants.findIndex((v: any) => {
-          if (typeof v !== "object") return String(v).toLowerCase().replace(/\s+/g, "") === cleanVar;
-          const vWeight = String(v.weight || "").toLowerCase().replace(/\s+/g, "");
-          const vUnit = String(v.unit || "").toLowerCase().replace(/\s+/g, "");
-          const vCombo = (vWeight + vUnit);
-          const vLabel = String(v.label || v.name || "").toLowerCase().replace(/\s+/g, "");
-          return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || cleanVar.includes(vWeight);
-        });
-      }
+      matchedIdx = variants.findIndex((v: any) => 
+        String(v.sku || '').trim().toLowerCase() === targetSku.toLowerCase() ||
+        (v.flavorSkus && Object.values(v.flavorSkus).some((fs: any) => String(fs).trim().toLowerCase() === targetSku.toLowerCase())) ||
+        String(v.weight || v.label || '').toLowerCase().includes(rawVariant)
+      );
       if (matchedIdx < 0) matchedIdx = 0;
-    }
-
-    let linkedSku = "";
-    let matchedFlavorKey = "";
-
-    if (matchedIdx >= 0 && variants[matchedIdx]) {
       const v = variants[matchedIdx];
-      if (rawFlavor && v.flavorStock) {
-        matchedFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase()) || "";
-      }
-      if (!matchedFlavorKey && v.flavorStock && Object.keys(v.flavorStock).length === 1) {
-        matchedFlavorKey = Object.keys(v.flavorStock)[0];
-      }
-
-      if (matchedFlavorKey && v.flavorStock) {
-        v.flavorStock[matchedFlavorKey] = Math.max(0, (Number(v.flavorStock[matchedFlavorKey]) || 0) + direction * qty);
-        v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
-        if (direction < 0 && v.flavorStock[matchedFlavorKey] === 0) {
-          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} – ${matchedFlavorKey} is now out of stock.`);
+      if (v) {
+        let mFlavorKey = "";
+        if (rawFlavor && v.flavorStock) {
+          mFlavorKey = Object.keys(v.flavorStock).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase()) || "";
         }
-      } else {
-        v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
-        if (direction < 0 && v.stock === 0) {
-          await sendTelegram(`⚠️ <b>Out of Stock!</b>\n📦 ${prod.name} is now out of stock.`);
+        if (!mFlavorKey && v.flavorStock && Object.keys(v.flavorStock).length > 0) {
+          mFlavorKey = Object.keys(v.flavorStock)[0];
         }
-      }
 
-      // Find linked SKU
-      if (matchedFlavorKey && v.flavorSkus) {
-        linkedSku = v.flavorSkus[matchedFlavorKey] || "";
+        if (mFlavorKey && v.flavorStock && v.flavorStock[mFlavorKey] !== undefined) {
+          v.flavorStock[mFlavorKey] = Math.max(0, (Number(v.flavorStock[mFlavorKey]) || 0) + direction * qty);
+          v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
+        } else {
+          v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
+        }
+        variants[matchedIdx] = v;
+        const newGlobal = variants.reduce((s: number, vv: any) => s + (typeof vv === "object" ? Number(vv.stock) || 0 : 0), 0);
+        await sb.from("products").update({ variants, stock: newGlobal }).eq("id", prod.id);
       }
-      if (!linkedSku && v.flavorSkus && rawFlavor) {
-        const fk = Object.keys(v.flavorSkus).find(k => k.trim().toLowerCase() === rawFlavor.toLowerCase());
-        if (fk) linkedSku = v.flavorSkus[fk] || "";
-      }
-      if (!linkedSku && v.sku) linkedSku = v.sku;
-
-      const newGlobal = variants.reduce((s: number, vv: any) => s + (typeof vv === "object" ? Number(vv.stock) || 0 : 0), 0);
-      await sb.from("products").update({ variants, stock: newGlobal }).eq("id", prodId);
     } else {
       const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-      await sb.from("products").update({ stock: newStock }).eq("id", prodId);
-    }
-
-    // ── DEDUCT / RESTORE INVENTORY ITEM SKU STOCK ──
-    if (linkedSku && linkedSku.trim()) {
-      try {
-        const targetSku = linkedSku.trim();
-        const { data: invRows } = await sb.from("inventory_items").select("*").ilike("id", targetSku).limit(1);
-        if (invRows && invRows.length > 0) {
-          const curStock = Number(invRows[0].stock) || 0;
-          const newInvStock = Math.max(0, curStock + direction * qty);
-          await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", invRows[0].id);
-        } else {
-          // If SKU row is not in inventory_items yet, create/upsert it with updated stock!
-          const v = (matchedIdx >= 0 && variants[matchedIdx]) ? variants[matchedIdx] : null;
-          const currentFStock = (v && matchedFlavorKey && v.flavorStock) ? Number(v.flavorStock[matchedFlavorKey]) : (v ? Number(v.stock) : 0);
-          const newInvStock = Math.max(0, (Number(currentFStock) || 0) + direction * qty);
-          await sb.from("inventory_items").upsert({
-            id: targetSku,
-            name: `${prod.name}${rawFlavor ? ' (' + rawFlavor + ')' : ''}`,
-            brand: prod.brand || '',
-            stock: newInvStock,
-            price_eur: 0,
-            rate: 280,
-            delivery_dzd: 0,
-            retail_dzd: (v ? Number(v.price) : 0) || 0,
-            type: 'supplement'
-          }, { onConflict: 'id' });
-        }
-      } catch (err) {
-        console.error("Error updating SKU inventory stock:", err);
-      }
+      await sb.from("products").update({ stock: newStock }).eq("id", prod.id);
     }
   }
 }
@@ -304,21 +286,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Deduct stock
+    // Deduct stock automatically on server-side
     await adjustStock(items || [], -1);
-
-    // Add order total to DZD Budget in settings table
-    const orderTotal = Number(total) || 0;
-    if (orderTotal > 0) {
-      try {
-        const { data: setRows } = await sb.from("settings").select("value").eq("key", "budget_dzd").limit(1);
-        const currentDzd = setRows && setRows[0] ? (Number(setRows[0].value) || 0) : 0;
-        const newDzd = currentDzd + orderTotal;
-        await sb.from("settings").upsert({ key: "budget_dzd", value: String(Math.round(newDzd)) });
-      } catch (errBudget) {
-        console.error("Error updating DZD budget in submit-order:", errBudget);
-      }
-    }
 
     // Telegram notification
     const orderItems: any[] = items || [];
