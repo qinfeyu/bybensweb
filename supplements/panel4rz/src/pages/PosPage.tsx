@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, InventoryItem, Order, Customer } from '../types';
-import { Store, Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, User, Phone, Tag, Boxes, Receipt, Clock, CreditCard } from 'lucide-react';
+import { Store, Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, User, Phone, Tag, Boxes, Receipt, Clock, CreditCard, ChevronDown } from 'lucide-react';
 
 interface PosCartItem {
   productId: string;
@@ -509,37 +509,65 @@ export const PosPage: React.FC<PosPageProps> = ({
               <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Type customer name or phone..."
+                placeholder="Type name, phone or click to view all..."
                 value={custSearchQuery}
                 onFocus={() => setIsCustDropdownOpen(true)}
+                onClick={() => setIsCustDropdownOpen(true)}
                 onChange={(e) => {
                   const val = e.target.value;
                   setCustSearchQuery(val);
                   setCustomerName(val);
                   setIsCustDropdownOpen(true);
                 }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
               />
+              <button
+                type="button"
+                onClick={() => setIsCustDropdownOpen(!isCustDropdownOpen)}
+                className="absolute right-2 top-2 p-1 text-slate-400 hover:text-slate-600"
+              >
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCustDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
             </div>
 
             {/* Real-time Floating Dropdown List */}
-            {isCustDropdownOpen && custSearchQuery.trim().length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95">
+            {isCustDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95">
+                {/* Default Walk-In Customer Option */}
+                <div
+                  onClick={() => {
+                    setCustomerName('Walk-in Customer');
+                    setCustomerPhone('0000000000');
+                    setCustSearchQuery('Walk-in Customer');
+                    setIsCustDropdownOpen(false);
+                  }}
+                  className="p-2.5 hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between text-xs bg-slate-50/80 font-bold text-slate-800"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>🏪 Walk-in Customer (General Public)</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-medium">Standard</span>
+                </div>
+
                 {allCustomersList.filter(c => {
+                  if (!custSearchQuery.trim()) return true;
                   const q = custSearchQuery.toLowerCase().trim();
                   const fullName = `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
                   const phone = c.phone || '';
-                  return fullName.includes(q) || phone.includes(q);
+                  const wilaya = (c.wilaya || '').toLowerCase();
+                  return fullName.includes(q) || phone.includes(q) || wilaya.includes(q);
                 }).length === 0 ? (
                   <div className="p-3 text-center text-slate-400 text-[11px]">
-                    No customer found for "{custSearchQuery}"
+                    No customer found matching "{custSearchQuery}"
                   </div>
                 ) : (
                   allCustomersList.filter(c => {
+                    if (!custSearchQuery.trim()) return true;
                     const q = custSearchQuery.toLowerCase().trim();
                     const fullName = `${c.name || ''} ${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
                     const phone = c.phone || '';
-                    return fullName.includes(q) || phone.includes(q);
+                    const wilaya = (c.wilaya || '').toLowerCase();
+                    return fullName.includes(q) || phone.includes(q) || wilaya.includes(q);
                   }).map(c => {
                     const nameStr = c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Customer';
                     const groupStr = (c.group || c.group_type || 'public').toUpperCase();
@@ -558,12 +586,16 @@ export const PosPage: React.FC<PosPageProps> = ({
                         <div>
                           <div className="font-bold text-slate-900 flex items-center gap-1.5">
                             <span>{nameStr}</span>
-                            <span className="text-[9px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200">
+                            <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${
+                              groupStr === 'PRIVATE' || groupStr === 'WHOLESALE' || groupStr === 'VIP'
+                                ? 'bg-amber-50 text-amber-900 border-amber-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
                               {groupStr}
                             </span>
                           </div>
                           <div className="text-[10px] text-slate-500 font-medium">
-                            {c.wilaya ? `${c.wilaya} - ${c.commune || ''}` : 'Registered Customer'}
+                            {c.wilaya ? `${c.wilaya} ${c.commune ? `- ${c.commune}` : ''}` : 'Registered Client'}
                           </div>
                         </div>
                         <span className="font-bold text-red-700 text-[11px] bg-red-50 px-2 py-0.5 rounded-md border border-red-200">

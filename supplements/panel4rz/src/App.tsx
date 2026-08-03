@@ -309,7 +309,7 @@ export default function App() {
       const expRes = await supabase.from('expenses').select('*').order('date', { ascending: false });
       if (expRes.data) setExpenses(expRes.data);
 
-      // 7. Fetch Customers
+      // 7. Fetch Customers & Extract Profiles from Orders & Pre-Orders
       const custRes = await supabase.from('customers').select('*');
       const cloudCusts: Customer[] = (custRes.data || []).map((c: any) => ({
         id: String(c.id),
@@ -320,12 +320,39 @@ export default function App() {
         group: c.group_type || c.group || 'public'
       }));
 
+      const orderCusts: Customer[] = (ordersRes.data || []).filter((o: any) => o.phone || o.first_name || o.firstName).map((o: any) => {
+        const p = o.phone || '';
+        const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'Customer';
+        return {
+          id: p ? `cust_${p}` : String(o.id),
+          name,
+          phone: p,
+          wilaya: o.wilaya || '',
+          commune: o.commune || '',
+          group: o.group_type || o.group || 'public'
+        };
+      });
+
+      const preCusts: Customer[] = (preRes.data || []).filter((po: any) => po.phone || po.customer_name).map((po: any) => {
+        const p = po.phone || '';
+        return {
+          id: p ? `cust_${p}` : String(po.id),
+          name: po.customer_name || 'Pre-Order Customer',
+          phone: p,
+          wilaya: po.wilaya || '',
+          commune: '',
+          group: po.group_type || po.group || 'private'
+        };
+      });
+
       let localCusts: Customer[] = [];
       try {
         localCusts = JSON.parse(localStorage.getItem('bb_customers_cache') || '[]');
       } catch(e) {}
 
       const mergedCustMap = new Map<string, Customer>();
+      orderCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
+      preCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
       localCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
       cloudCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
 
