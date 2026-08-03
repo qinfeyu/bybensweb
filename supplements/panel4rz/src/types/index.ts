@@ -53,12 +53,14 @@ export interface ProductVariant {
 }
 
 export interface BundleItem {
+  sku?: string;
   productId: string;
   qty: number;
   variant?: string;
   flavor?: string;
   name?: string;
   brand?: string;
+  price?: number;
 }
 
 export interface Category {

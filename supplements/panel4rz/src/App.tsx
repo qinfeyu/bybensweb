@@ -752,8 +752,29 @@ export default function App() {
   };
 
   // ── PRODUCTS MUTATIONS ──
-  const handleSaveProduct = async (prod: Product) => {
-    const payload = { ...prod, status: prod.status || 'active', hidden: prod.hidden || false };
+  const handleSaveProduct = async (prod: Partial<Product>) => {
+    const prodId = prod.id || `prod_${Date.now()}`;
+    const payload: Product = {
+      id: prodId,
+      name: prod.name || 'Product',
+      status: prod.status || 'active',
+      hidden: prod.hidden || false,
+      stock: prod.stock ?? 10,
+      brand: prod.brand,
+      description: prod.description,
+      nutritionalFacts: prod.nutritionalFacts,
+      benefits: prod.benefits,
+      categoryIds: prod.categoryIds,
+      subCategoryIds: prod.subCategoryIds,
+      imageUrl: prod.imageUrl,
+      discount: prod.discount,
+      allowPromo: prod.allowPromo,
+      promoCodeIds: prod.promoCodeIds,
+      bundleItems: prod.bundleItems,
+      variants: prod.variants,
+      flavors: prod.flavors,
+      flavorImages: prod.flavorImages
+    };
     const dbPayload = {
       id: payload.id,
       name: payload.name,
@@ -842,6 +863,45 @@ export default function App() {
       });
 
       if (prod) {
+        // If product has bundleItems (multi-SKU bundle pack)
+        if (prod.bundleItems && Array.isArray(prod.bundleItems) && prod.bundleItems.length > 0) {
+          for (const bItem of prod.bundleItems) {
+            const targetSku = String(bItem.sku || bItem.productId || '').trim();
+            const bQty = (Number(bItem.qty) || 1) * qty;
+            if (!targetSku) continue;
+
+            // Deduct from Inventory SKUs
+            const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === targetSku.toLowerCase());
+            if (invIdx >= 0) {
+              const invItem = { ...updatedInventory[invIdx] };
+              const newStock = Math.max(0, (Number(invItem.stock) || 0) + direction * bQty);
+              invItem.stock = newStock;
+              updatedInventory[invIdx] = invItem;
+              invUpdates.push({ id: invItem.id, stock: newStock });
+            }
+
+            // Deduct from Product Variants matching this SKU
+            updatedProducts.forEach(pObj => {
+              if (pObj.variants && Array.isArray(pObj.variants)) {
+                let pUpdated = false;
+                const pVars = JSON.parse(JSON.stringify(pObj.variants));
+                pVars.forEach((vObj: any) => {
+                  if (vObj.sku && String(vObj.sku).toLowerCase() === targetSku.toLowerCase()) {
+                    vObj.stock = Math.max(0, (Number(vObj.stock) || 0) + direction * bQty);
+                    pUpdated = true;
+                  }
+                });
+                if (pUpdated) {
+                  pObj.variants = pVars;
+                  pObj.stock = pVars.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
+                  prodUpdates.push({ id: pObj.id, variants: pVars, stock: pObj.stock });
+                }
+              }
+            });
+          }
+          continue;
+        }
+
         const variants = JSON.parse(JSON.stringify(prod.variants || []));
         let matchedIdx = -1;
 
@@ -1765,8 +1825,10 @@ export default function App() {
             {activeTab === 'bundle' && (
               <BundlePage
                 products={products}
+                inventoryItems={inventoryItems}
                 bundleConfig={bundleConfig}
                 onSaveBundle={handleSaveBundle}
+                onSaveProduct={handleSaveProduct}
                 showToast={showToast}
               />
             )}
