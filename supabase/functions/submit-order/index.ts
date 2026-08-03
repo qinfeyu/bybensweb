@@ -266,6 +266,8 @@ Deno.serve(async (req: Request) => {
       subtotal: Number(subtotal) || 0,
       total: Number(total) || 0,
       status: "waiting",
+      payment_status: "pending",
+      is_unpaid: false,
       created_at: new Date().toISOString(),
     });
 

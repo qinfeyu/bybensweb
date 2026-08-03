@@ -296,7 +296,31 @@ export default function App() {
 
       // 4. Fetch Orders
       const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (ordersRes.data) setOrders(ordersRes.data);
+      if (ordersRes.data) {
+        const mappedOrders: Order[] = ordersRes.data.map((o: any) => ({
+          id: String(o.id),
+          source: o.source || 'storefront',
+          firstName: o.first_name || o.firstName || '',
+          lastName: o.last_name || o.lastName || '',
+          phone: o.phone || '',
+          address: o.address || '',
+          wilaya: o.wilaya || '',
+          commune: o.commune || '',
+          deliveryType: o.delivery_type || o.deliveryType || '',
+          deliveryCost: Number(o.delivery_cost !== undefined ? o.delivery_cost : (o.deliveryCost || 0)),
+          promoCode: o.promo_code || o.promoCode || '',
+          promoDiscount: Number(o.promo_discount !== undefined ? o.promo_discount : (o.promoDiscount || 0)),
+          items: typeof o.items === 'string' ? (JSON.parse(o.items) || []) : (o.items || []),
+          subtotal: Number(o.subtotal || 0),
+          total: Number(o.total || 0),
+          status: o.status || 'waiting',
+          payment_status: o.payment_status || (o.status === 'unpaid' ? 'unpaid' : 'pending'),
+          is_unpaid: o.is_unpaid !== undefined ? Boolean(o.is_unpaid) : (o.status === 'unpaid'),
+          date: o.created_at || o.date || new Date().toISOString(),
+          created_at: o.created_at || o.date || new Date().toISOString(),
+        }));
+        setOrders(mappedOrders);
+      }
 
       // 5. Fetch Pre-Orders & Pre-Order Items
       const preRes = await supabase.from('pre_orders').select('*').order('date', { ascending: false });
