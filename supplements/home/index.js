@@ -582,10 +582,14 @@ function renderProducts(lang) {
     .slice(0, 8);
   renderProductListToContainer("newArrivalsGrid", newArrivals, lang);
 
-  // 3. Bundles & Packs: in-stock items that have a bundleItems array, up to 8 items
-  const bundles = inStockProducts
-    .filter((p) => Array.isArray(p.bundleItems) && p.bundleItems.length > 0)
-    .slice(0, 8);
+  // 3. Bundles & Packs: all active bundle items (including out-of-stock bundles)
+  const bundles = products
+    .filter((p) => {
+      const bItems = p.bundleItems || p.bundle_items;
+      const isB = (Array.isArray(bItems) && bItems.length > 0) ||
+                  (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+      return isB && p.status === "active";
+    });
   renderProductListToContainer("bundlesGrid", bundles, lang);
 }
 

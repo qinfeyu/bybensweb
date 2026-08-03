@@ -347,17 +347,31 @@
             .filter((p) => p.status === "active")
             .map((p) => ({
               ...p,
-              categoryIds: parseIds(p.categoryIds),
-              subCategoryIds: parseIds(p.subCategoryIds),
+              categoryIds: parseIds(p.categoryIds || p.category_ids),
+              subCategoryIds: parseIds(p.subCategoryIds || p.sub_category_ids),
+              bundleItems: p.bundleItems || p.bundle_items || []
             }));
 
           allCategories = res.categories || [];
           categoryOptions = allCategories
-            .map((cat) => ({
-              value: cat.id,
-              label: cat.name,
-              count: allProducts.filter((p) => p.categoryIds.includes(cat.id)).length,
-            }))
+            .map((cat) => {
+              const isBundleCat = cat.id === "bundles" || (cat.name || '').toLowerCase().includes('bundle');
+              const count = allProducts.filter((p) => {
+                const isMatch = p.categoryIds.includes(cat.id);
+                if (isBundleCat) {
+                  const bItems = p.bundleItems || p.bundle_items;
+                  const isB = (Array.isArray(bItems) && bItems.length > 0) ||
+                              (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+                  return isMatch || isB;
+                }
+                return isMatch;
+              }).length;
+              return {
+                value: cat.id,
+                label: cat.name,
+                count: count,
+              };
+            })
             .filter((opt) => opt.count > 0);
 
           allSubCategories = res.subCategories || [];
@@ -381,9 +395,14 @@
             const catOpt = categoryOptions.find(
               (o) =>
                 o.value === catParam ||
-                o.label.toLowerCase() === catParam.toLowerCase(),
+                o.label.toLowerCase() === catParam.toLowerCase() ||
+                (catParam.toLowerCase() === "bundles" && o.label.toLowerCase().includes("bundle"))
             );
-            if (catOpt) state.categories = [catOpt.value];
+            if (catOpt) {
+              state.categories = [catOpt.value];
+            } else if (catParam.toLowerCase() === "bundles") {
+              state.categories = ["bundles"];
+            }
           }
           if (subParam) {
             const subOpt = subCategoryOptions.find(
@@ -620,9 +639,26 @@
               (p.flavors || []).some((f) => f.name.toLowerCase().includes(q)),
           );
         if (state.categories.length)
-          list = list.filter((p) =>
-            (p.categoryIds || []).some((id) => state.categories.includes(id)),
-          );
+          list = list.filter((p) => {
+            const pCatIds = p.categoryIds || p.category_ids || [];
+            const catList = Array.isArray(pCatIds) ? pCatIds : String(pCatIds).split(',').filter(Boolean);
+            const isMatch = catList.some((id) => state.categories.includes(id));
+            
+            const isBundleCatFilter = state.categories.some(cId => {
+              if (cId === "bundles") return true;
+              const matchedCat = allCategories.find(c => c.id === cId);
+              return matchedCat && (matchedCat.name || '').toLowerCase().includes('bundle');
+            });
+
+            if (isBundleCatFilter) {
+              const bItems = p.bundleItems || p.bundle_items;
+              const isB = (Array.isArray(bItems) && bItems.length > 0) ||
+                          (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+              return isMatch || isB;
+            }
+
+            return isMatch;
+          });
         if (state.subCategories.length)
           list = list.filter((p) =>
             state.subCategories.some((subId) => {

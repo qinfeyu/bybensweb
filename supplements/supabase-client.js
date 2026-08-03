@@ -112,13 +112,16 @@
   }
 
   function calculateBundleStockAndPrice(bundle, productsList) {
-    if (!bundle || !Array.isArray(bundle.bundleItems) || bundle.bundleItems.length === 0) return null;
+    var bItems = bundle.bundleItems || bundle.bundle_items || [];
+    if (!bundle || !Array.isArray(bItems) || bItems.length === 0) return null;
     
     var totalBasePrice = 0;
     var totalStock = Infinity;
     
-    bundle.bundleItems.forEach(function (item) {
-      var prod = productsList.find(function (p) { return p.id === item.productId; });
+    bItems.forEach(function (item) {
+      var prod = productsList.find(function (p) {
+        return p.id === item.productId || (item.sku && String(p.sku || '').toLowerCase() === String(item.sku).toLowerCase());
+      });
       if (prod) {
         var price = 0;
         var stock = 0;
@@ -152,8 +155,6 @@
 
         totalBasePrice += price * (Number(item.qty) || 1);
         totalStock = Math.min(totalStock, Math.floor(stock / (Number(item.qty) || 1)));
-      } else {
-        totalStock = 0;
       }
     });
     
@@ -173,15 +174,18 @@
     
     // Post-process bundles to calculate dynamic price & stock
     productsRemapped.forEach(function (p) {
-      if (p.bundleItems && p.bundleItems.length > 0) {
+      var bItems = p.bundleItems || p.bundle_items || [];
+      if (Array.isArray(bItems) && bItems.length > 0) {
         var calc = calculateBundleStockAndPrice(p, productsRemapped);
         if (calc) {
           p.stock = calc.stock;
+          var existingPrice = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);
+          var finalPrice = existingPrice > 0 ? existingPrice : calc.price;
           if (p.variants && p.variants.length > 0) {
-            p.variants[0].price = calc.price;
+            p.variants[0].price = finalPrice;
             p.variants[0].stock = calc.stock;
           } else {
-            p.variants = [{ weight: "1", unit: "Bundle", price: calc.price, stock: calc.stock }];
+            p.variants = [{ weight: "1", unit: "Bundle", price: finalPrice, stock: calc.stock }];
           }
         }
       }
