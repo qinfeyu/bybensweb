@@ -3183,14 +3183,17 @@
             showToast((data && data.error) || "Order failed. Please try again.");
             return;
           }
-          // Deduct stock for order items & bundle components
-          await deductStockForOrderItems(items);
+          if (window.deductStockForOrderItems) {
+            await window.deductStockForOrderItems(items);
+          }
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } catch (e) {
           // Network error — still show success since order may have gone through
-          await deductStockForOrderItems(items);
+          if (window.deductStockForOrderItems) {
+            await window.deductStockForOrderItems(items);
+          }
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");

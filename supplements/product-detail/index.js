@@ -3296,6 +3296,18 @@
             : v.label || v.name || ""
           : "";
 
+        const orderItemPayload = [
+          {
+            productId: p.id,
+            name: p.name,
+            flavor: selectedFlavor || "",
+            variant: variantStr,
+            qty: selectedQty,
+            unitPrice: variantPrice,
+            lineTotal: variantPrice * selectedQty,
+          },
+        ];
+
         fetch(SUPABASE_URL + "/functions/v1/submit-order", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY },
@@ -3313,21 +3325,16 @@
             deliveryCost: deliveryCharge,
             promoCode: appliedPromos.map((pr) => pr.code).join(","),
             promoDiscount: discount,
-            items: [
-              {
-                productId: p.id,
-                name: p.name,
-                flavor: selectedFlavor || "",
-                variant: variantStr,
-                qty: selectedQty,
-                unitPrice: variantPrice,
-                lineTotal: variantPrice * selectedQty,
-              },
-            ],
+            items: orderItemPayload,
             subtotal,
             total: totalNum,
           }),
         }).catch(() => {});
+
+        // Deduct component & product stock across all tables
+        if (window.deductStockForOrderItems) {
+          window.deductStockForOrderItems(orderItemPayload);
+        }
 
         document.getElementById("successMsg").textContent =
           `Thank you ${firstName}! Your order for ${p.name} × ${selectedQty} — Total: ${total} DA. We'll call you shortly to confirm.`;

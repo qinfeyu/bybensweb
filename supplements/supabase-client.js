@@ -263,4 +263,137 @@
       return window.sbRemapInitialData(rawData);
     });
   };
+
+  window.deductStockForOrderItems = async function (orderItems) {
+    if (!orderItems || !orderItems.length) return;
+    try {
+      var pRes = await fetch(_URL + "/rest/v1/products?select=*", { headers: { apikey: _KEY, Authorization: "Bearer " + _KEY } }).then(function(r) { return r.json(); });
+      var iRes = await fetch(_URL + "/rest/v1/inventory_items?select=*", { headers: { apikey: _KEY, Authorization: "Bearer " + _KEY } }).then(function(r) { return r.json(); });
+
+      var prods = Array.isArray(pRes) ? pRes : [];
+      var invs = Array.isArray(iRes) ? iRes : [];
+
+      for (var idx = 0; idx < orderItems.length; idx++) {
+        var item = orderItems[idx];
+        var qty = Number(item.qty) || 1;
+        var targetId = String(item.productId || item.id || '').trim();
+        var prod = prods.find(function(p) {
+          return p.id === targetId || (p.name && item.name && p.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+        });
+
+        if (prod) {
+          var bItems = prod.bundle_items || prod.bundleItems || [];
+          if (typeof bItems === 'string') {
+            try { bItems = JSON.parse(bItems); } catch(e) { bItems = []; }
+          }
+
+          if (Array.isArray(bItems) && bItems.length > 0) {
+            for (var bIdx = 0; bIdx < bItems.length; bIdx++) {
+              var bItem = bItems[bIdx];
+              var compQty = (Number(bItem.qty) || 1) * qty;
+              var compSku = String(bItem.sku || bItem.productId || '').trim().toLowerCase();
+
+              // 1. Deduct in inventory_items
+              var invItem = invs.find(function(i) { return String(i.id).trim().toLowerCase() === compSku; });
+              if (invItem) {
+                var newInvStock = Math.max(0, (Number(invItem.stock) || 0) - compQty);
+                await fetch(_URL + "/rest/v1/inventory_items?id=eq." + encodeURIComponent(invItem.id), {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json", apikey: _KEY, Authorization: "Bearer " + _KEY },
+                  body: JSON.stringify({ stock: newInvStock })
+                });
+              }
+
+              // 2. Deduct in products
+              var compProd = prods.find(function(p) {
+                if (String(p.id).trim().toLowerCase() === compSku) return true;
+                var vars = p.variants || [];
+                for (var vIdx = 0; vIdx < vars.length; vIdx++) {
+                  var v = vars[vIdx];
+                  if (v.sku && String(v.sku).trim().toLowerCase() === compSku) return true;
+                  if (v.flavorSkus) {
+                    var fVals = Object.values(v.flavorSkus);
+                    for (var fIdx = 0; fIdx < fVals.length; fIdx++) {
+                      if (String(fVals[fIdx]).trim().toLowerCase() === compSku) return true;
+                    }
+                  }
+                }
+                return false;
+              });
+
+              if (compProd && compProd.variants && compProd.variants.length > 0) {
+                var cVars = JSON.parse(JSON.stringify(compProd.variants));
+                var cIdx = cVars.findIndex(function(v) {
+                  if (v.sku && String(v.sku).trim().toLowerCase() === compSku) return true;
+                  if (v.flavorSkus) {
+                    var fVals = Object.values(v.flavorSkus);
+                    for (var fIdx = 0; fIdx < fVals.length; fIdx++) {
+                      if (String(fVals[fIdx]).trim().toLowerCase() === compSku) return true;
+                    }
+                  }
+                  return String(v.weight || v.label || '').toLowerCase().indexOf(String(bItem.variant || '').toLowerCase()) !== -1;
+                });
+                if (cIdx < 0) cIdx = 0;
+                if (cVars[cIdx]) {
+                  var cv = cVars[cIdx];
+                  if (cv.flavorStock && Object.keys(cv.flavorStock).length > 0) {
+                    var targetFlavor = bItem.flavor || Object.keys(cv.flavorStock)[0];
+                    if (cv.flavorStock[targetFlavor] !== undefined) {
+                      cv.flavorStock[targetFlavor] = Math.max(0, (Number(cv.flavorStock[targetFlavor]) || 0) - compQty);
+                    }
+                    cv.stock = Object.values(cv.flavorStock).reduce(function(s, q) { return s + Number(q); }, 0);
+                  } else {
+                    cv.stock = Math.max(0, (Number(cv.stock) || 0) - compQty);
+                  }
+                  cVars[cIdx] = cv;
+                  var newTotalStock = cVars.reduce(function(s, vv) { return s + (Number(vv.stock) || 0); }, 0);
+                  await fetch(_URL + "/rest/v1/products?id=eq." + encodeURIComponent(compProd.id), {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json", apikey: _KEY, Authorization: "Bearer " + _KEY },
+                    body: JSON.stringify({ variants: cVars, stock: newTotalStock })
+                  });
+                }
+              }
+            }
+
+            // Update bundle product stock itself
+            var nextBundleStock = Math.max(0, (Number(prod.stock) || 0) - qty);
+            await fetch(_URL + "/rest/v1/products?id=eq." + encodeURIComponent(prod.id), {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", apikey: _KEY, Authorization: "Bearer " + _KEY },
+              body: JSON.stringify({ stock: nextBundleStock })
+            });
+          } else {
+            // Standard Product stock deduction
+            if (prod.variants && prod.variants.length > 0) {
+              var pVars = JSON.parse(JSON.stringify(prod.variants));
+              var pIdx = pVars.findIndex(function(v) { return String(v.weight || v.label || '').toLowerCase().indexOf(String(item.variant || '').toLowerCase()) !== -1; });
+              if (pIdx < 0) pIdx = 0;
+              if (pVars[pIdx]) {
+                var pv = pVars[pIdx];
+                if (pv.flavorStock && Object.keys(pv.flavorStock).length > 0) {
+                  var targetFlavor2 = item.flavor || Object.keys(pv.flavorStock)[0];
+                  if (pv.flavorStock[targetFlavor2] !== undefined) {
+                    pv.flavorStock[targetFlavor2] = Math.max(0, (Number(pv.flavorStock[targetFlavor2]) || 0) - qty);
+                  }
+                  pv.stock = Object.values(pv.flavorStock).reduce(function(s, q) { return s + Number(q); }, 0);
+                } else {
+                  pv.stock = Math.max(0, (Number(pv.stock) || 0) - qty);
+                }
+                pVars[pIdx] = pv;
+                var newProdTotalStock = pVars.reduce(function(s, vv) { return s + (Number(vv.stock) || 0); }, 0);
+                await fetch(_URL + "/rest/v1/products?id=eq." + encodeURIComponent(prod.id), {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json", apikey: _KEY, Authorization: "Bearer " + _KEY },
+                  body: JSON.stringify({ variants: pVars, stock: newProdTotalStock })
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Global stock deduction error:", e);
+    }
+  };
 })();
