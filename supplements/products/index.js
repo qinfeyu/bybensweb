@@ -290,10 +290,11 @@
       }
 
       function getProductPrice(p) {
-        const base =
-          p.variants && p.variants.length > 0 ? p.variants[0].price : 0;
-        const disc = p.discount || 0;
-        return disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+        const base = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);
+        const disc = Number(p.discount) || 0;
+        if (disc <= 0) return base;
+        if (disc <= 100) return Math.max(0, Math.round(base * (1 - disc / 100)));
+        return Math.max(0, Math.round(base - disc));
       }
 
       function renderCatNav(cats, subs) {
@@ -710,12 +711,18 @@
 
         grid.innerHTML = page
           .map((p, i) => {
-            const basePrice =
-              p.variants && p.variants.length > 0 ? p.variants[0].price : 0;
-            const discount = p.discount || 0;
+            const basePrice = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);
+            const discount = Number(p.discount) || 0;
             const currentPrice = getProductPrice(p);
-            const oldPrice = discount > 0 ? basePrice : null;
-            const saveLabel = discount > 0 ? `-${discount}%` : null;
+            let saveLabel = null;
+            if (discount > 0) {
+              if (discount <= 100) {
+                saveLabel = `-${discount}%`;
+              } else {
+                saveLabel = `-${discount.toLocaleString('fr-DZ')} DA`;
+              }
+            }
+            const oldPrice = (discount > 0 && basePrice > currentPrice) ? basePrice : null;
 
             const oos = Number(p.stock) <= 0;
             const badge = oos ? { type: "oos", label: "OUT OF STOCK" } : computeBadge(p, _bundleId, _topSoldIds);
