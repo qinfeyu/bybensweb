@@ -1057,18 +1057,21 @@ export default function App() {
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     const existing = orders.find(o => o.id === orderId);
     if (existing && existing.status !== newStatus) {
+      // 1. Stock adjustments (canceled vs active)
       if (newStatus === 'canceled' && existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
-        // If order was previously paid, subtract its total from DZD Budget
-        if (existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
-          await adjustDzdBudget(-existing.total);
-        }
       } else if (existing.status === 'canceled' && newStatus !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], -1);
-        // If restoring from canceled to active paid order, add back to DZD Budget
-        if (newStatus !== 'unpaid') {
-          await adjustDzdBudget(+existing.total);
-        }
+      }
+
+      // 2. Budget adjustments — Money is added to Budget ONLY when order is in Delivered status
+      const wasDelivered = existing.status === 'delivered';
+      const isNowDelivered = newStatus === 'delivered';
+
+      if (!wasDelivered && isNowDelivered) {
+        await adjustDzdBudget(+existing.total);
+      } else if (wasDelivered && !isNowDelivered) {
+        await adjustDzdBudget(-existing.total);
       }
     }
 
@@ -1086,8 +1089,8 @@ export default function App() {
       if (existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
       }
-      // If order was paid (not canceled & not unpaid), subtract its total from DZD Budget
-      if (existing.status !== 'canceled' && existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
+      // Money is removed from Budget ONLY if the deleted order was Delivered
+      if (existing.status === 'delivered') {
         await adjustDzdBudget(-existing.total);
       }
     }
@@ -1097,7 +1100,7 @@ export default function App() {
     } catch(e) {}
 
     setOrders(prev => prev.filter(o => o.id !== orderId));
-    showToast("✓ Order deleted, stock restored & DZD budget adjusted!");
+    showToast("✓ Order deleted, stock restored & DZD budget updated!");
   };
 
   const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string; paymentStatus?: 'paid' | 'unpaid' }) => {
@@ -1124,11 +1127,11 @@ export default function App() {
       date: new Date().toISOString()
     };
 
-    // Deduct stock for POS order (runs for both paid and unpaid credit sales)
+    // Deduct stock for POS order
     await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
-    // Add paid order total to DZD Budget
-    if (!isUnpaid && newOrder.total > 0) {
+    // Add to DZD Budget ONLY if status is delivered
+    if (newOrder.status === 'delivered' && newOrder.total > 0) {
       await adjustDzdBudget(+newOrder.total);
     }
 
@@ -1162,7 +1165,7 @@ export default function App() {
 
   const handleMarkOrderAsPaid = async (orderId: string) => {
     const target = orders.find(o => o.id === orderId);
-    if (target && target.total > 0) {
+    if (target && target.status !== 'delivered' && target.total > 0) {
       await adjustDzdBudget(+target.total);
     }
 
