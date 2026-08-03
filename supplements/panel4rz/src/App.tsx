@@ -843,8 +843,11 @@ export default function App() {
 
       if (prod) {
         // 1a. If Product is a Composite Bundle Pack, unpack and deduct stock for each included SKU / product component
-        if (prod.bundleItems && Array.isArray(prod.bundleItems) && prod.bundleItems.length > 0) {
-          for (const bItem of prod.bundleItems) {
+        let bItems = prod.bundleItems || (prod as any).bundle_items || [];
+        if (typeof bItems === 'string') { try { bItems = JSON.parse(bItems); } catch(e) { bItems = []; } }
+
+        if (Array.isArray(bItems) && bItems.length > 0) {
+          for (const bItem of bItems) {
             const componentQty = (Number(bItem.qty) || 1) * qty;
             const compTargetId = String(bItem.productId || bItem.sku || '').trim().toLowerCase();
 
@@ -880,9 +883,12 @@ export default function App() {
               if (cIdx < 0) cIdx = 0;
               if (cVariants[cIdx]) {
                 const v = cVariants[cIdx];
-                if (bItem.flavor && v.flavorStock && v.flavorStock[bItem.flavor] !== undefined) {
-                  const curF = Number(v.flavorStock[bItem.flavor]) || 0;
-                  v.flavorStock[bItem.flavor] = Math.max(0, curF + direction * componentQty);
+                if (v.flavorStock && Object.keys(v.flavorStock).length > 0) {
+                  const targetFlavor = bItem.flavor || Object.keys(v.flavorStock)[0];
+                  if (v.flavorStock[targetFlavor] !== undefined) {
+                    const curF = Number(v.flavorStock[targetFlavor]) || 0;
+                    v.flavorStock[targetFlavor] = Math.max(0, curF + direction * componentQty);
+                  }
                   v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
                 } else {
                   v.stock = Math.max(0, (Number(v.stock) || 0) + direction * componentQty);
@@ -898,7 +904,7 @@ export default function App() {
 
           // Recalculate bundle stock for this bundle product itself based on component inventory
           let minBStock = Infinity;
-          for (const bItem of prod.bundleItems) {
+          for (const bItem of bItems) {
             const bQty = Number(bItem.qty) || 1;
             const targetSku = String(bItem.sku || bItem.productId || '').trim().toLowerCase();
             const invMatch = updatedInventory.find(i => String(i.id).trim().toLowerCase() === targetSku);
