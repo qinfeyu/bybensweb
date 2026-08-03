@@ -119,24 +119,39 @@
     var totalStock = Infinity;
     
     bItems.forEach(function (item) {
+      var targetSku = String(item.sku || item.productId || '').trim().toLowerCase();
       var prod = productsList.find(function (p) {
-        return p.id === item.productId || (item.sku && String(p.sku || '').toLowerCase() === String(item.sku).toLowerCase());
+        if (String(p.id).trim().toLowerCase() === targetSku) return true;
+        if (p.sku && String(p.sku).trim().toLowerCase() === targetSku) return true;
+        var vars = p.variants || [];
+        for (var vIdx = 0; vIdx < vars.length; vIdx++) {
+          var v = vars[vIdx];
+          if (v.sku && String(v.sku).trim().toLowerCase() === targetSku) return true;
+          if (v.flavorSkus) {
+            var fValues = Object.values(v.flavorSkus);
+            for (var fIdx = 0; fIdx < fValues.length; fIdx++) {
+              if (String(fValues[fIdx]).trim().toLowerCase() === targetSku) return true;
+            }
+          }
+        }
+        return false;
       });
+
       if (prod) {
         var price = 0;
-        var stock = 0;
+        var stock = Number(prod.stock) || 0;
         var variants = prod.variants || [];
         var v = null;
+
         if (item.variant && variants.length > 0) {
           v = variants.find(function (x) {
             var label = x.weight ? (x.weight + (x.unit || "")).trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
             return label === String(item.variant).trim().toLowerCase();
           });
           price = v ? Number(v.price) || 0 : Number(variants[0].price) || 0;
-          stock = v ? Number(v.stock) || 0 : 0;
+          if (v && Number(v.stock) > 0) stock = Number(v.stock);
         } else {
           price = variants.length > 0 ? Number(variants[0].price) || 0 : 0;
-          stock = Number(prod.stock) || 0;
         }
 
         if (item.flavor) {
@@ -147,8 +162,8 @@
               var name = typeof f === "object" ? f.name : f;
               return String(name).trim() === item.flavor;
             });
-            if (fObj) {
-              stock = typeof fObj === "object" ? Number(fObj.qty) || 0 : Number(prod.stock) || 0;
+            if (fObj && typeof fObj === "object") {
+              stock = Number(fObj.qty) || stock;
             }
           }
         }
@@ -177,16 +192,18 @@
       var bItems = p.bundleItems || p.bundle_items || [];
       if (Array.isArray(bItems) && bItems.length > 0) {
         var calc = calculateBundleStockAndPrice(p, productsRemapped);
-        if (calc) {
-          p.stock = calc.stock;
-          var existingPrice = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);
-          var finalPrice = existingPrice > 0 ? existingPrice : calc.price;
-          if (p.variants && p.variants.length > 0) {
-            p.variants[0].price = finalPrice;
-            p.variants[0].stock = calc.stock;
-          } else {
-            p.variants = [{ weight: "1", unit: "Bundle", price: finalPrice, stock: calc.stock }];
-          }
+        var existingStock = Number(p.stock) || 0;
+        var finalStock = (calc && calc.stock > 0) ? calc.stock : existingStock;
+        p.stock = finalStock;
+
+        var existingPrice = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);
+        var finalPrice = (existingPrice > 0) ? existingPrice : (calc ? calc.price : 0);
+        
+        if (p.variants && p.variants.length > 0) {
+          p.variants[0].price = finalPrice;
+          p.variants[0].stock = finalStock;
+        } else {
+          p.variants = [{ weight: "1", unit: "Bundle", price: finalPrice, stock: finalStock }];
         }
       }
     });
