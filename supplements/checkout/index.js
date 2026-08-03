@@ -3061,6 +3061,10 @@
       async function submitOrder() {
         // Bot checks
         if (document.getElementById("hp_website").value !== "") return;
+        if (Date.now() - PAGE_LOAD_TIME < 4000) {
+          showToast("Please review your order before submitting.");
+          return;
+        }
 
         let valid = true;
         valid =
@@ -3107,6 +3111,30 @@
           return;
         }
 
+        // Re-validate applied promos before submitting
+        const now = new Date();
+        for (const pr of [...appliedPromos]) {
+          const fresh = _allPromos.find(p => p.id === pr.id);
+          if (!fresh || fresh.status !== "active") {
+            showToast(`Promo code "${pr.code}" is no longer active and was removed.`);
+            appliedPromos = appliedPromos.filter(p => p.id !== pr.id);
+            renderPromoTagsCO(); updateOrderSummary(); return;
+          }
+          if (fresh.expiry) {
+            const exp = new Date(fresh.expiry); exp.setHours(23, 59, 59, 999);
+            if (exp < now) {
+              showToast(`Promo code "${pr.code}" has expired and was removed.`);
+              appliedPromos = appliedPromos.filter(p => p.id !== pr.id);
+              renderPromoTagsCO(); updateOrderSummary(); return;
+            }
+          }
+          if (fresh.maxUses && fresh.uses >= fresh.maxUses) {
+            showToast(`Promo code "${pr.code}" has reached its limit and was removed.`);
+            appliedPromos = appliedPromos.filter(p => p.id !== pr.id);
+            renderPromoTagsCO(); updateOrderSummary(); return;
+          }
+        }
+
         const firstName = document.getElementById("firstName").value.trim();
         const lastName = document.getElementById("lastName").value.trim();
         const phone = document.getElementById("phone").value.trim();
@@ -3148,61 +3176,112 @@
 
         const submitBtn = document.getElementById("submitOrderBtn");
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; }
-
-        // Deduct stock in background safely
-        if (typeof window.deductOrderStockClient === "function") {
-          try {
-            window.deductOrderStockClient(payload.items, -1).catch(function (err) {
-              console.warn("[StockDeduct warning]", err);
-            });
-          } catch(e) {}
-        }
-
         try {
-          const res = await fetch(SUPABASE_URL + "/functions/v1/submit-order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY },
-            body: JSON.stringify(payload)
-          });
+          const res = await fetch(SUPABASE_URL + "/functions/v1/submit-order", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY }, body: JSON.stringify(payload) });
           const data = await res.json().catch(() => ({ success: true }));
-          
           if (!data || data.success === false) {
-            // Direct insert into orders table as fallback
-            try {
-              const dbOrder = {
-                id: String(Date.now()),
-                first_name: firstName,
-                last_name: lastName,
-                phone: phone,
-                address: address,
-                wilaya: `${selectedWilayaCode} - ${wilayaName}`,
-                commune: selectedCommuneName,
-                delivery_type: selectedDelivery,
-                delivery_cost: freeDelivery ? 0 : deliveryCost,
-                promo_code: appliedPromos.map((pr) => pr.code).join(","),
-                promo_discount: discount,
-                items: payload.items,
-                subtotal: subtotal,
-                total: total,
-                status: "waiting"
-              };
-              await fetch(SUPABASE_URL + "/rest/v1/orders", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
-                body: JSON.stringify(dbOrder)
-              });
-            } catch(e) {}
+            showToast((data && data.error) || "Order failed. Please try again.");
+            return;
           }
-
+          // Deduct stock for order items & bundle components
+          await deductStockForOrderItems(items);
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } catch (e) {
+          // Network error — still show success since order may have gone through
+          await deductStockForOrderItems(items);
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } finally {
           if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ""; }
+        }
+      }
+
+      async function deductStockForOrderItems(orderItems) {
+        if (!orderItems || !orderItems.length) return;
+        try {
+          const [pRes, iRes] = await Promise.all([
+            fetch(SUPABASE_URL + "/rest/v1/products?select=*", { headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY } }).then(r => r.json()),
+            fetch(SUPABASE_URL + "/rest/v1/inventory_items?select=*", { headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY } }).then(r => r.json())
+          ]);
+
+          const prods = Array.isArray(pRes) ? pRes : [];
+          const invs = Array.isArray(iRes) ? iRes : [];
+
+          for (const item of orderItems) {
+            const qty = Number(item.qty) || 1;
+            const targetId = String(item.productId || item.id || '').trim();
+            const prod = prods.find(p => p.id === targetId || (p.name && item.name && p.name.toLowerCase().trim() === item.name.toLowerCase().trim()));
+
+            if (prod) {
+              const bItems = prod.bundle_items || prod.bundleItems || [];
+              if (Array.isArray(bItems) && bItems.length > 0) {
+                for (const bItem of bItems) {
+                  const compQty = (Number(bItem.qty) || 1) * qty;
+                  const compSku = String(bItem.sku || bItem.productId || '').trim().toLowerCase();
+
+                  const invItem = invs.find(i => String(i.id).trim().toLowerCase() === compSku);
+                  if (invItem) {
+                    const newStock = Math.max(0, (Number(invItem.stock) || 0) - compQty);
+                    await fetch(SUPABASE_URL + "/rest/v1/inventory_items?id=eq." + encodeURIComponent(invItem.id), {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
+                      body: JSON.stringify({ stock: newStock })
+                    });
+                  }
+
+                  const compProd = prods.find(p => String(p.id).trim().toLowerCase() === compSku || (p.variants && p.variants.some(v => String(v.sku || '').trim().toLowerCase() === compSku)));
+                  if (compProd && compProd.variants && compProd.variants.length > 0) {
+                    const cVars = JSON.parse(JSON.stringify(compProd.variants));
+                    let cIdx = cVars.findIndex(v => String(v.sku || '').trim().toLowerCase() === compSku || String(v.weight || v.label || '').toLowerCase().includes(String(bItem.variant || '').toLowerCase()));
+                    if (cIdx < 0) cIdx = 0;
+                    if (cVars[cIdx]) {
+                      const v = cVars[cIdx];
+                      if (bItem.flavor && v.flavorStock && v.flavorStock[bItem.flavor] !== undefined) {
+                        v.flavorStock[bItem.flavor] = Math.max(0, (Number(v.flavorStock[bItem.flavor]) || 0) - compQty);
+                        v.stock = Object.values(v.flavorStock).reduce((s, q) => s + Number(q), 0);
+                      } else {
+                        v.stock = Math.max(0, (Number(v.stock) || 0) - compQty);
+                      }
+                      cVars[cIdx] = v;
+                      const newTotalStock = cVars.reduce((s, vv) => s + (Number(vv.stock) || 0), 0);
+                      await fetch(SUPABASE_URL + "/rest/v1/products?id=eq." + encodeURIComponent(compProd.id), {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
+                        body: JSON.stringify({ variants: cVars, stock: newTotalStock })
+                      });
+                    }
+                  }
+                }
+              } else {
+                if (prod.variants && prod.variants.length > 0) {
+                  const pVars = JSON.parse(JSON.stringify(prod.variants));
+                  let pIdx = pVars.findIndex(v => String(v.weight || v.label || '').toLowerCase().includes(String(item.variant || '').toLowerCase()));
+                  if (pIdx < 0) pIdx = 0;
+                  if (pVars[pIdx]) {
+                    const v = pVars[pIdx];
+                    if (item.flavor && v.flavorStock && v.flavorStock[item.flavor] !== undefined) {
+                      v.flavorStock[item.flavor] = Math.max(0, (Number(v.flavorStock[item.flavor]) || 0) - qty);
+                      v.stock = Object.values(v.flavorStock).reduce((s, q) => s + Number(q), 0);
+                    } else {
+                      v.stock = Math.max(0, (Number(v.stock) || 0) - qty);
+                    }
+                    pVars[pIdx] = v;
+                    const newTotalStock = pVars.reduce((s, vv) => s + (Number(vv.stock) || 0), 0);
+                    await fetch(SUPABASE_URL + "/rest/v1/products?id=eq." + encodeURIComponent(prod.id), {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
+                      body: JSON.stringify({ variants: pVars, stock: newTotalStock })
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch(e) {
+          console.warn("Stock deduction on checkout warning:", e);
         }
       }
 
