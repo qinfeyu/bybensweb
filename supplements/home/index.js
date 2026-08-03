@@ -479,8 +479,10 @@ function computeBadge(p, bundleId, topSoldIds) {
 
 function getProductPrice(p) {
   const base = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);
-  const disc = p.discount || 0;
-  return disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+  const disc = Number(p.discount) || 0;
+  if (disc <= 0) return base;
+  if (disc <= 100) return Math.max(0, Math.round(base * (1 - disc / 100)));
+  return Math.max(0, Math.round(base - disc));
 }
 
 function renderStars(rating) {
@@ -506,10 +508,20 @@ function renderProductListToContainer(containerId, productList, lang) {
       // Pricing
       const baseVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
       const basePrice = (baseVariant && Number(baseVariant.price)) ? Number(baseVariant.price) : (Number(p.price) || 0);
-      const discount = p.discount || 0;
-      const currentPrice = discount > 0 ? Math.round(basePrice * (1 - discount / 100)) : basePrice;
-      const oldPrice = discount > 0 ? basePrice : null;
-      const saveLabel = discount > 0 ? `-${discount}%` : null;
+      const discount = Number(p.discount) || 0;
+      let currentPrice = basePrice;
+      let saveLabel = null;
+
+      if (discount > 0) {
+        if (discount <= 100) {
+          currentPrice = Math.max(0, Math.round(basePrice * (1 - discount / 100)));
+          saveLabel = `-${discount}%`;
+        } else {
+          currentPrice = Math.max(0, Math.round(basePrice - discount));
+          saveLabel = `-${discount.toLocaleString('fr-DZ')} DA`;
+        }
+      }
+      const oldPrice = (discount > 0 && basePrice > currentPrice) ? basePrice : null;
 
       const badge = computeBadge(p, _bundleId, _topSoldIds);
 

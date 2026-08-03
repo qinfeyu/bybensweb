@@ -1124,13 +1124,15 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
-                      <label className="font-bold text-slate-700">Discount (DA)</label>
+                      <label className="font-bold text-slate-700">Discount (DA or %)</label>
                       <input
                         type="number"
                         value={editingProduct?.discount || 0}
                         onChange={(e) => setEditingProduct({ ...editingProduct, discount: parseFloat(e.target.value) || 0 })}
+                        placeholder="e.g. 500 for 500 DA off, or 10 for 10% off"
                         className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-900"
                       />
+                      <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">Type &le; 100 for %, or &gt; 100 for DA reduction</span>
                     </div>
                     <div>
                       <label className="font-bold text-slate-700">Status</label>

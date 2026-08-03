@@ -775,11 +775,20 @@
         grid.innerHTML = picked
           .map((p) => {
             const variants = parseField(p.variants);
-            const basePrice = variants.length > 0 ? Number(variants[0].price) || 0 : 0;
+            const basePrice = (variants.length > 0 && Number(variants[0].price)) ? Number(variants[0].price) : (Number(p.price) || 0);
             const discount = Number(p.discount) || 0;
-            const currentPrice = discount > 0 ? Math.round(basePrice * (1 - discount / 100)) : basePrice;
-            const oldPrice = discount > 0 ? basePrice : null;
-            const saveLabel = discount > 0 ? `-${discount}%` : null;
+            let currentPrice = basePrice;
+            let saveLabel = null;
+            if (discount > 0) {
+              if (discount <= 100) {
+                currentPrice = Math.max(0, Math.round(basePrice * (1 - discount / 100)));
+                saveLabel = `-${discount}%`;
+              } else {
+                currentPrice = Math.max(0, Math.round(basePrice - discount));
+                saveLabel = `-${discount.toLocaleString('fr-DZ')} DA`;
+              }
+            }
+            const oldPrice = (discount > 0 && basePrice > currentPrice) ? basePrice : null;
 
             const _alsoImgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
             const img = _alsoImgs[0]
@@ -867,9 +876,12 @@
         const p = _atcProduct; if (!p) return;
         const variants = typeof p.variants === "string" ? JSON.parse(p.variants) : (p.variants || []);
         const v = variants[_atcVariantIdx];
-        const base = v && typeof v === "object" ? (v.price || 0) : 0;
-        const disc = p.discount || 0;
-        const final = disc > 0 ? Math.round(base * (1 - disc/100)) : base;
+        const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
+        const disc = Number(p.discount) || 0;
+        let final = base;
+        if (disc > 0) {
+          final = disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc));
+        }
         document.getElementById("atcPrice").textContent = final > 0 ? `${final.toLocaleString()} DA` : "";
       }
       function atcPickFlavor(btn, f) {
@@ -897,9 +909,12 @@
         const p = _atcProduct; if (!p) return;
         const variants = typeof p.variants === "string" ? JSON.parse(p.variants) : (p.variants || []);
         const v = variants[_atcVariantIdx];
-        const base = v && typeof v === "object" ? (v.price || 0) : 0;
-        const disc = p.discount || 0;
-        const unitPrice = disc > 0 ? Math.round(base * (1 - disc/100)) : base;
+        const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
+        const disc = Number(p.discount) || 0;
+        let unitPrice = base;
+        if (disc > 0) {
+          unitPrice = disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc));
+        }
         const variantLabel = v ? (typeof v === "object" ? (v.weight ? `${v.weight}${v.unit||""}` : v.label || v.name || "") : String(v)) : "";
         const items = cartGet();
         const existing = items.find(i => i.productId === p.id && i.flavor === _atcFlavor && i.variant === variantLabel);
@@ -3209,10 +3224,11 @@
       function getProductPrice(p, variantIndex) {
         const idx = variantIndex != null ? variantIndex : 0;
         const variants = parseField(p.variants);
-        const base =
-          variants.length > idx ? Number(variants[idx].price) || 0 : 0;
+        const base = (variants.length > idx && Number(variants[idx].price)) ? Number(variants[idx].price) : (Number(p.price) || 0);
         const disc = Number(p.discount) || 0;
-        return disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+        if (disc <= 0) return base;
+        if (disc <= 100) return Math.max(0, Math.round(base * (1 - disc / 100)));
+        return Math.max(0, Math.round(base - disc));
       }
 
       function handleSearch(query) {

@@ -569,20 +569,28 @@
         const v = variants[selectedVariantIndex];
         const basePrice = (v && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
         const discount = Number(p.discount) || 0;
-        const currentPrice =
-          discount > 0
-            ? Math.round(basePrice * (1 - discount / 100))
-            : basePrice;
+        let currentPrice = basePrice;
+        let saveText = "";
+
+        if (discount > 0) {
+          if (discount <= 100) {
+            currentPrice = Math.max(0, Math.round(basePrice * (1 - discount / 100)));
+            saveText = `-${discount}%`;
+          } else {
+            currentPrice = Math.max(0, Math.round(basePrice - discount));
+            saveText = `-${discount.toLocaleString("fr-DZ")} DA`;
+          }
+        }
 
         document.getElementById("productPrice").textContent =
           currentPrice.toLocaleString("fr-DZ") + " DA";
 
         const oldPriceEl = document.getElementById("productOldPrice");
         const saveEl = document.getElementById("productSave");
-        if (discount > 0 && basePrice > 0) {
+        if (discount > 0 && basePrice > currentPrice) {
           oldPriceEl.textContent = basePrice.toLocaleString("fr-DZ") + " DA";
           oldPriceEl.style.display = "";
-          saveEl.textContent = `-${discount}%`;
+          saveEl.textContent = saveText;
           saveEl.style.display = "";
         } else {
           oldPriceEl.style.display = "none";
