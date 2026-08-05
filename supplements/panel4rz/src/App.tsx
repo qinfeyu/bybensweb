@@ -117,7 +117,7 @@ export default function App() {
         const msg = error?.message || 'Invalid email or password';
         setAuthErrorMsg(
           msg.includes('Invalid login credentials')
-            ? 'Wrong email or password. Try: admin@bybens.com / Bybens@Admin2024'
+            ? 'Invalid email or password.'
             : msg
         );
       }

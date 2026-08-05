@@ -584,6 +584,12 @@ function renderProducts(lang) {
 
   // 2. New Arrivals: sort in-stock products desc by createdAt, up to 8 items
   const newArrivals = [...inStockProducts]
+    .filter((p) => {
+      const bItems = p.bundleItems || p.bundle_items;
+      const isB = (Array.isArray(bItems) && bItems.length > 0) ||
+                  (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+      return !isB;
+    })
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     .slice(0, 8);
   renderProductListToContainer("newArrivalsGrid", newArrivals, lang);
