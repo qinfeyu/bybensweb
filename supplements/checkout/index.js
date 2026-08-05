@@ -86,6 +86,12 @@
         if (!b) return;
         b.textContent = n;
         b.style.display = n === 0 ? "none" : "";
+        const icon = b.parentElement;
+        if (icon) {
+          icon.classList.remove("cart-pulse");
+          void icon.offsetWidth;
+          icon.classList.add("cart-pulse");
+        }
       }
 
       /* ══════════════════════════════════════════════════════
@@ -753,8 +759,6 @@
               .join("");
           }
         } catch (err) {
-                    // Max quantity is 5 for individual items, regardless of stock
-
           console.error("Failed to load data:", err);
         }
         hideLoader();
@@ -792,7 +796,7 @@
 
             const _alsoImgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
             const img = _alsoImgs[0]
-              ? `<img src="${_alsoImgs[0]}" alt="${p.name}" class="img-primary" />${_alsoImgs[1] ? `<img src="${_alsoImgs[1]}" alt="${p.name}" class="img-hover" />` : ""}`
+              ? `<img src="${_alsoImgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" decoding="async" />${_alsoImgs[1] ? `<img src="${_alsoImgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
               : `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gray-200)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
             const badge = computeBadge(p, _bundleId, _topSoldIds);
             return `

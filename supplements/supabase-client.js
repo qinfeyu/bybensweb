@@ -254,12 +254,29 @@
   }
 
   window.getInitialData = function () {
+    var CACHE_KEY = "bb_initial_data_cache";
+    var CACHE_TIME = 5 * 60 * 1000; // 5 minutes
+
+    try {
+      var cachedStr = sessionStorage.getItem(CACHE_KEY);
+      if (cachedStr) {
+        var cachedObj = JSON.parse(cachedStr);
+        if (cachedObj && cachedObj.timestamp && (Date.now() - cachedObj.timestamp < CACHE_TIME)) {
+          return Promise.resolve(window.sbRemapInitialData(cachedObj.data));
+        }
+      }
+    } catch(e) {}
+
     // Prefer the edge-cached /api/initial-data prefetch; fall back to direct calls.
     var src = window.__initialDataPromise
       ? window.__initialDataPromise.then(function (d) { return d || _sbFetchAllTables(); })
       : _sbFetchAllTables();
+      
     return src.then(function (rawData) {
       if (!rawData) return null;
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: rawData }));
+      } catch(e) {}
       return window.sbRemapInitialData(rawData);
     });
   };

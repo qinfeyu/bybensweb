@@ -48,20 +48,26 @@
   renderMarquee(defaultText, true);
 
   // Once Supabase / API data loads, update the content dynamically
-  if (window.getInitialData) {
-    window.getInitialData().then(function(data) {
-      if (data && Array.isArray(data.settings)) {
-        const settingsMap = {};
-        data.settings.forEach(function(s) {
-          settingsMap[s.key] = s.value;
-        });
+  function initMarquee() {
+    if (window.getInitialData) {
+      window.getInitialData().then(function(data) {
+        if (data && Array.isArray(data.settings)) {
+          const settingsMap = {};
+          data.settings.forEach(function(s) {
+            settingsMap[s.key] = s.value;
+          });
 
-        const enabled = settingsMap.marquee_enabled !== "false" && settingsMap.marquee_enabled !== false;
-        const text = settingsMap.marquee_text || defaultText;
-        renderMarquee(text, enabled);
-      }
-    }).catch(function() {
-      // Keep default on error
-    });
+          const enabled = settingsMap.marquee_enabled !== "false" && settingsMap.marquee_enabled !== false;
+          const text = settingsMap.marquee_text || defaultText;
+          renderMarquee(text, enabled);
+        }
+      }).catch(function() {
+        // Keep default on error
+      });
+    } else {
+      setTimeout(initMarquee, 50);
+    }
   }
+  
+  initMarquee();
 })();

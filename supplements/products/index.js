@@ -767,7 +767,7 @@
               p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
             const _imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
             const imgEl = _imgs[0]
-              ? `<img src="${_imgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" />${_imgs[1] ? `<img src="${_imgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" />` : ""}`
+              ? `<img src="${_imgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" decoding="async" />${_imgs[1] ? `<img src="${_imgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
               : `<svg class="placeholder-icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
 
             return `
@@ -1187,6 +1187,12 @@
         if (!b) return;
         b.textContent = n;
         b.style.display = n === 0 ? "none" : "";
+        const icon = b.parentElement;
+        if (icon) {
+          icon.classList.remove("cart-pulse");
+          void icon.offsetWidth;
+          icon.classList.add("cart-pulse");
+        }
       }
       /* ── Add to Cart Modal ── */
       let _atcProduct = null,
