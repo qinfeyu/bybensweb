@@ -262,6 +262,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   showToast
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'standard' | 'bundle'>('all');
   const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'instock' | 'outstock'>('all');
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'visible' | 'hidden'>('all');
 
@@ -298,6 +299,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const [previewVariantImgIdx, setPreviewVariantImgIdx] = useState<number | null>(null);
 
   const filteredProducts = products.filter(p => {
+    // Type Filter
+    const hasBundleItems = p.bundleItems?.length ? true : ((p as any).bundle_items?.length > 0);
+    if (typeFilter === 'bundle' && !hasBundleItems) return false;
+    if (typeFilter === 'standard' && hasBundleItems) return false;
+
     // Search Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -311,6 +317,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
     // Visibility Filter
     if (visibilityFilter === 'visible' && p.hidden === true) return false;
+    if (visibilityFilter === 'hidden' && p.hidden !== true) return false;
+    
     return true;
   });
 
@@ -801,6 +809,29 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         >
           <Plus className="w-4 h-4" />
           <span>Add Product</span>
+        </button>
+      </div>
+
+      {/* Product Type Tabs */}
+      <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl w-fit mb-3 border border-slate-200 shadow-sm">
+        <button
+          onClick={() => setTypeFilter('all')}
+          className={`px-5 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+        >
+          All Products
+        </button>
+        <button
+          onClick={() => setTypeFilter('standard')}
+          className={`px-5 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'standard' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+        >
+          Standard
+        </button>
+        <button
+          onClick={() => setTypeFilter('bundle')}
+          className={`px-5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${typeFilter === 'bundle' ? 'bg-purple-900 text-white shadow-sm' : 'text-slate-500 hover:text-purple-900 hover:bg-purple-100/50'}`}
+        >
+          <Boxes className="w-3.5 h-3.5" />
+          <span>Bundles & Packs</span>
         </button>
       </div>
 
