@@ -153,6 +153,8 @@ export default function App() {
     budget_rate: '280'
   });
 
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+
   const [isLoading, setIsLoading] = useState(true);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
 
@@ -296,7 +298,14 @@ export default function App() {
 
       // 4. Fetch Orders
       const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (ordersRes.data) setOrders(ordersRes.data);
+      if (ordersRes.data) {
+        setOrders(ordersRes.data);
+        ordersRes.data.forEach((o: any) => {
+          if (knownOrderIdsRef && knownOrderIdsRef.current) {
+            knownOrderIdsRef.current.add(o.id);
+          }
+        });
+      }
 
       // 5. Fetch Pre-Orders & Pre-Order Items
       const preRes = await supabase.from('pre_orders').select('*').order('date', { ascending: false });
@@ -470,8 +479,6 @@ export default function App() {
     setIsLoading(false);
   };
 
-  const knownOrderIdsRef = useRef<Set<string>>(new Set());
-
   const playNewOrderSound = useCallback(() => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -508,10 +515,8 @@ export default function App() {
 
         if (hasNew) {
           setOrders(data);
-          if (knownOrderIdsRef.current.size > data.length) {
-            playNewOrderSound();
-            showToast(`🔔 New Order Received from ${newestOrderName}!`);
-          }
+          playNewOrderSound();
+          showToast(`🔔 New Order Received from ${newestOrderName}!`);
         }
       }
     } catch(e) {}
