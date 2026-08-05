@@ -38,9 +38,43 @@ async function adjustStock(items: any[], direction: number) {
     const rawFlavor = String(item.flavor || "").trim();
     const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
 
-    const { data: rows } = await sb.from("products").select("*").eq("id", prodId).limit(1);
-    if (!rows || rows.length === 0) continue;
-    const prod = rows[0];
+    let prod: any = null;
+    const { data: exactRows } = await sb.from("products").select("*").eq("id", prodId).limit(1);
+    if (exactRows && exactRows.length > 0) {
+      prod = exactRows[0];
+    } else {
+      // Find product by matching variant SKU (needed for bundle components that use SKU as productId)
+      const { data: allProds } = await sb.from("products").select("*");
+      if (allProds) {
+        prod = allProds.find((p: any) => {
+          if (!p.variants || !Array.isArray(p.variants)) return false;
+          return p.variants.some((v: any) => {
+            if (v.sku && String(v.sku).toLowerCase() === String(prodId).toLowerCase()) return true;
+            if (v.flavorSkus) {
+               return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === String(prodId).toLowerCase());
+            }
+            return false;
+          });
+        });
+      }
+    }
+
+    if (!prod) {
+      // If still no product, it might be purely an inventory_items SKU with no parent product
+      try {
+        const targetSku = String(prodId).trim();
+        const { data: invRows } = await sb.from("inventory_items").select("*").ilike("id", targetSku).limit(1);
+        if (invRows && invRows.length > 0) {
+          const curStock = Number(invRows[0].stock) || 0;
+          const newInvStock = Math.max(0, curStock + direction * qty);
+          await sb.from("inventory_items").update({ stock: newInvStock }).eq("id", invRows[0].id);
+        }
+      } catch (err) {}
+      continue;
+    }
+    
+    // Ensure we use the real product ID for updates (in case we matched by SKU)
+    const realProdId = prod.id;
 
     // Recursive stock adjustment for bundles
     if (prod.bundle_items && Array.isArray(prod.bundle_items) && prod.bundle_items.length > 0) {
@@ -53,7 +87,7 @@ async function adjustStock(items: any[], direction: number) {
       await adjustStock(nestedItems, direction);
       
       const newBundleStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-      await sb.from("products").update({ stock: newBundleStock }).eq("id", prodId);
+      await sb.from("products").update({ stock: newBundleStock }).eq("id", realProdId);
       continue;
     }
 
@@ -110,10 +144,10 @@ async function adjustStock(items: any[], direction: number) {
       if (!linkedSku && v.sku) linkedSku = v.sku;
 
       const newGlobal = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-      await sb.from("products").update({ variants, stock: newGlobal }).eq("id", prodId);
+      await sb.from("products").update({ variants, stock: newGlobal }).eq("id", realProdId);
     } else {
       const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-      await sb.from("products").update({ stock: newStock }).eq("id", prodId);
+      await sb.from("products").update({ stock: newStock }).eq("id", realProdId);
     }
 
     // ── DEDUCT / RESTORE INVENTORY ITEM SKU STOCK ──
