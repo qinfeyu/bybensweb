@@ -359,13 +359,49 @@ export default function App() {
         localCusts = JSON.parse(localStorage.getItem('bb_customers_cache') || '[]');
       } catch(e) {}
 
-      const mergedCustMap = new Map<string, Customer>();
-      orderCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
-      preCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
-      localCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
-      cloudCusts.forEach(c => { if (c.phone || c.id) mergedCustMap.set(c.phone || c.id, c); });
+      const getMergeKey = (c: Customer) => {
+        if (c.phone) return c.phone.trim();
+        const n = (c.name || '').toLowerCase().trim();
+        if (n && n !== 'customer' && n !== 'client') return `name_${n}`;
+        return c.id;
+      };
 
-      const finalCusts = Array.from(mergedCustMap.values());
+      const mergeCustomer = (existing: Customer | undefined, incoming: Customer): Customer => {
+        if (!existing) return incoming;
+        return {
+          ...existing,
+          ...incoming,
+          id: incoming.id || existing.id,
+          name: incoming.name && incoming.name !== 'Customer' ? incoming.name : existing.name,
+          phone: incoming.phone || existing.phone,
+          wilaya: incoming.wilaya || existing.wilaya,
+          commune: incoming.commune || existing.commune,
+          group: incoming.group || existing.group
+        };
+      };
+
+      const mergedCustMap = new Map<string, Customer>();
+      
+      const processCustomer = (c: Customer) => {
+        const key = getMergeKey(c);
+        if (key) {
+          mergedCustMap.set(key, mergeCustomer(mergedCustMap.get(key), c));
+        }
+      };
+
+      orderCusts.forEach(processCustomer);
+      preCusts.forEach(processCustomer);
+      localCusts.forEach(processCustomer);
+      cloudCusts.forEach(processCustomer);
+
+      // Now ensure that any customers that eventually got a phone use that phone as their ID to avoid duplicates if their name and phone separated previously
+      const finalMap = new Map<string, Customer>();
+      mergedCustMap.forEach(c => {
+        const finalKey = c.phone ? c.phone.trim() : c.id;
+        finalMap.set(finalKey!, mergeCustomer(finalMap.get(finalKey!), c));
+      });
+
+      const finalCusts = Array.from(finalMap.values());
       setCustomers(finalCusts);
       localStorage.setItem('bb_customers_cache', JSON.stringify(finalCusts));
 
