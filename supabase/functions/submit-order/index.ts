@@ -320,13 +320,21 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+function escapeHtml(str: string): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
     // Telegram notification
     const orderItems: any[] = items || [];
     const itemLines = orderItems.map((it: any) =>
-      `  • ${it.name}${it.flavor ? " – " + it.flavor : ""}${it.variant ? " (" + it.variant + ")" : ""} x${it.qty}`
+      `  • ${escapeHtml(it.name)}${it.flavor ? " – " + escapeHtml(it.flavor) : ""}${it.variant ? " (" + escapeHtml(it.variant) + ")" : ""} x${it.qty}`
     ).join("\n");
     const promoLine = promoCode
-      ? `🎟️ Promo: ${promoCode} (-${promoDiscount || 0} DA)\n`
+      ? `🎟️ Promo: ${escapeHtml(promoCode)} (-${promoDiscount || 0} DA)\n`
       : "🎟️ No promo code\n";
     const now = new Date();
     const timeStr = now.toLocaleString("fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -335,10 +343,10 @@ Deno.serve(async (req: Request) => {
       `🛒 <b>New Order!</b>\n` +
       `🕐 ${timeStr}\n` +
       `📱 Source: ${source === "checkout" ? "Cart" : "Product page"}\n` +
-      `👤 ${firstName || ""} ${lastName || ""}\n` +
-      `📞 ${phone || ""}\n` +
-      `📍 ${wilaya || ""} – ${commune || ""}\n` +
-      `📦 ${deliveryType || ""}\n` +
+      `👤 ${escapeHtml(firstName || "")} ${escapeHtml(lastName || "")}\n` +
+      `📞 ${escapeHtml(phone || "")}\n` +
+      `📍 ${escapeHtml(wilaya || "")} – ${escapeHtml(commune || "")}\n` +
+      `📦 ${escapeHtml(deliveryType || "")}\n` +
       `🛍️ Items: ${totalItems}\n\n` +
       `${itemLines}\n\n` +
       `🏷️ Products: ${subtotal || 0} DA\n` +

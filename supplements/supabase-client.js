@@ -396,4 +396,49 @@
       console.warn("Global stock deduction error:", e);
     }
   };
+
+  window.sendTelegramNotification = async function (orderData) {
+    if (!orderData) return;
+    var TELEGRAM_BOT_TOKEN = "8597076283:AAEcCim85KCQZQC-5ik4SLXdS8xPvOJg__o";
+    var TELEGRAM_CHAT_ID = "-1003790940322";
+
+    function esc(s) {
+      if (!s) return "";
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    try {
+      var items = orderData.items || [];
+      var itemLines = items.map(function (it) {
+        return "  • " + esc(it.name) + (it.flavor ? " – " + esc(it.flavor) : "") + (it.variant ? " (" + esc(it.variant) + ")" : "") + " x" + (it.qty || 1);
+      }).join("\n");
+
+      var timeStr = new Date().toLocaleString("fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      var totalItems = items.reduce(function (s, it) { return s + (Number(it.qty) || 1); }, 0);
+      var promoLine = orderData.promoCode ? "🎟️ Promo: " + esc(orderData.promoCode) + " (-" + (orderData.promoDiscount || 0) + " DA)\n" : "🎟️ No promo code\n";
+
+      var msg =
+        "🛒 <b>New Order!</b>\n" +
+        "🕐 " + timeStr + "\n" +
+        "📱 Source: " + (orderData.source === "checkout" ? "Cart" : "Product page") + "\n" +
+        "👤 " + esc(orderData.firstName || "") + " " + esc(orderData.lastName || "") + "\n" +
+        "📞 " + esc(orderData.phone || "") + "\n" +
+        "📍 " + esc(orderData.wilaya || "") + " – " + esc(orderData.commune || "") + "\n" +
+        "📦 " + esc(orderData.deliveryType || "") + "\n" +
+        "🛍️ Items: " + totalItems + "\n\n" +
+        itemLines + "\n\n" +
+        "🏷️ Products: " + (orderData.subtotal || 0) + " DA\n" +
+        "🚚 Delivery: " + (orderData.deliveryCost || 0) + " DA\n" +
+        promoLine +
+        "💰 Total: " + (orderData.total || 0) + " DA";
+
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: "HTML" })
+      });
+    } catch (e) {
+      console.warn("Client Telegram notification warning:", e);
+    }
+  };
 })();

@@ -3186,6 +3186,20 @@
           if (window.deductStockForOrderItems) {
             await window.deductStockForOrderItems(items);
           }
+          if (window.sendTelegramNotification) {
+            window.sendTelegramNotification({
+              source: "checkout",
+              firstName, lastName, phone, address,
+              wilaya: `${selectedWilayaCode} - ${wilayaName}`,
+              commune: selectedCommuneName,
+              deliveryType: selectedDelivery,
+              deliveryCost: freeDelivery ? 0 : deliveryCost,
+              promoCode: appliedPromos.map(pr => pr.code).join(","),
+              promoDiscount: discount,
+              items: payload.items,
+              subtotal, total
+            });
+          }
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
@@ -3193,6 +3207,20 @@
           // Network error — still show success since order may have gone through
           if (window.deductStockForOrderItems) {
             await window.deductStockForOrderItems(items);
+          }
+          if (window.sendTelegramNotification) {
+            window.sendTelegramNotification({
+              source: "checkout",
+              firstName, lastName, phone, address,
+              wilaya: `${selectedWilayaCode} - ${wilayaName}`,
+              commune: selectedCommuneName,
+              deliveryType: selectedDelivery,
+              deliveryCost: freeDelivery ? 0 : deliveryCost,
+              promoCode: appliedPromos.map(pr => pr.code).join(","),
+              promoDiscount: discount,
+              items: payload.items,
+              subtotal, total
+            });
           }
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;

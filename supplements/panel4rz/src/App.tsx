@@ -470,11 +470,81 @@ export default function App() {
     setIsLoading(false);
   };
 
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+
+  const playNewOrderSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    } catch(e) {}
+  }, []);
+
+  const syncNewOrders = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (data && data.length > 0) {
+        let hasNew = false;
+        let newestOrderName = '';
+
+        data.forEach(o => {
+          if (!knownOrderIdsRef.current.has(o.id)) {
+            hasNew = true;
+            knownOrderIdsRef.current.add(o.id);
+            if (!newestOrderName) {
+              newestOrderName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || `#${o.id.slice(-6)}`;
+            }
+          }
+        });
+
+        if (hasNew) {
+          setOrders(data);
+          if (knownOrderIdsRef.current.size > data.length) {
+            playNewOrderSound();
+            showToast(`🔔 New Order Received from ${newestOrderName}!`);
+          }
+        }
+      }
+    } catch(e) {}
+  }, [playNewOrderSound]);
+
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshAllData();
-    }
-  }, [isAuthenticated]);
+    if (!isAuthenticated) return;
+
+    refreshAllData();
+
+    // 1. Polling timer every 5 seconds for background sync
+    const interval = setInterval(syncNewOrders, 5000);
+
+    // 2. Real-time Supabase Subscription for instant order updates
+    const channel = supabase
+      .channel('orders-realtime-channel')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        const newOrder = payload.new as Order;
+        if (newOrder && !knownOrderIdsRef.current.has(newOrder.id)) {
+          knownOrderIdsRef.current.add(newOrder.id);
+          setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
+          playNewOrderSound();
+          const custName = `${newOrder.first_name || newOrder.firstName || ''} ${newOrder.last_name || newOrder.lastName || ''}`.trim() || `#${newOrder.id.slice(-6)}`;
+          showToast(`🔔 New Order Received from ${custName}!`);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, syncNewOrders, playNewOrderSound]);
 
   // ── INVENTORY MUTATIONS ──
   const handleSaveInventoryItem = async (item: InventoryItem) => {
