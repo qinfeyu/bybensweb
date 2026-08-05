@@ -51,6 +51,9 @@ async function adjustStock(items: any[], direction: number) {
         flavor: bItem.flavor || "",
       }));
       await adjustStock(nestedItems, direction);
+      
+      const newBundleStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
+      await sb.from("products").update({ stock: newBundleStock }).eq("id", prodId);
       continue;
     }
 
@@ -106,7 +109,7 @@ async function adjustStock(items: any[], direction: number) {
       }
       if (!linkedSku && v.sku) linkedSku = v.sku;
 
-      const newGlobal = variants.reduce((s: number, vv: any) => s + (typeof vv === "object" ? Number(vv.stock) || 0 : 0), 0);
+      const newGlobal = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
       await sb.from("products").update({ variants, stock: newGlobal }).eq("id", prodId);
     } else {
       const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);

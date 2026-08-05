@@ -3183,9 +3183,6 @@
             showToast((data && data.error) || "Order failed. Please try again.");
             return;
           }
-          if (window.deductStockForOrderItems) {
-            await window.deductStockForOrderItems(items);
-          }
           if (window.sendTelegramNotification) {
             window.sendTelegramNotification({
               source: "checkout",
@@ -3205,9 +3202,6 @@
           document.getElementById("successOverlay").classList.add("show");
         } catch (e) {
           // Network error — still show success since order may have gone through
-          if (window.deductStockForOrderItems) {
-            await window.deductStockForOrderItems(items);
-          }
           if (window.sendTelegramNotification) {
             window.sendTelegramNotification({
               source: "checkout",

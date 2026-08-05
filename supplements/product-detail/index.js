@@ -3331,11 +3331,6 @@
           }),
         }).catch(() => {});
 
-        // Deduct component & product stock across all tables
-        if (window.deductStockForOrderItems) {
-          window.deductStockForOrderItems(orderItemPayload);
-        }
-
         if (window.sendTelegramNotification) {
           window.sendTelegramNotification({
             source: "product-detail",
