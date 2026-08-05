@@ -183,8 +183,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const handleCreateCustomer = async () => {
     if (!newCustPhone.trim()) return;
 
+    const existingCust = localCustomers.find(c => c.phone === newCustPhone.trim());
     const newCust: Customer = {
-      id: `cust_${Date.now()}`,
+      id: existingCust?.id || `cust_${Date.now()}`,
       name: newCustName.trim() || 'Customer',
       phone: newCustPhone.trim(),
       wilaya: newCustWilaya.trim(),

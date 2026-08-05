@@ -1671,8 +1671,6 @@ export default function App() {
         id: cust.id,
         name: cust.name,
         phone: cust.phone,
-        wilaya: cust.wilaya,
-        commune: cust.commune,
         group_type: cust.group
       }, { onConflict: 'id' });
     } catch(e) {}
