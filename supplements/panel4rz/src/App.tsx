@@ -1143,14 +1143,14 @@ export default function App() {
 
     if (currency === 'EUR') {
       const currentEur = parseFloat(settings.budget_eur) || 0;
-      const newEur = Math.max(0, parseFloat((currentEur + amount).toFixed(2))).toString();
+      const newEur = parseFloat((currentEur + amount).toFixed(2)).toString();
       setSettings(prev => ({ ...prev, budget_eur: newEur }));
       try {
         await supabase.from('settings').upsert([{ key: 'budget_eur', value: newEur }]);
       } catch(e) {}
     } else {
       const currentDzd = parseFloat(settings.budget_dzd) || 0;
-      const newDzd = Math.max(0, Math.round(currentDzd + amount)).toString();
+      const newDzd = Math.round(currentDzd + amount).toString();
       setSettings(prev => ({ ...prev, budget_dzd: newDzd }));
       try {
         await supabase.from('settings').upsert([{ key: 'budget_dzd', value: newDzd }]);
