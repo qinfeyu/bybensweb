@@ -1275,10 +1275,7 @@ export default function App() {
 
     try {
       await supabase.from('orders').update({
-        status: 'delivered',
-        payment_status: 'paid',
-        is_unpaid: false,
-        paid_at: new Date().toISOString()
+        status: 'delivered'
       }).eq('id', orderId);
     } catch(e) {}
 
