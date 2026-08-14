@@ -583,6 +583,112 @@ export default function App() {
     };
   }, [isAuthenticated, syncNewOrders, playNewOrderSound]);
 
+  // ── AUTOMATIC CATALOG PRODUCT STOCK SYNC WITH INVENTORY ITEMS ──
+  const syncProductsWithInventory = (currentProds: Product[], currentInv: InventoryItem[]) => {
+    const prodUpdates: { id: string; variants: any[]; stock: number }[] = [];
+
+    const updatedProds = currentProds.map(p => {
+      let pChanged = false;
+      let bItems = p.bundleItems || (p as any).bundle_items || [];
+      if (typeof bItems === 'string') { try { bItems = JSON.parse(bItems); } catch(e) { bItems = []; } }
+
+      // 1. Composite Bundle Pack stock recalculation
+      if (Array.isArray(bItems) && bItems.length > 0) {
+        let minStock = Infinity;
+        bItems.forEach(b => {
+          const bQty = Number(b.qty) || 1;
+          const targetSku = String(b.sku || b.productId || '').trim().toLowerCase();
+          const invMatch = currentInv.find(i => 
+            String(i.id || '').trim().toLowerCase() === targetSku || 
+            String(i.sku || '').trim().toLowerCase() === targetSku
+          );
+          const cStock = invMatch ? (Number(invMatch.stock) || 0) : 0;
+          minStock = Math.min(minStock, Math.floor(cStock / bQty));
+        });
+        const computedBStock = minStock === Infinity ? 0 : Math.max(0, minStock);
+        if (p.stock !== computedBStock) {
+          pChanged = true;
+          p.stock = computedBStock;
+          if (p.variants && p.variants.length > 0) p.variants[0].stock = computedBStock;
+        }
+      } 
+      // 2. Product with Variants
+      else if (p.variants && p.variants.length > 0) {
+        const variants = JSON.parse(JSON.stringify(p.variants));
+        variants.forEach((v: any) => {
+          // If variant uses flavorSkus + flavorStock
+          if (v.flavorSkus && typeof v.flavorSkus === 'object') {
+            if (!v.flavorStock) v.flavorStock = {};
+            Object.keys(v.flavorSkus).forEach(fKey => {
+              const sku = String(v.flavorSkus[fKey] || '').trim().toLowerCase();
+              if (sku) {
+                const invMatch = currentInv.find(i => 
+                  String(i.id || '').trim().toLowerCase() === sku || 
+                  String(i.sku || '').trim().toLowerCase() === sku
+                );
+                if (invMatch && Number(v.flavorStock[fKey]) !== Number(invMatch.stock)) {
+                  v.flavorStock[fKey] = Number(invMatch.stock) || 0;
+                  pChanged = true;
+                }
+              }
+            });
+            const sumFStock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + (Number(q) || 0), 0);
+            if (v.stock !== sumFStock) {
+              v.stock = sumFStock;
+              pChanged = true;
+            }
+          } 
+          // If variant uses single v.sku
+          else if (v.sku) {
+            const vSku = String(v.sku).trim().toLowerCase();
+            const invMatch = currentInv.find(i => 
+              String(i.id || '').trim().toLowerCase() === vSku || 
+              String(i.sku || '').trim().toLowerCase() === vSku
+            );
+            if (invMatch && Number(v.stock) !== Number(invMatch.stock)) {
+              v.stock = Number(invMatch.stock) || 0;
+              pChanged = true;
+            }
+          }
+        });
+
+        const newTotStock = variants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
+        if (pChanged || p.stock !== newTotStock) {
+          p.variants = variants;
+          p.stock = newTotStock;
+          prodUpdates.push({ id: p.id, variants, stock: newTotStock });
+        }
+      } 
+      // 3. Simple Product without variants
+      else {
+        const pSku = String((p as any).sku || p.id || '').trim().toLowerCase();
+        const invMatch = currentInv.find(i => 
+          String(i.id || '').trim().toLowerCase() === pSku || 
+          String(i.sku || '').trim().toLowerCase() === pSku ||
+          (p.name && String(i.name || '').trim().toLowerCase() === p.name.trim().toLowerCase())
+        );
+        if (invMatch && Number(p.stock) !== Number(invMatch.stock)) {
+          p.stock = Number(invMatch.stock) || 0;
+          prodUpdates.push({ id: p.id, variants: [], stock: p.stock });
+        }
+      }
+
+      return p;
+    });
+
+    if (prodUpdates.length > 0) {
+      setProducts(updatedProds);
+      localStorage.setItem('bb_products_cache', JSON.stringify(updatedProds));
+      prodUpdates.forEach(async (u) => {
+        try {
+          await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
+        } catch(e) {}
+      });
+    }
+
+    return updatedProds;
+  };
+
   // ── INVENTORY MUTATIONS ──
   const handleSaveInventoryItem = async (item: InventoryItem) => {
     const payload = { ...item, _lastUpdated: new Date().toISOString() };
@@ -594,14 +700,17 @@ export default function App() {
       localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
+    let nextInv: InventoryItem[] = [];
     setInventoryItems(prev => {
-      const nextInv = [...prev];
+      nextInv = [...prev];
       const idx = nextInv.findIndex(x => x.id === item.id);
       if (idx >= 0) nextInv[idx] = payload;
       else nextInv.push(payload);
       localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
       return nextInv;
     });
+
+    syncProductsWithInventory(products, nextInv);
 
     try {
       const { error } = await supabase.from('inventory_items').upsert(dbPayload, { onConflict: 'id' });
@@ -621,8 +730,9 @@ export default function App() {
       localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
+    let nextInv: InventoryItem[] = [];
     setInventoryItems(prev => {
-      const nextInv = [...prev];
+      nextInv = [...prev];
       payloads.forEach(item => {
         const idx = nextInv.findIndex(x => x.id === item.id);
         if (idx >= 0) nextInv[idx] = { ...nextInv[idx], ...item };
@@ -631,6 +741,8 @@ export default function App() {
       localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
       return nextInv;
     });
+
+    syncProductsWithInventory(products, nextInv);
 
     try {
       const { error } = await supabase.from('inventory_items').upsert(dbPayloads, { onConflict: 'id' });
@@ -1170,7 +1282,11 @@ export default function App() {
     }
     if (prodUpdates.length > 0) {
       setProducts([...updatedProducts]);
+      localStorage.setItem('bb_products_cache', JSON.stringify(updatedProducts));
     }
+
+    // Always run automatic catalog product sync to ensure all variant & flavor stocks stay 100% refreshed
+    syncProductsWithInventory(updatedProducts, updatedInventory);
 
     try {
       for (const u of invUpdates) {
