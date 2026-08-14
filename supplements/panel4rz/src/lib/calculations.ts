@@ -112,23 +112,21 @@ export function calculateOrderProfit(
   let itemRevenue = 0;
   let totalCogs = 0;
 
-  if (items.length > 0) {
     items.forEach(it => {
       const qty = Number(it.qty) || 1;
-      const unitP = Number(it.unitPrice || it.unit_price || it.price) || 0;
+      let unitP = Number(it.unitPrice || it.unit_price || it.price) || 0;
       const info = getProductPricingAndCost(
         it.productId || it.product_id || it.id || it.name || it.product_name || "", 
         it.variant, 
-        unitP,
+        unitP > 0 ? unitP : 0,
         inventoryItems,
         products,
         defaultEurRate
       );
-      const actualUnitP = unitP || info.retailPrice || 0;
+      const actualUnitP = (unitP > 0 ? unitP : (info.retailPrice > 0 ? info.retailPrice : Math.abs(unitP))) || 0;
       itemRevenue += actualUnitP * qty;
       totalCogs += (info.unitCost || (actualUnitP * 0.7)) * qty;
     });
-  }
 
   const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
   const rawTotal = Number(o.total) || 0;

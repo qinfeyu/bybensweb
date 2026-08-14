@@ -48,8 +48,19 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     const dateStr = o.date || o.created_at ? new Date(o.date || o.created_at || '').toLocaleString('fr-FR') : new Date().toLocaleDateString();
 
     const itemsHtml = (o.items || []).map(it => {
-      const uPrice = Number(it.unitPrice || it.unit_price || it.price || 0);
-      const lTotal = Number(it.lineTotal || it.line_total || ((it.qty || 1) * uPrice) || 0);
+      const rawU = Number(it.unitPrice || it.unit_price || it.price || 0);
+      let uPrice = rawU;
+      if (uPrice < 0) {
+        const prod = products.find(p => p.id === (it.productId || it.product_id) || p.name === (it.name || it.product_name));
+        if (prod) {
+          const base = Number(prod.price) || (prod.variants?.[0]?.price ? Number(prod.variants[0].price) : 0);
+          const disc = Number(prod.discount) || 0;
+          uPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
+        } else {
+          uPrice = Math.abs(rawU);
+        }
+      }
+      const lTotal = (Number(it.lineTotal || it.line_total) && Number(it.lineTotal || it.line_total) > 0) ? Number(it.lineTotal || it.line_total) : ((it.qty || 1) * uPrice);
       return `
         <tr>
           <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;"><strong>${it.name || it.product_name || '—'}</strong></td>
@@ -718,8 +729,19 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(selectedOrder.items || []).map((it, idx) => {
-                        const uPrice = Number(it.unitPrice || it.unit_price || it.price || 0);
-                        const lTotal = Number(it.lineTotal || it.line_total || ((it.qty || 1) * uPrice) || 0);
+                        const rawU = Number(it.unitPrice || it.unit_price || it.price || 0);
+                        let uPrice = rawU;
+                        if (uPrice < 0) {
+                          const prod = products.find(p => p.id === (it.productId || it.product_id) || p.name === (it.name || it.product_name));
+                          if (prod) {
+                            const base = Number(prod.price) || (prod.variants?.[0]?.price ? Number(prod.variants[0].price) : 0);
+                            const disc = Number(prod.discount) || 0;
+                            uPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
+                          } else {
+                            uPrice = Math.abs(rawU);
+                          }
+                        }
+                        const lTotal = (Number(it.lineTotal || it.line_total) && Number(it.lineTotal || it.line_total) > 0) ? Number(it.lineTotal || it.line_total) : ((it.qty || 1) * uPrice);
                         return (
                           <tr key={idx}>
                             <td className="p-2.5 font-bold">{it.name || it.product_name || '—'}</td>
