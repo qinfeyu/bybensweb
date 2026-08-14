@@ -1028,31 +1028,72 @@ export default function App() {
         }
 
         const variants = JSON.parse(JSON.stringify(prod.variants || []));
+
+        // 1b. If Product has NO variants (e.g. Egg White / Simple Products)
+        if (variants.length === 0) {
+          const curStock = Number(prod.stock) || 0;
+          const newGlobalStock = Math.max(0, curStock + direction * qty);
+          prod.stock = newGlobalStock;
+
+          // Deduct from prod.flavors if present
+          if (prod.flavors && Array.isArray(prod.flavors)) {
+            const flavors = JSON.parse(JSON.stringify(prod.flavors));
+            const fIdx = flavors.findIndex((f: any) => {
+              const fName = typeof f === 'object' ? String(f.name || '').trim().toLowerCase() : String(f).trim().toLowerCase();
+              return fName === itemFlavor;
+            });
+            if (fIdx >= 0 && typeof flavors[fIdx] === 'object') {
+              const curFQ = Number(flavors[fIdx].qty) || 0;
+              flavors[fIdx].qty = Math.max(0, curFQ + direction * qty);
+              prod.flavors = flavors;
+            }
+          }
+
+          prodUpdates.push({ id: prod.id, variants: [], stock: newGlobalStock });
+
+          // Also sync linked SKU or Name in Inventory Items
+          const targetSku = String((prod as any).sku || prod.id || '').trim().toLowerCase();
+          const invIdx = updatedInventory.findIndex(i => 
+            String(i.id || '').trim().toLowerCase() === targetSku ||
+            String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === targetSku ||
+            (rawItemName.length > 2 && String(i.name || '').trim().toLowerCase() === rawItemName)
+          );
+          if (invIdx >= 0) {
+            const invItem = { ...updatedInventory[invIdx] };
+            const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
+            invItem.stock = newInvStock;
+            updatedInventory[invIdx] = invItem;
+            invUpdates.push({ id: invItem.id, stock: newInvStock });
+          }
+
+          continue;
+        }
+
+        // 1c. Product HAS variants
         let matchedIdx = -1;
 
-        if (variants.length > 0) {
-          if (cleanVar) {
-            matchedIdx = variants.findIndex((v: any) => {
-              if (typeof v !== 'object') return String(v).toLowerCase().replace(/\s+/g, '') === cleanVar;
-              const vWeight = String(v.weight || '').toLowerCase().replace(/\s+/g, '');
-              const vUnit = String(v.unit || '').toLowerCase().replace(/\s+/g, '');
-              const vCombo = (vWeight + vUnit);
-              const vLabel = String(v.label || v.name || '').toLowerCase().replace(/\s+/g, '');
-              const vSku = String(v.sku || '').toLowerCase().replace(/\s+/g, '');
-              return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || vSku === cleanVar || cleanVar.includes(vWeight) || (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase());
-            });
-          }
-          if (matchedIdx < 0 && rawProdId) {
-            matchedIdx = variants.findIndex((v: any) => {
-              if (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase()) return true;
-              if (v.flavorSkus) {
-                return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === rawProdId.toLowerCase());
-              }
-              return false;
-            });
-          }
-          if (matchedIdx < 0 && variants.length === 1) matchedIdx = 0;
+        if (cleanVar) {
+          matchedIdx = variants.findIndex((v: any) => {
+            if (typeof v !== 'object') return String(v).toLowerCase().replace(/\s+/g, '') === cleanVar;
+            const vWeight = String(v.weight || '').toLowerCase().replace(/\s+/g, '');
+            const vUnit = String(v.unit || '').toLowerCase().replace(/\s+/g, '');
+            const vCombo = (vWeight + vUnit);
+            const vLabel = String(v.label || v.name || '').toLowerCase().replace(/\s+/g, '');
+            const vSku = String(v.sku || '').toLowerCase().replace(/\s+/g, '');
+            return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || vSku === cleanVar || cleanVar.includes(vWeight) || (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase());
+          });
         }
+        if (matchedIdx < 0 && rawProdId) {
+          matchedIdx = variants.findIndex((v: any) => {
+            if (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase()) return true;
+            if (v.flavorSkus) {
+              return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === rawProdId.toLowerCase());
+            }
+            return false;
+          });
+        }
+        // Fallback: If no specific variant matched, default to first variant so stock is ALWAYS deducted!
+        if (matchedIdx < 0) matchedIdx = 0;
 
         if (matchedIdx >= 0 && variants[matchedIdx]) {
           const v = variants[matchedIdx];
@@ -1086,11 +1127,12 @@ export default function App() {
           prodUpdates.push({ id: prod.id, variants, stock: newGlobalStock });
 
           // Also update linked SKU in Inventory
-          if (linkedSku && linkedSku.trim()) {
-            const skuClean = linkedSku.trim().toLowerCase();
+          const skuSearch = (linkedSku || rawProdId).trim().toLowerCase();
+          if (skuSearch) {
             const invIdx = updatedInventory.findIndex(i => 
-              String(i.id || '').trim().toLowerCase() === skuClean ||
-              String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === skuClean
+              String(i.id || '').trim().toLowerCase() === skuSearch ||
+              String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === skuSearch ||
+              (rawItemName.length > 2 && String(i.name || '').trim().toLowerCase() === rawItemName)
             );
             if (invIdx >= 0) {
               const invItem = { ...updatedInventory[invIdx] };
@@ -1104,12 +1146,13 @@ export default function App() {
         }
       }
 
-      // 2. Fallback: Direct SKU deduction in Inventory Items if item was added directly from Inventory SKUs tab
-      if (rawProdId) {
-        const targetClean = rawProdId.toLowerCase();
+      // 2. Fallback: Direct SKU or Name deduction in Inventory Items if item was added directly from Inventory SKUs tab
+      const targetClean = (rawProdId || rawItemName).toLowerCase();
+      if (targetClean) {
         const invIdx = updatedInventory.findIndex(i => 
           String(i.id || '').trim().toLowerCase() === targetClean ||
-          String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === targetClean
+          String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === targetClean ||
+          (rawItemName.length > 2 && String(i.name || '').trim().toLowerCase() === rawItemName)
         );
         if (invIdx >= 0) {
           const invItem = { ...updatedInventory[invIdx] };
