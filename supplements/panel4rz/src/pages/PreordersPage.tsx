@@ -142,8 +142,22 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
 
   // Resolve inventory item selection in modal row
   const handleSelectInventoryItem = (index: number, skuOrName: string) => {
-    const inv = inventoryItems.find(x => x.id.toLowerCase() === skuOrName.toLowerCase() || x.name.toLowerCase() === skuOrName.toLowerCase());
-    const prod = products.find(x => x.name.toLowerCase() === skuOrName.toLowerCase() || x.id === skuOrName);
+    const q = skuOrName.trim().toLowerCase();
+    const inv = inventoryItems.find(x => (x.id || '').toLowerCase() === q || (x.name || '').toLowerCase() === q);
+    
+    const prod = products.find(x => {
+      if ((x.name || '').toLowerCase() === q || (x.id || '').toLowerCase() === q) return true;
+      if (x.variants) {
+        return x.variants.some((v: any) => {
+          if (v.sku && String(v.sku).toLowerCase() === q) return true;
+          if (v.flavorSkus) {
+            return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === q);
+          }
+          return false;
+        });
+      }
+      return false;
+    });
 
     const nextRows = [...itemRows];
     if (inv) {
@@ -155,14 +169,33 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
         unit_price: inv.retail_dzd || 0
       };
     } else if (prod) {
+      let v = prod.variants?.[0];
+      let variantLabel = '';
+      if (prod.variants) {
+        const foundV = prod.variants.find((v: any) => {
+          if (v.sku && String(v.sku).toLowerCase() === q) return true;
+          if (v.flavorSkus) {
+            return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === q);
+          }
+          return false;
+        });
+        if (foundV) {
+          v = foundV;
+          variantLabel = v.weight ? `${v.weight}${v.unit || ''}` : (v.label || v.name || v.sku || '');
+        }
+      }
       nextRows[index] = {
         ...nextRows[index],
         product_id: prod.id,
         product_name: prod.name,
-        unit_price: prod.variants?.[0]?.price || 0
+        variant: variantLabel || (nextRows[index].variant || ''),
+        unit_price: v?.price || prod.variants?.[0]?.price || 0
       };
     } else {
-      nextRows[index].product_name = skuOrName;
+      nextRows[index] = {
+        ...nextRows[index],
+        product_name: skuOrName
+      };
     }
     setItemRows(nextRows);
   };
