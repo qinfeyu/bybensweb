@@ -961,8 +961,9 @@ export default function App() {
             // Deduct / restore stock for component SKU in Inventory
             if (compTargetId) {
               const invIdx = updatedInventory.findIndex(i => 
-                String(i.id).trim().toLowerCase() === compTargetId || 
-                (bItem.sku && String(i.id).trim().toLowerCase() === String(bItem.sku).trim().toLowerCase())
+                String(i.id || '').trim().toLowerCase() === compTargetId || 
+                String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === compTargetId ||
+                (bItem.sku && (String(i.id || '').trim().toLowerCase() === String(bItem.sku).trim().toLowerCase() || String(i.sku || '').trim().toLowerCase() === String(bItem.sku).trim().toLowerCase()))
               );
               if (invIdx >= 0) {
                 const invItem = { ...updatedInventory[invIdx] };
@@ -1086,8 +1087,11 @@ export default function App() {
 
           // Also update linked SKU in Inventory
           if (linkedSku && linkedSku.trim()) {
-            const skuClean = linkedSku.trim();
-            const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === skuClean.toLowerCase());
+            const skuClean = linkedSku.trim().toLowerCase();
+            const invIdx = updatedInventory.findIndex(i => 
+              String(i.id || '').trim().toLowerCase() === skuClean ||
+              String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === skuClean
+            );
             if (invIdx >= 0) {
               const invItem = { ...updatedInventory[invIdx] };
               const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
@@ -1102,7 +1106,11 @@ export default function App() {
 
       // 2. Fallback: Direct SKU deduction in Inventory Items if item was added directly from Inventory SKUs tab
       if (rawProdId) {
-        const invIdx = updatedInventory.findIndex(i => String(i.id).trim().toLowerCase() === rawProdId.toLowerCase());
+        const targetClean = rawProdId.toLowerCase();
+        const invIdx = updatedInventory.findIndex(i => 
+          String(i.id || '').trim().toLowerCase() === targetClean ||
+          String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === targetClean
+        );
         if (invIdx >= 0) {
           const invItem = { ...updatedInventory[invIdx] };
           const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);

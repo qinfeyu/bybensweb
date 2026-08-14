@@ -22,6 +22,7 @@ export interface DeliveryPrice {
 
 export interface InventoryItem {
   id: string; // SKU ID (e.g. SUP-8801)
+  sku?: string;
   type: 'supplement' | 'snack';
   brand: string;
   name: string;
@@ -32,7 +33,7 @@ export interface InventoryItem {
   delivery_dzd: number;
   retail_dzd: number;
   stock: number;      // DZ Stock (sellable)
-  stock_eu: number;   // EU Stock
+  stock_eu: number;   // EU Stock;
   created_at?: string;
   _lastUpdated?: string;
 }

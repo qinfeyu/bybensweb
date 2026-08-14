@@ -44,8 +44,11 @@ export function getProductPricingAndCost(
   const pIdStr = String(productId || "").toLowerCase().trim();
   const vNameStr = String(variantName || "").toLowerCase().trim();
 
-  // 1. Direct SKU ID match
-  inv = inventoryItems.find(x => String(x.id || "").toLowerCase().trim() === pIdStr);
+  // 1. Direct SKU ID / SKU code match
+  inv = inventoryItems.find(x => 
+    String(x.id || "").toLowerCase().trim() === pIdStr ||
+    String(x.sku || "").toLowerCase().trim() === pIdStr
+  );
 
   // 2. Look up in products catalog
   const prod = products.find(p => 
@@ -65,7 +68,11 @@ export function getProductPricingAndCost(
         if (Number(v.price)) retailPrice = Number(v.price);
         
         if (v.sku) {
-          const linkedInv = inventoryItems.find(x => String(x.id || "").toLowerCase().trim() === String(v.sku).toLowerCase().trim());
+          const targetSkuStr = String(v.sku).toLowerCase().trim();
+          const linkedInv = inventoryItems.find(x => 
+            String(x.id || "").toLowerCase().trim() === targetSkuStr ||
+            String(x.sku || "").toLowerCase().trim() === targetSkuStr
+          );
           if (linkedInv) inv = linkedInv;
         }
 
