@@ -414,8 +414,21 @@
     }
   };
 
+  var _lastSentTelegramMsg = "";
+  var _lastSentTelegramTime = 0;
+
   window.sendTelegramNotification = async function (orderData) {
     if (!orderData) return;
+
+    var dedupKey = String(orderData.phone || "") + "_" + String(orderData.total || 0) + "_" + String(orderData.items ? orderData.items.length : 0);
+    var now = Date.now();
+    if (_lastSentTelegramMsg === dedupKey && (now - _lastSentTelegramTime) < 60000) {
+      console.log("Duplicate Telegram notification suppressed.");
+      return;
+    }
+    _lastSentTelegramMsg = dedupKey;
+    _lastSentTelegramTime = now;
+
     var TELEGRAM_BOT_TOKEN = "8597076283:AAEcCim85KCQZQC-5ik4SLXdS8xPvOJg__o";
     var TELEGRAM_CHAT_ID = "-1003790940322";
 
