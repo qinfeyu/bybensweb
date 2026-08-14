@@ -74,19 +74,35 @@
 
       function getDeliveryCost() {
         if (selectedWilayaCode && _deliveryPrices.length) {
-          const wilayaName = WILAYAS[selectedWilayaCode]
-            ? WILAYAS[selectedWilayaCode].name.trim().toLowerCase()
-            : "";
-          const code = selectedWilayaCode.replace(/^0+/, ""); // "01" → "1"
+          const wilayaObj = WILAYAS[selectedWilayaCode];
+          const wilayaName = wilayaObj ? wilayaObj.name.trim().toLowerCase() : "";
+          const wilayaNameNorm = wilayaName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const targetCodeNum = parseInt(selectedWilayaCode, 10);
+
           const row = _deliveryPrices.find((d) => {
-            const stored = d.wilaya.trim().toLowerCase();
-            return (
-              stored === wilayaName ||
-              stored === code ||
-              stored === selectedWilayaCode ||
-              stored.includes(wilayaName) ||
-              wilayaName.includes(stored)
-            );
+            if (!d || !d.wilaya) return false;
+            const storedRaw = String(d.wilaya).trim().toLowerCase();
+            const storedNorm = storedRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            // 1. Extract number from stored wilaya (e.g., "06 - Béjaïa" -> 6, "6" -> 6)
+            const storedDigitMatch = storedRaw.match(/\b\d+\b/);
+            if (storedDigitMatch) {
+              const storedNum = parseInt(storedDigitMatch[0], 10);
+              if (!isNaN(storedNum) && !isNaN(targetCodeNum) && storedNum === targetCodeNum) {
+                return true;
+              }
+            }
+
+            // 2. String / Name matching (accent insensitive)
+            if (storedNorm === wilayaNameNorm || storedNorm === selectedWilayaCode || storedRaw === selectedWilayaCode) {
+              return true;
+            }
+
+            if (wilayaNameNorm && (storedNorm.includes(wilayaNameNorm) || wilayaNameNorm.includes(storedNorm))) {
+              return true;
+            }
+
+            return false;
           });
           if (row) return { home: row.homePrice, office: row.officePrice };
         }
