@@ -293,7 +293,7 @@
         if (!v) return;
         const base = typeof v === 'object' ? (Number(v.price) || 0) : 0;
         const disc = Number(product.discount) || 0;
-        items[idx].unitPrice = disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+        items[idx].unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
         items[idx].variant = typeof v === 'object' ? (v.weight ? `${v.weight}${v.unit||''}` : v.label || v.name || '') : String(v);
         // Clamp qty to new variant stock
         const max = _itemMaxQty(items[idx]);

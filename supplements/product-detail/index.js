@@ -138,7 +138,9 @@
         const base =
           variants.length > idx ? Number(variants[idx].price) || 0 : 0;
         const disc = Number(p.discount) || 0;
-        return disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+        if (disc <= 0) return base;
+        if (disc <= 100) return Math.max(0, Math.round(base * (1 - disc / 100)));
+        return Math.max(0, Math.round(base - disc));
       }
 
       /* ── CATEGORY NAV — FIX: always wrap in .cat-item div ── */
@@ -3882,9 +3884,8 @@
         const p = _atcProduct;
         if (!p) return;
         const v = parseField(p.variants)[_atcVariantIdx];
-        const base = v && typeof v === "object" ? v.price || 0 : 0;
-        const disc = p.discount || 0;
-        const final = disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+        const disc = Number(p.discount) || 0;
+        const final = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
         document.getElementById("atcPrice").textContent =
           final > 0 ? `${final.toLocaleString()} DA` : "";
       }
@@ -3933,8 +3934,8 @@
         const variants = parseField(p.variants);
         const v = variants[_atcVariantIdx];
         const base = v && typeof v === "object" ? v.price || 0 : 0;
-        const disc = p.discount || 0;
-        const unitPrice = disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+        const disc = Number(p.discount) || 0;
+        const unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
         const variantLabel = v
           ? typeof v === "object"
             ? v.weight

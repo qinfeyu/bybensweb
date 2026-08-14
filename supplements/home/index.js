@@ -319,8 +319,8 @@ function _atcRefreshPrice() {
   const p = _atcProduct; if (!p) return;
   const v = (Array.isArray(p.variants) ? p.variants : [])[_atcVariantIdx];
   const base = v && typeof v === "object" ? (v.price || 0) : 0;
-  const disc = p.discount || 0;
-  const final = disc > 0 ? Math.round(base * (1 - disc/100)) : base;
+  const disc = Number(p.discount) || 0;
+  const final = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc))) : base;
   document.getElementById("atcPrice").textContent = final > 0 ? `${final.toLocaleString()} DA` : "";
 }
 function atcPickFlavor(btn, f) {
@@ -357,8 +357,8 @@ function confirmAddToCart() {
   const variants = Array.isArray(p.variants) ? p.variants : [];
   const v = variants[_atcVariantIdx];
   const base = v && typeof v === "object" ? (v.price || 0) : 0;
-  const disc = p.discount || 0;
-  const unitPrice = disc > 0 ? Math.round(base * (1 - disc/100)) : base;
+  const disc = Number(p.discount) || 0;
+  const unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc))) : base;
   const variantLabel = v ? (typeof v === "object" ? (v.weight ? `${v.weight}${v.unit||""}` : v.label || v.name || "") : String(v)) : "";
   const items = cartGet();
   const existing = items.find(i => i.productId === p.id && i.flavor === _atcFlavor && i.variant === variantLabel);

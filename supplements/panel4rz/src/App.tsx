@@ -1037,7 +1037,8 @@ export default function App() {
               const vUnit = String(v.unit || '').toLowerCase().replace(/\s+/g, '');
               const vCombo = (vWeight + vUnit);
               const vLabel = String(v.label || v.name || '').toLowerCase().replace(/\s+/g, '');
-              return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || cleanVar.includes(vWeight) || (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase());
+              const vSku = String(v.sku || '').toLowerCase().replace(/\s+/g, '');
+              return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || vSku === cleanVar || cleanVar.includes(vWeight) || (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase());
             });
           }
           if (matchedIdx < 0 && rawProdId) {
@@ -1396,6 +1397,15 @@ export default function App() {
       unit_price: Number(itm.unit_price) || 0
     }));
 
+    // Deduct stock for new preorders, or adjust for edits
+    if (!existing) {
+      await adjustInventoryAndProductStock(newItems, -1);
+    } else {
+      const oldItems = preorderItems.filter(i => i.pre_order_id === preId);
+      await adjustInventoryAndProductStock(oldItems, +1);
+      await adjustInventoryAndProductStock(newItems, -1);
+    }
+
     // Sync budget & orders table if fulfilled
     if (newPreorder.total_amount > 0 || newItems.length > 0) {
       if (newPreorder.status === 'fulfilled' && (!existing || existing.status !== 'fulfilled')) {
@@ -1488,6 +1498,12 @@ export default function App() {
         await adjustDzdBudget(-totalAmt);
       }
       await removeOrderForPreorder(preorderId);
+    }
+
+    // Restore reserved stock
+    const itemsForPre = preorderItems.filter(i => i.pre_order_id === preorderId);
+    if (itemsForPre.length > 0) {
+      await adjustInventoryAndProductStock(itemsForPre, +1);
     }
 
     try {
