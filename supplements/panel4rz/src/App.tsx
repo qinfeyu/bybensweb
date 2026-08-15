@@ -1332,18 +1332,18 @@ export default function App() {
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     const existing = orders.find(o => o.id === orderId);
     if (existing && existing.status !== newStatus) {
+      // Stock management: restore stock if canceled, deduct stock if un-canceled
       if (newStatus === 'canceled' && existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
-        // If order was previously paid, subtract its total from DZD Budget
-        if (existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
-          await adjustDzdBudget(-existing.total);
-        }
       } else if (existing.status === 'canceled' && newStatus !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], -1);
-        // If restoring from canceled to active paid order, add back to DZD Budget
-        if (newStatus !== 'unpaid') {
-          await adjustDzdBudget(+existing.total);
-        }
+      }
+
+      // DZD Budget management: Total is ONLY added to DZD Budget when order is in 'delivered' status
+      if (existing.status === 'delivered' && newStatus !== 'delivered') {
+        await adjustDzdBudget(-existing.total);
+      } else if (existing.status !== 'delivered' && newStatus === 'delivered') {
+        await adjustDzdBudget(+existing.total);
       }
     }
 
@@ -1361,8 +1361,8 @@ export default function App() {
       if (existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
       }
-      // If order was paid (not canceled & not unpaid), subtract its total from DZD Budget
-      if (existing.status !== 'canceled' && existing.status !== 'unpaid' && existing.payment_status !== 'unpaid' && existing.is_unpaid !== true) {
+      // If order was in 'delivered' status when deleted, subtract its total from DZD Budget
+      if (existing.status === 'delivered') {
         await adjustDzdBudget(-existing.total);
       }
     }
