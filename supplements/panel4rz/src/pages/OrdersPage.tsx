@@ -184,9 +184,15 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     printWindow.document.close();
   };
 
-  // 1. Base active sales (excluding unpaid credit sales)
+  const normStatus = (s?: string) => {
+    if (!s || s === 'pending' || s === 'waiting') return 'waiting';
+    return s;
+  };
+
+  // 1. Base active sales (excluding ONLY POS Unpaid & Credit Sales)
   const baseActiveOrders = orders.filter(o => {
-    return o.status !== 'unpaid' && o.payment_status !== 'unpaid' && o.is_unpaid !== true;
+    const isPosCredit = getSourceType(o.source) === 'pos' && (o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true);
+    return !isPosCredit;
   });
 
   // 2. Orders filtered by Source
@@ -197,7 +203,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   // 3. Final Orders filtered by Source + Status + Search Query
   const filteredOrders = sourceFilteredOrders.filter(o => {
-    if (selectedStatus !== 'all' && o.status !== selectedStatus) return false;
+    if (selectedStatus !== 'all' && normStatus(o.status) !== selectedStatus) return false;
     if (!searchQuery.trim()) return true;
 
     const q = searchQuery.toLowerCase().trim();
@@ -271,7 +277,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             {['all', 'waiting', 'confirmed', 'shipping', 'delivered', 'canceled'].map(st => {
               const count = st === 'all'
                 ? baseActiveOrders.length
-                : baseActiveOrders.filter(o => o.status === st).length;
+                : baseActiveOrders.filter(o => normStatus(o.status) === st).length;
 
               return (
                 <button
