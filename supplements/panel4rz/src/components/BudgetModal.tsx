@@ -25,12 +25,12 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   // Direct manual budget editing state
   const [eurVal, setEurVal] = useState<string>(settings.budget_eur || '0');
   const [dzdVal, setDzdVal] = useState<string>(settings.budget_dzd || '0');
-  const [rateVal, setRateVal] = useState<string>(settings.budget_rate || '245');
+  const [rateVal, setRateVal] = useState<string>(settings.budget_rate || '280');
 
   // Conversion Tool State
   const [conversionDirection, setConversionDirection] = useState<'dzd_to_eur' | 'eur_to_dzd'>('dzd_to_eur');
   const [convertAmount, setConvertAmount] = useState<string>('');
-  const [convertRate, setConvertRate] = useState<string>(settings.budget_rate || '245');
+  const [convertRate, setConvertRate] = useState<string>(settings.budget_rate || '280');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Add / Deposit Funds State
@@ -40,7 +40,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   // Parse numeric values safely
   const currentEur = parseFloat(eurVal) || 0;
   const currentDzd = parseFloat(dzdVal) || 0;
-  const numRate = parseFloat(convertRate) || parseFloat(rateVal) || 245;
+  const numRate = parseFloat(convertRate) || parseFloat(rateVal) || 280;
   const numConvertAmount = parseFloat(convertAmount) || 0;
   const numAddAmount = parseFloat(addAmountInput) || 0;
 
