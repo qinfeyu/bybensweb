@@ -3807,7 +3807,7 @@
         _atcFlavorObjs = [],
         _atcVariantIdx = 0;
       function openAddToCartModal(productId) {
-        const p = _allProducts.find((x) => x.id === productId);
+        const p = _allProducts.find((x) => String(x.id) === String(productId));
         if (!p) return;
         _atcProduct = p;
         _atcQty = 1;
@@ -3885,6 +3885,7 @@
         const p = _atcProduct;
         if (!p) return;
         const v = parseField(p.variants)[_atcVariantIdx];
+        const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
         const disc = Number(p.discount) || 0;
         const final = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
         document.getElementById("atcPrice").textContent =
@@ -3934,7 +3935,7 @@
         if (!p) return;
         const variants = parseField(p.variants);
         const v = variants[_atcVariantIdx];
-        const base = v && typeof v === "object" ? v.price || 0 : 0;
+        const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
         const disc = Number(p.discount) || 0;
         const unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
         const variantLabel = v

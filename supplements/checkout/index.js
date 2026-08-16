@@ -865,7 +865,7 @@
         }).join("");
       }
       function openAddToCartModal(productId) {
-        const p = _allProducts.find(x => x.id === productId); if (!p) return;
+        const p = _allProducts.find(x => String(x.id) === String(productId)); if (!p) return;
         if (Number(p.stock) <= 0) return;
         _atcProduct = p; _atcQty = 1; _atcFlavor = ""; _atcVariantIdx = 0;
         const _atcImg0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;

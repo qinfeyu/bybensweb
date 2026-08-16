@@ -1195,14 +1195,44 @@
         }
       }
       /* ── Add to Cart Modal ── */
+      function _calcProductStock(p) {
+        if (!p) return 0;
+        let total = Number(p.stock) || 0;
+        if (total > 0) return total;
+        const variants = Array.isArray(p.variants) ? p.variants : [];
+        if (variants.length > 0) {
+          let vSum = 0;
+          variants.forEach(v => {
+            if (typeof v === 'object') {
+              if (v.flavorStock && typeof v.flavorStock === 'object') {
+                vSum += Object.values(v.flavorStock).reduce((s, n) => s + (Number(n) || 0), 0);
+              } else {
+                vSum += Number(v.stock) || 0;
+              }
+            }
+          });
+          if (vSum > 0) return vSum;
+        }
+        const flavors = Array.isArray(p.flavors) ? p.flavors : [];
+        if (flavors.length > 0) {
+          let fSum = 0;
+          flavors.forEach(f => {
+            if (typeof f === 'object') fSum += Number(f.qty) || 0;
+          });
+          if (fSum > 0) return fSum;
+        }
+        return total;
+      }
+
       let _atcProduct = null,
         _atcQty = 1,
         _atcFlavor = "",
         _atcFlavorObjs = [],
         _atcVariantIdx = 0;
+
       function openAddToCartModal(productId) {
-        const p = allProducts.find((x) => x.id === productId);
-        if (!p || Number(p.stock) <= 0) return;
+        const p = allProducts.find((x) => String(x.id) === String(productId));
+        if (!p || _calcProductStock(p) <= 0) return;
         _atcProduct = p;
         _atcQty = 1;
         _atcFlavor = "";
@@ -1247,15 +1277,18 @@
         document.getElementById("atcOverlay").classList.add("open");
         document.body.style.overflow = "hidden";
       }
+
       function _atcRefreshPrice() {
         const p = _atcProduct;
         if (!p) return;
         const v = (Array.isArray(p.variants) ? p.variants : [])[_atcVariantIdx];
+        const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
         const disc = Number(p.discount) || 0;
         const final = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
         document.getElementById("atcPrice").textContent =
           final > 0 ? `${final.toLocaleString()} DA` : "";
       }
+
       function atcPickFlavor(btn, f) {
         document
           .querySelectorAll("#atcFlavorOptions .atc-option")
@@ -1265,6 +1298,7 @@
         _atcQty = 1;
         document.getElementById("atcQtyVal").textContent = 1;
       }
+
       function atcPickVariant(btn, idx) {
         document.querySelectorAll("#atcWeightOptions .atc-option").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
@@ -1272,6 +1306,7 @@
         _atcRefreshPrice();
         _atcRenderFlavorOptions(); // re-evaluate flavor OOS for new variant
       }
+
       function _atcRenderFlavorOptions() {
         const p = _atcProduct;
         if (!p || !_atcFlavorObjs.length) return;
@@ -1292,37 +1327,42 @@
           return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${fo.name.replace(/'/g, "\\'")}')"`}>${fo.name}</button>`;
         }).join("");
       }
+
       function _atcCurrentFlavorQty() {
         const p = _atcProduct;
         if (!p) return 5;
         const variants = Array.isArray(p.variants) ? p.variants : [];
         const v = variants[_atcVariantIdx];
         if (v && typeof v === "object" && v.flavorStock && _atcFlavor) {
-          return Number(v.flavorStock[_atcFlavor]) || 0;
+          const fsQty = Number(v.flavorStock[_atcFlavor]);
+          if (!isNaN(fsQty)) return fsQty;
         }
-        if (!_atcFlavorObjs.length || !_atcFlavorObjs.some(fo => fo.qty > 0)) return Number(p.stock) || 5;
+        if (!_atcFlavorObjs.length || !_atcFlavorObjs.some(fo => fo.qty > 0)) return _calcProductStock(p) || 5;
         const fo = _atcFlavorObjs.find(f => f.name === _atcFlavor);
-        return fo ? fo.qty : 1;
+        return fo ? (Number(fo.qty) || 0) : 1;
       }
+
       function atcChangeQty(d) {
         const maxQty = Math.min(5, _atcCurrentFlavorQty());
         _atcQty = Math.min(maxQty, Math.max(1, _atcQty + d));
         document.getElementById("atcQtyVal").textContent = _atcQty;
       }
+
       function closeAddToCartModal() {
         document.getElementById("atcOverlay").classList.remove("open");
         document.body.style.overflow = "";
       }
+
       function confirmAddToCart() {
         const p = _atcProduct;
-        if (!p || Number(p.stock) <= 0) return;
+        if (!p || _calcProductStock(p) <= 0) return;
         if (_atcFlavorObjs.some((fo) => fo.qty > 0)) {
           const fo = _atcFlavorObjs.find((f) => f.name === _atcFlavor);
-          if (!fo || fo.qty <= 0) return;
+          if (fo && fo.qty <= 0) return;
         }
         const variants = Array.isArray(p.variants) ? p.variants : [];
         const v = variants[_atcVariantIdx];
-        const base = v && typeof v === "object" ? v.price || 0 : 0;
+        const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
         const disc = Number(p.discount) || 0;
         const unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
         const variantLabel = v

@@ -269,7 +269,7 @@ function cartUpdateBadge() {
 /* ── Add to Cart Modal ── */
 let _atcProduct = null, _atcQty = 1, _atcFlavor = "", _atcFlavorObjs = [], _atcVariantIdx = 0;
 function openAddToCartModal(productId) {
-  const p = products.find(x => x.id === productId); if (!p) return;
+  const p = products.find(x => String(x.id) === String(productId)); if (!p) return;
   _atcProduct = p; _atcQty = 1; _atcFlavor = ""; _atcVariantIdx = 0;
   const _atcImg0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
   document.getElementById("atcImg").innerHTML = _atcImg0
@@ -318,7 +318,7 @@ function _atcRenderFlavorOptions() {
 function _atcRefreshPrice() {
   const p = _atcProduct; if (!p) return;
   const v = (Array.isArray(p.variants) ? p.variants : [])[_atcVariantIdx];
-  const base = v && typeof v === "object" ? (v.price || 0) : 0;
+  const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
   const disc = Number(p.discount) || 0;
   const final = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc))) : base;
   document.getElementById("atcPrice").textContent = final > 0 ? `${final.toLocaleString()} DA` : "";
@@ -356,7 +356,7 @@ function confirmAddToCart() {
   if (_atcFlavorObjs.some(fo => fo.qty > 0)) { const fo = _atcFlavorObjs.find(f => f.name === _atcFlavor); if (!fo || fo.qty <= 0) return; }
   const variants = Array.isArray(p.variants) ? p.variants : [];
   const v = variants[_atcVariantIdx];
-  const base = v && typeof v === "object" ? (v.price || 0) : 0;
+  const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
   const disc = Number(p.discount) || 0;
   const unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc))) : base;
   const variantLabel = v ? (typeof v === "object" ? (v.weight ? `${v.weight}${v.unit||""}` : v.label || v.name || "") : String(v)) : "";
