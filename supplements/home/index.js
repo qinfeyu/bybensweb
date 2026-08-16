@@ -574,12 +574,61 @@ function renderProductListToContainer(containerId, productList, lang) {
     .join("");
 }
 
+let _rawOrders = [];
+
+function getDynamicBestSellers(prods, orders) {
+  const inStockProducts = prods.filter((p) => Number(p.stock) > 0);
+  if (!inStockProducts.length) return [];
+
+  // Exclude standalone bundle packs from regular Best Sellers
+  const nonBundles = inStockProducts.filter((p) => {
+    const bItems = p.bundleItems || p.bundle_items;
+    const isB = (Array.isArray(bItems) && bItems.length > 0) ||
+                (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+    return !isB;
+  });
+
+  const candidates = nonBundles.length ? nonBundles : inStockProducts;
+
+  // Aggregate total quantity sold per product from past orders
+  const salesMap = {};
+  if (Array.isArray(orders)) {
+    orders.forEach((o) => {
+      (o.items || []).forEach((it) => {
+        const rawName = (it.name || it.product_name || '').split(' (')[0].trim().toLowerCase();
+        const pId = String(it.productId || it.product_id || '').trim();
+        const qty = Number(it.qty) || 1;
+        if (pId) salesMap[pId] = (salesMap[pId] || 0) + qty;
+        if (rawName) salesMap[rawName] = (salesMap[rawName] || 0) + qty;
+      });
+    });
+  }
+
+  // Score candidates: real sales volume (weight 1000) + rating + discount
+  const scored = candidates.map((p) => {
+    const idKey = String(p.id).trim();
+    const nameKey = (p.name || '').toLowerCase().trim();
+    const salesCount = (salesMap[idKey] || 0) + (salesMap[nameKey] || 0);
+    const ratingScore = Number(p.rating || 5) * 10;
+    const discountScore = Number(p.discount || 0) > 0 ? 5 : 0;
+    return {
+      product: p,
+      score: (salesCount * 1000) + ratingScore + discountScore,
+      salesCount
+    };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  return scored.map((item) => item.product).slice(0, 8);
+}
+
 function renderProducts(lang) {
   // Only display in-stock products on the home page
   const inStockProducts = products.filter((p) => Number(p.stock) > 0);
 
-  // 1. Best Sellers: up to 8 in-stock items
-  const bestSellers = inStockProducts.slice(0, 8);
+  // 1. Dynamic Best Sellers: ranked dynamically by real order sales history & popularity
+  const bestSellers = getDynamicBestSellers(products, _rawOrders);
   renderProductListToContainer("bestSellersGrid", bestSellers, lang);
 
   // 2. New Arrivals: sort in-stock products desc by createdAt, up to 8 items
@@ -816,9 +865,13 @@ async function loadInitialData() {
     const res = await getInitialData();
     if (!res || !res.success) throw new Error("getInitialData failed");
 
-    // ── Products (include out of stock active products) ──
+    // ── Products & Orders ──
     products = res.products
       .filter((p) => p.status === "active");
+    _rawOrders = res.orders || [];
+    if (Array.isArray(_rawOrders)) {
+      _topSoldIds = computeTopSoldIds(_rawOrders, products);
+    }
     renderProducts(currentLang);
 
     // ── Bundle banner ──
