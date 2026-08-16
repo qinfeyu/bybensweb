@@ -99,7 +99,7 @@ export const PosPage: React.FC<PosPageProps> = ({
 
     const variants = selectedProduct.variants || [];
     const v = variants[selectedVariantIdx] || {};
-    const price = Number(v.price) || Number(selectedProduct.variants?.[0]?.price) || 0;
+    const price = Number(v.price) || Number(selectedProduct.variants?.[0]?.price) || Number((selectedProduct as any).price) || 0;
     const variantLabel = getVariantLabel(v, selectedVariantIdx);
 
     const existingIdx = cart.findIndex(

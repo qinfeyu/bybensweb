@@ -189,7 +189,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
         product_id: prod.id,
         product_name: prod.name,
         variant: variantLabel || (nextRows[index].variant || ''),
-        unit_price: v?.price || prod.variants?.[0]?.price || 0
+        unit_price: v?.price || prod.variants?.[0]?.price || Number((prod as any).price) || 0
       };
     } else {
       nextRows[index] = {

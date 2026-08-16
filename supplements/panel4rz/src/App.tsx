@@ -1328,6 +1328,16 @@ export default function App() {
 
   const adjustDzdBudget = (amount: number) => adjustBudget('DZD', amount);
 
+  const getOrderSubtotal = (o: Order) => {
+    if (!o) return 0;
+    if (o.subtotal !== undefined && o.subtotal !== null && Number(o.subtotal) > 0) {
+      return Number(o.subtotal);
+    }
+    const delCost = Number(o.delivery_cost !== undefined ? o.delivery_cost : (o.deliveryCost || 0));
+    const tot = Number(o.total || 0);
+    return Math.max(0, tot - delCost);
+  };
+
   // ── ORDER MUTATIONS ──
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     const existing = orders.find(o => o.id === orderId);
@@ -1339,11 +1349,12 @@ export default function App() {
         await adjustInventoryAndProductStock(existing.items || [], -1);
       }
 
-      // DZD Budget management: Total is ONLY added to DZD Budget when order is in 'delivered' status
+      // DZD Budget management: ONLY Subtotal (excluding delivery costs) is added to DZD Budget when order is in 'delivered' status
+      const existingSubtotal = getOrderSubtotal(existing);
       if (existing.status === 'delivered' && newStatus !== 'delivered') {
-        await adjustDzdBudget(-existing.total);
+        await adjustDzdBudget(-existingSubtotal);
       } else if (existing.status !== 'delivered' && newStatus === 'delivered') {
-        await adjustDzdBudget(+existing.total);
+        await adjustDzdBudget(+existingSubtotal);
       }
     }
 
@@ -1361,9 +1372,10 @@ export default function App() {
       if (existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
       }
-      // If order was in 'delivered' status when deleted, subtract its total from DZD Budget
+      // If order was in 'delivered' status when deleted, subtract its subtotal (excluding delivery) from DZD Budget
       if (existing.status === 'delivered') {
-        await adjustDzdBudget(-existing.total);
+        const existingSubtotal = getOrderSubtotal(existing);
+        await adjustDzdBudget(-existingSubtotal);
       }
     }
 
@@ -1402,9 +1414,10 @@ export default function App() {
     // Deduct stock for POS order (runs for both paid and unpaid credit sales)
     await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
-    // Add paid order total to DZD Budget
-    if (!isUnpaid && newOrder.total > 0) {
-      await adjustDzdBudget(+newOrder.total);
+    // Add paid order subtotal (products only) to DZD Budget
+    const newOrderSubtotal = getOrderSubtotal(newOrder);
+    if (!isUnpaid && newOrderSubtotal > 0) {
+      await adjustDzdBudget(+newOrderSubtotal);
     }
 
     try {
@@ -1431,14 +1444,17 @@ export default function App() {
     if (isUnpaid) {
       showToast(`✓ Unpaid Sale recorded! Added to Unpaid & Credit tab.`, 'info');
     } else {
-      showToast(`✓ POS Order #${id} recorded! ${newOrder.total.toLocaleString()} DA added to DZD Budget.`);
+      showToast(`✓ POS Order #${id} recorded! ${newOrderSubtotal.toLocaleString()} DA added to DZD Budget.`);
     }
   };
 
   const handleMarkOrderAsPaid = async (orderId: string) => {
     const target = orders.find(o => o.id === orderId);
-    if (target && target.total > 0) {
-      await adjustDzdBudget(+target.total);
+    if (target) {
+      const subtotal = getOrderSubtotal(target);
+      if (subtotal > 0) {
+        await adjustDzdBudget(+subtotal);
+      }
     }
 
     try {
