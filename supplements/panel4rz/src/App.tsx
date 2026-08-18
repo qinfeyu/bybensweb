@@ -623,14 +623,16 @@ export default function App() {
       if (!res.ok) return;
       const data = await res.json();
 
-      // 1. Keep settings (DZD/EUR Budget) in sync continuously
+      // 1. Keep settings (EUR Budget & Rate) in sync continuously
+      // Note: We deliberately exclude budget_dzd from continuous polling to prevent UI flashing 
+      // during the transient database trigger phase of storefront order placement.
+      // DZD Budget will only be refreshed on initial load or manual adjustments.
       const rawSettings = data && Array.isArray(data.settings) ? data.settings : [];
       if (rawSettings.length > 0) {
         const setMap: any = {};
         rawSettings.forEach((s: any) => setMap[s.key] = s.value);
         setSettings(prev => ({
           ...prev,
-          budget_dzd: setMap.budget_dzd !== undefined ? setMap.budget_dzd : prev.budget_dzd,
           budget_eur: setMap.budget_eur !== undefined ? setMap.budget_eur : prev.budget_eur,
           budget_rate: setMap.budget_rate !== undefined ? setMap.budget_rate : prev.budget_rate,
         }));
