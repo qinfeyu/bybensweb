@@ -624,7 +624,7 @@ export default function App() {
         let hasNew = false;
         let newestOrderName = '';
 
-        data.forEach(o => {
+        data.forEach((o: any) => {
           if (!knownOrderIdsRef.current.has(o.id)) {
             hasNew = true;
             knownOrderIdsRef.current.add(o.id);
@@ -654,7 +654,7 @@ export default function App() {
     // 2. Real-time Supabase Subscription for instant order updates
     const channel = supabase
       .channel('orders-realtime-channel')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload: any) => {
         const newOrder = payload.new as Order;
         if (newOrder && !knownOrderIdsRef.current.has(newOrder.id)) {
           knownOrderIdsRef.current.add(newOrder.id);
