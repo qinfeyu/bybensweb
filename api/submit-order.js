@@ -56,13 +56,12 @@ module.exports = async function handler(req, res) {
     // 3. Synchronously overwrite DB trigger addition, locking budget_dzd back to preBudgetDzd
     if (SUPABASE_KEY && preBudgetDzd !== null && preBudgetDzd !== undefined) {
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd`, {
-          method: "PATCH",
-          headers: {
-            ...headers,
-            Prefer: "return=representation"
-          },
-          body: JSON.stringify({ value: preBudgetDzd })
+        const patchHeaders = { ...headers };
+        patchHeaders["Prefer"] = "resolution=merge-duplicates,return=representation";
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: "POST",
+          headers: patchHeaders,
+          body: JSON.stringify([{ key: "budget_dzd", value: String(preBudgetDzd) }])
         });
       } catch (err) {
         console.warn("Failed to overwrite DB trigger budget addition:", err);
