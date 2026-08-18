@@ -83,17 +83,21 @@ export default function App() {
 
   // On mount: check for a live Supabase session (async only, no sync callbacks)
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setAdminEmail(session.user.email || 'admin@bybens.com');
-      }
-      // Always dismiss the loading screen after the check
+    if (localStorage.getItem('bb_admin_auth') === '1') {
+      setIsAuthenticated(true);
+      setAdminEmail(localStorage.getItem('bb_admin_name') || 'admin@bybens.com');
       setIsSessionChecking(false);
-    }).catch(() => {
-      setIsSessionChecking(false);
-    });
-    // No onAuthStateChange listener – avoids React #310 (synchronous setState during render)
+    } else {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setIsAuthenticated(true);
+          setAdminEmail(session.user.email || 'admin@bybens.com');
+        }
+        setIsSessionChecking(false);
+      }).catch(() => {
+        setIsSessionChecking(false);
+      });
+    }
   }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -105,21 +109,24 @@ export default function App() {
     setIsAuthSubmitting(true);
     setAuthErrorMsg('');
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmailInput.trim(),
-        password: loginPasswordInput.trim()
+      const res = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmailInput.trim(), password: loginPasswordInput.trim() }),
       });
-      if (!error && data.session) {
+      const data = await res.json();
+      if (res.ok && data.success) {
         setIsAuthenticated(true);
+        localStorage.setItem('bb_admin_auth', '1');
+        localStorage.setItem('bb_admin_name', data.user?.email || loginEmailInput.trim());
+        if (data.access_token) {
+          localStorage.setItem('bb_admin_token', data.access_token);
+        }
         setAdminEmail(data.user?.email || loginEmailInput.trim());
         showToast('✓ Welcome back, Admin!');
       } else {
-        const msg = error?.message || 'Invalid email or password';
-        setAuthErrorMsg(
-          msg.includes('Invalid login credentials')
-            ? 'Invalid email or password.'
-            : msg
-        );
+        const msg = data.error || 'Invalid email or password';
+        setAuthErrorMsg(msg);
       }
     } catch {
       setAuthErrorMsg('Connection error. Please try again.');

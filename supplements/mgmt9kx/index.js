@@ -23,14 +23,22 @@
         document.getElementById("loginErr").classList.remove("show");
 
         try {
-          const { data: authData, error } = await _sbLogin.auth.signInWithPassword({ email, password: p });
+          const res = await fetch("/api/admin-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password: p }),
+          });
+          const authData = await res.json();
 
-          if (!error && authData.session) {
+          if (res.ok && authData.success) {
             localStorage.setItem("bb_admin_auth", "1");
             localStorage.setItem("bb_admin_name", authData.user?.email || email);
+            if (authData.access_token) {
+              localStorage.setItem("bb_admin_token", authData.access_token);
+            }
             window.location.href = "/supplements/panel4rz";
           } else {
-            showError("Invalid email or password");
+            showError(authData.error || "Invalid email or password");
             document.getElementById("loginPass").value = "";
             document.getElementById("loginPass").focus();
           }
