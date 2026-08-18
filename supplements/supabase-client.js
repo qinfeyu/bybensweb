@@ -217,6 +217,8 @@
       orders: (Array.isArray(raw.orders) ? raw.orders : []).map(_remapOrder),
       settings: Array.isArray(raw.settings) ? raw.settings : [],
     };
+  };
+
   window.getInitialData = function () {
     var CACHE_KEY = "bb_initial_data_cache";
     var CACHE_TIME = 5 * 60 * 1000; // 5 minutes
