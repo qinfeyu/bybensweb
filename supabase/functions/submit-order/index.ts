@@ -329,6 +329,16 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Revert automatic DB trigger budget addition for 'waiting' orders so budget is only affected on 'delivered' status
+    try {
+      const { data: setRows } = await sb.from("settings").select("value").eq("key", "budget_dzd").limit(1);
+      if (setRows && setRows.length > 0) {
+        const curDzd = Number(setRows[0].value) || 0;
+        const correctedDzd = Math.round(curDzd - (Number(total) || 0)).toString();
+        await sb.from("settings").update({ value: correctedDzd }).eq("key", "budget_dzd");
+      }
+    } catch (_) {}
+
     // Increment promo uses
     if (promoCode) {
       const codes = String(promoCode).split(",").map((c: string) => c.trim().toUpperCase()).filter(Boolean);
