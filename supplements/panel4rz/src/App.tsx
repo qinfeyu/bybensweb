@@ -200,9 +200,24 @@ export default function App() {
     setIsLoading(true);
     try {
       await ensureSupabaseKey();
+
+      let adminData: any = null;
+      try {
+        const adRes = await fetch('/api/admin-data');
+        if (adRes.ok) {
+          const parsed = await adRes.json();
+          if (parsed && parsed.success) adminData = parsed;
+        }
+      } catch (e) {}
+
       // 1. Fetch Inventory Items
-      const invRes = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false });
-      const cloudInv: InventoryItem[] = invRes.data || [];
+      let cloudInv: InventoryItem[] = [];
+      if (adminData && Array.isArray(adminData.inventoryItems)) {
+        cloudInv = adminData.inventoryItems;
+      } else {
+        const invRes = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false });
+        cloudInv = invRes.data || [];
+      }
 
       let localInv: InventoryItem[] = [];
       try {
@@ -248,23 +263,38 @@ export default function App() {
       localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(localEuMap));
 
       // 2. Fetch Categories & Sub-Categories
-      const catRes = await supabase.from('categories').select('*').order('created_at', { ascending: true });
-      if (catRes.data) {
-        setCategories(catRes.data.map((c: any) => ({ id: String(c.id), name: c.name })));
+      let catData: any[] = [];
+      if (adminData && Array.isArray(adminData.categories)) {
+        catData = adminData.categories;
+      } else {
+        const catRes = await supabase.from('categories').select('*').order('created_at', { ascending: true });
+        catData = catRes.data || [];
       }
+      setCategories(catData.map((c: any) => ({ id: String(c.id), name: c.name })));
 
-      const subRes = await supabase.from('sub_categories').select('*');
-      if (subRes.data) {
-        setSubCategories(subRes.data.map((s: any) => ({
-          id: String(s.id),
-          name: s.name,
-          categoryIds: (s.category_ids || '').split(',').filter(Boolean)
-        })));
+      let subData: any[] = [];
+      if (adminData && Array.isArray(adminData.subCategories)) {
+        subData = adminData.subCategories;
+      } else {
+        const subRes = await supabase.from('sub_categories').select('*');
+        subData = subRes.data || [];
       }
+      setSubCategories(subData.map((s: any) => ({
+        id: String(s.id),
+        name: s.name,
+        categoryIds: (s.category_ids || '').split(',').filter(Boolean)
+      })));
 
       // 3. Fetch Products
-      const prodRes = await supabase.from('products').select('*');
-      const cloudProds: Product[] = (prodRes.data || []).map((p: any) => ({
+      let prodData: any[] = [];
+      if (adminData && Array.isArray(adminData.products)) {
+        prodData = adminData.products;
+      } else {
+        const prodRes = await supabase.from('products').select('*');
+        prodData = prodRes.data || [];
+      }
+
+      const cloudProds: Product[] = prodData.map((p: any) => ({
         id: String(p.id),
         name: p.name,
         brand: p.brand || '',
@@ -275,7 +305,6 @@ export default function App() {
         benefits: p.benefits || '',
         imageUrl: Array.isArray(p.image_url) ? p.image_url : (p.image_url ? [p.image_url] : []),
         variants: p.variants || [],
-        // flavors stored as [{name, image}] objects or plain strings
         flavors: (p.flavors || []).map((f: any) => typeof f === 'object' && f !== null ? (f.name || '') : String(f)).filter(Boolean),
         flavorImages: (p.flavors || []).reduce((acc: Record<string, string>, f: any) => {
           if (f && typeof f === 'object' && f.name && f.image) acc[f.name] = f.image;
@@ -290,7 +319,6 @@ export default function App() {
         bundleItems: p.bundle_items || []
       }));
 
-      // Merge local products cache
       let localProds: Product[] = [];
       try {
         localProds = JSON.parse(localStorage.getItem('bb_products_cache') || '[]');
@@ -305,30 +333,60 @@ export default function App() {
       localStorage.setItem('bb_products_cache', JSON.stringify(finalProds));
 
       // 4. Fetch Orders
-      const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (ordersRes.data) {
-        setOrders(ordersRes.data);
-        ordersRes.data.forEach((o: any) => {
-          if (knownOrderIdsRef && knownOrderIdsRef.current) {
-            knownOrderIdsRef.current.add(o.id);
-          }
-        });
+      let rawOrders: any[] = [];
+      if (adminData && Array.isArray(adminData.orders)) {
+        rawOrders = adminData.orders;
+      } else {
+        const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        rawOrders = ordersRes.data || [];
       }
 
-      // 5. Fetch Pre-Orders & Pre-Order Items
-      const preRes = await supabase.from('pre_orders').select('*').order('date', { ascending: false });
-      if (preRes.data) setPreorders(preRes.data);
+      setOrders(rawOrders);
+      rawOrders.forEach((o: any) => {
+        if (knownOrderIdsRef && knownOrderIdsRef.current) {
+          knownOrderIdsRef.current.add(o.id);
+        }
+      });
 
-      const preItemsRes = await supabase.from('pre_order_items').select('*');
-      if (preItemsRes.data) setPreorderItems(preItemsRes.data);
+      // 5. Fetch Pre-Orders & Pre-Order Items
+      let rawPreorders: any[] = [];
+      if (adminData && Array.isArray(adminData.preOrders)) {
+        rawPreorders = adminData.preOrders;
+      } else {
+        const preRes = await supabase.from('pre_orders').select('*').order('date', { ascending: false });
+        rawPreorders = preRes.data || [];
+      }
+      setPreorders(rawPreorders);
+
+      let rawPreItems: any[] = [];
+      if (adminData && Array.isArray(adminData.preOrderItems)) {
+        rawPreItems = adminData.preOrderItems;
+      } else {
+        const preItemsRes = await supabase.from('pre_order_items').select('*');
+        rawPreItems = preItemsRes.data || [];
+      }
+      setPreorderItems(rawPreItems);
 
       // 6. Fetch Expenses
-      const expRes = await supabase.from('expenses').select('*').order('date', { ascending: false });
-      if (expRes.data) setExpenses(expRes.data);
+      let rawExpenses: any[] = [];
+      if (adminData && Array.isArray(adminData.expenses)) {
+        rawExpenses = adminData.expenses;
+      } else {
+        const expRes = await supabase.from('expenses').select('*').order('date', { ascending: false });
+        rawExpenses = expRes.data || [];
+      }
+      setExpenses(rawExpenses);
 
-      // 7. Fetch Customers & Extract Profiles from Orders & Pre-Orders
-      const custRes = await supabase.from('customers').select('*');
-      const cloudCusts: Customer[] = (custRes.data || []).map((c: any) => ({
+      // 7. Fetch Customers & Extract Profiles
+      let rawCusts: any[] = [];
+      if (adminData && Array.isArray(adminData.customers)) {
+        rawCusts = adminData.customers;
+      } else {
+        const custRes = await supabase.from('customers').select('*');
+        rawCusts = custRes.data || [];
+      }
+
+      const cloudCusts: Customer[] = rawCusts.map((c: any) => ({
         id: String(c.id),
         name: c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Customer',
         phone: c.phone || '',
@@ -337,7 +395,7 @@ export default function App() {
         group: c.group_type || c.group || 'public'
       }));
 
-      const orderCusts: Customer[] = (ordersRes.data || []).filter((o: any) => o.phone || o.first_name || o.firstName).map((o: any) => {
+      const orderCusts: Customer[] = rawOrders.filter((o: any) => o.phone || o.first_name || o.firstName).map((o: any) => {
         const p = o.phone || '';
         const name = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || 'Customer';
         return {
@@ -350,7 +408,7 @@ export default function App() {
         };
       });
 
-      const preCusts: Customer[] = (preRes.data || []).filter((po: any) => po.phone || po.customer_name).map((po: any) => {
+      const preCusts: Customer[] = rawPreorders.filter((po: any) => po.phone || po.customer_name).map((po: any) => {
         const p = po.phone || '';
         return {
           id: p ? `cust_${p}` : String(po.id),
@@ -409,12 +467,19 @@ export default function App() {
       setCustomers(mergedCustList);
       localStorage.setItem('bb_customers_cache', JSON.stringify(mergedCustList));
 
-      // 7. Fetch Settings & Hidden Wilayas
-      const setRes = await supabase.from('settings').select('*');
+      // 8. Fetch Settings & Hidden Wilayas
+      let rawSettings: any[] = [];
+      if (adminData && Array.isArray(adminData.settings)) {
+        rawSettings = adminData.settings;
+      } else {
+        const setRes = await supabase.from('settings').select('*');
+        rawSettings = setRes.data || [];
+      }
+
       let hiddenWilayasList: string[] = [];
-      if (setRes.data) {
+      if (rawSettings.length > 0) {
         const setMap: any = {};
-        setRes.data.forEach((s: any) => setMap[s.key] = s.value);
+        rawSettings.forEach((s: any) => setMap[s.key] = s.value);
         setSettings({
           budget_dzd: setMap.budget_dzd || '0',
           budget_eur: setMap.budget_eur || '0',
@@ -428,9 +493,15 @@ export default function App() {
         } catch(e) {}
       }
 
-      // 8. Fetch Delivery Prices & Merge Master 69 Wilayas
-      const dpRes = await supabase.from('delivery_prices').select('*').order('wilaya', { ascending: true });
-      const rawCloudDps = dpRes.data || [];
+      // 9. Fetch Delivery Prices & Merge Master 69 Wilayas
+      let rawCloudDps: any[] = [];
+      if (adminData && Array.isArray(adminData.deliveryPrices)) {
+        rawCloudDps = adminData.deliveryPrices;
+      } else {
+        const dpRes = await supabase.from('delivery_prices').select('*').order('wilaya', { ascending: true });
+        rawCloudDps = dpRes.data || [];
+      }
+
       const dpMap = new Map<string, DeliveryPrice>();
 
       rawCloudDps.forEach((d: any) => {
@@ -465,7 +536,6 @@ export default function App() {
       Object.entries(MASTER_WILAYAS).forEach(([code, name]) => {
         const fullWilayaLabel = `${code} - ${name}`;
         const key = fullWilayaLabel.toLowerCase();
-        // check if any existing key starts with code
         const hasCodeMatch = Array.from(dpMap.keys()).some(k => k.startsWith(code.toLowerCase() + " ") || k.startsWith(code.toLowerCase() + "-"));
         if (!hasCodeMatch && !dpMap.has(key)) {
           const isHidden = hiddenWilayasList.includes(fullWilayaLabel) || hiddenWilayasList.includes(code) || hiddenWilayasList.includes(name);
@@ -481,36 +551,47 @@ export default function App() {
 
       setDeliveryPrices(Array.from(dpMap.values()));
 
-      // 9. Fetch Promo Codes
-      const promoRes = await supabase.from('promo_codes').select('*').order('created_at', { ascending: false });
-      if (promoRes.data) {
-        setPromoCodes(promoRes.data.map((p: any) => ({
-          id: String(p.id),
-          code: p.code || '',
-          type: p.type || 'percent',
-          value: Number(p.value !== undefined ? p.value : 0),
-          minOrder: Number(p.min_order !== undefined ? p.min_order : (p.minOrder || 0)),
-          maxUses: p.max_uses !== undefined && p.max_uses !== null ? Number(p.max_uses) : (p.maxUses || null),
-          uses: Number(p.uses || 0),
-          expiry: p.expiry || '',
-          status: p.status || 'active',
-          applyToAll: p.apply_to_all === true || p.applyToAll === true
-        })));
+      // 10. Fetch Promo Codes
+      let rawPromos: any[] = [];
+      if (adminData && Array.isArray(adminData.promoCodes)) {
+        rawPromos = adminData.promoCodes;
+      } else {
+        const promoRes = await supabase.from('promo_codes').select('*').order('created_at', { ascending: false });
+        rawPromos = promoRes.data || [];
       }
 
-      // 10. Fetch Bundle Configuration
-      const bundleRes = await supabase.from('bundle').select('*').limit(1);
-      if (bundleRes.data && bundleRes.data.length > 0) {
-        const b = bundleRes.data[0];
+      setPromoCodes(rawPromos.map((p: any) => ({
+        id: String(p.id),
+        code: p.code || '',
+        type: p.type || 'percent',
+        value: Number(p.value !== undefined ? p.value : 0),
+        minOrder: Number(p.min_order !== undefined ? p.min_order : (p.minOrder || 0)),
+        maxUses: p.max_uses !== undefined && p.max_uses !== null ? Number(p.max_uses) : (p.maxUses || null),
+        uses: Number(p.uses || 0),
+        expiry: p.expiry || '',
+        status: p.status || 'active',
+        applyToAll: p.apply_to_all === true || p.applyToAll === true
+      })));
+
+      // 11. Fetch Bundle Configuration
+      let rawBundle: any = null;
+      if (adminData && adminData.bundle) {
+        rawBundle = Array.isArray(adminData.bundle) ? adminData.bundle[0] : adminData.bundle;
+      } else {
+        const bundleRes = await supabase.from('bundle').select('*').limit(1);
+        if (bundleRes.data && bundleRes.data.length > 0) rawBundle = bundleRes.data[0];
+      }
+
+      if (rawBundle) {
         setBundleConfig({
-          id: b.id,
-          bundleId: b.bundle_id || '',
-          titleEn: b.title_en || '',
-          titleFr: b.title_fr || '',
-          titleAr: b.title_ar || '',
-          descriptionEn: b.description_en || '',
-          descriptionFr: b.description_fr || '',
-          descriptionAr: b.description_ar || ''
+          id: rawBundle.id,
+          bundleId: rawBundle.bundle_id || '',
+          titleEn: rawBundle.title_en || '',
+          titleFr: rawBundle.title_fr || '',
+          titleAr: rawBundle.title_ar || '',
+          descriptionEn: rawBundle.description_en || '',
+          descriptionFr: rawBundle.description_fr || '',
+          descriptionAr: rawBundle.description_ar || ''
         });
       }
     } catch (e: any) {
