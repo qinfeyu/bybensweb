@@ -622,6 +622,21 @@ export default function App() {
       const res = await fetch('/api/admin-data');
       if (!res.ok) return;
       const data = await res.json();
+
+      // 1. Keep settings (DZD/EUR Budget) in sync continuously
+      const rawSettings = data && Array.isArray(data.settings) ? data.settings : [];
+      if (rawSettings.length > 0) {
+        const setMap: any = {};
+        rawSettings.forEach((s: any) => setMap[s.key] = s.value);
+        setSettings(prev => ({
+          ...prev,
+          budget_dzd: setMap.budget_dzd !== undefined ? setMap.budget_dzd : prev.budget_dzd,
+          budget_eur: setMap.budget_eur !== undefined ? setMap.budget_eur : prev.budget_eur,
+          budget_rate: setMap.budget_rate !== undefined ? setMap.budget_rate : prev.budget_rate,
+        }));
+      }
+
+      // 2. Keep orders in sync continuously
       const orders = data && Array.isArray(data.orders) ? data.orders : [];
       if (orders.length > 0) {
         let hasNew = false;
