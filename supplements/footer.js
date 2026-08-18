@@ -193,7 +193,9 @@
   else document.body.insertAdjacentHTML('beforeend', footerHTML);
 
   // Sync footer logo immediately after injection
-  updateLogos(document.documentElement.getAttribute('data-theme') === 'dark');
+  if (typeof updateLogos === 'function') {
+    updateLogos(document.documentElement.getAttribute('data-theme') === 'dark');
+  }
 
   // Set Year
   const yearEl = document.getElementById("footerYear");
