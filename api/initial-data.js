@@ -33,7 +33,7 @@ module.exports = async function handler(_req, res) {
     }
 
     const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings] = await Promise.all([
-      sf("products?select=id,name,brand,category_ids,sub_category_ids,description,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
+      sf("products?select=id,name,brand,category_ids,sub_category_ids,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
       sf("categories?select=*&order=created_at.asc"),
       sf("sub_categories?select=*"),
       sf("bundle?select=*&limit=1"),
@@ -44,9 +44,7 @@ module.exports = async function handler(_req, res) {
 
     const products = Array.isArray(rawProducts) ? rawProducts.filter((p) => !p.hidden) : [];
 
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
+    res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=300, max-age=15");
     res.setHeader("Content-Type", "application/json");
     res.status(200).json({
       products,
