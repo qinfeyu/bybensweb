@@ -27,6 +27,14 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   const [dzdVal, setDzdVal] = useState<string>(settings.budget_dzd || '0');
   const [rateVal, setRateVal] = useState<string>(settings.budget_rate || '280');
 
+  // Reactively sync modal inputs with current settings
+  React.useEffect(() => {
+    setEurVal(settings.budget_eur || '0');
+    setDzdVal(settings.budget_dzd || '0');
+    setRateVal(settings.budget_rate || '280');
+    setConvertRate(settings.budget_rate || '280');
+  }, [settings.budget_eur, settings.budget_dzd, settings.budget_rate, isOpen]);
+
   // Conversion Tool State
   const [conversionDirection, setConversionDirection] = useState<'dzd_to_eur' | 'eur_to_dzd'>('dzd_to_eur');
   const [convertAmount, setConvertAmount] = useState<string>('');

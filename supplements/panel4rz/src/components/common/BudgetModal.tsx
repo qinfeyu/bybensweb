@@ -21,6 +21,12 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   const [budgetEur, setBudgetEur] = useState(settings.budget_eur || '0');
   const [budgetRate, setBudgetRate] = useState(settings.budget_rate || '280');
 
+  React.useEffect(() => {
+    setBudgetDzd(settings.budget_dzd || '0');
+    setBudgetEur(settings.budget_eur || '0');
+    setBudgetRate(settings.budget_rate || '280');
+  }, [settings.budget_dzd, settings.budget_eur, settings.budget_rate, isOpen]);
+
   // Currency Exchange state
   const [exchangeEurAmount, setExchangeEurAmount] = useState<number>(0);
   const [exchangeRate, setExchangeRate] = useState<number>(parseFloat(settings.budget_rate) || 280);
