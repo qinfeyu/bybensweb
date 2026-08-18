@@ -17,11 +17,11 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  if (req.method !== 'POST') {
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -32,19 +32,7 @@ module.exports = async function handler(req, res) {
       headers["Authorization"] = `Bearer ${SUPABASE_KEY}`;
     }
 
-    // 1. Record DZD budget balance before inserting order
-    let preBudgetDzd = null;
-    if (SUPABASE_KEY) {
-      try {
-        const getRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd&select=value`, { headers });
-        const getRows = await getRes.json();
-        if (Array.isArray(getRows) && getRows.length > 0) {
-          preBudgetDzd = getRows[0].value;
-        }
-      } catch (_) {}
-    }
-
-    // 2. Submit order to Edge Function
+    // 1. Submit order to Supabase Edge Function
     const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-order`, {
       method: "POST",
       headers,
@@ -53,15 +41,29 @@ module.exports = async function handler(req, res) {
 
     const data = await response.json().catch(() => ({ success: true }));
 
-    // 3. Guarantee DZD budget is preserved for 'waiting' orders
-    if (SUPABASE_KEY && preBudgetDzd !== null) {
+    // 2. Neutralize automatic PostgreSQL DB trigger budget addition for 'waiting' orders
+    const orderTotal = Number(req.body?.total) || 0;
+    if (SUPABASE_KEY && orderTotal > 0) {
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd`, {
-          method: "PATCH",
-          headers: { ...headers, Prefer: "return=minimal" },
-          body: JSON.stringify({ value: String(preBudgetDzd) }),
-        });
-      } catch (_) {}
+        // Fetch current post-trigger DZD budget
+        const getRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd&select=value`, { headers });
+        const getRows = await getRes.json();
+        if (Array.isArray(getRows) && getRows.length > 0) {
+          const currentDzd = Number(getRows[0].value) || 0;
+          const restoredDzd = Math.round(currentDzd - orderTotal).toString();
+          
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd`, {
+            method: "PATCH",
+            headers: {
+              ...headers,
+              Prefer: "return=minimal"
+            },
+            body: JSON.stringify({ value: restoredDzd })
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to neutralize DB trigger budget addition:", err);
+      }
     }
 
     res.setHeader("Content-Type", "application/json");
