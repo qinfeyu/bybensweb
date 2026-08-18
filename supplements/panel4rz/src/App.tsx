@@ -652,8 +652,10 @@ export default function App() {
           }
         });
 
+        // Always update orders state so newly placed orders and status updates appear immediately
+        setOrders(orders);
+
         if (hasNew) {
-          setOrders(orders);
           playNewOrderSound();
           showToast(`🔔 New Order Received from ${newestOrderName}!`);
         }
