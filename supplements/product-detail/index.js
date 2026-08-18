@@ -3326,9 +3326,9 @@
           },
         ];
 
-        fetch(SUPABASE_URL + "/functions/v1/submit-order", {
+        fetch("/api/submit-order", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "submitProductOrder",
             firstName,
