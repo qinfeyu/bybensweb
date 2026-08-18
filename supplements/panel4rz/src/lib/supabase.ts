@@ -64,19 +64,17 @@ export const supabase = {
       select: (...args: any[]) => (query.select as any)(...args),
       upsert: async (data: any, options?: any) => {
         const proxyRes = await adminMutate('upsert', table, data);
-        const origRes = await Promise.resolve(query.upsert(data, options)).catch((err: any) => ({ data: null, error: err }));
         if (proxyRes && proxyRes.success) {
           return { data: proxyRes.data, error: null };
         }
-        return origRes;
+        return await Promise.resolve(query.upsert(data, options)).catch((err: any) => ({ data: null, error: err }));
       },
       insert: async (data: any, options?: any) => {
         const proxyRes = await adminMutate('insert', table, data);
-        const origRes = await Promise.resolve(query.insert(data, options)).catch((err: any) => ({ data: null, error: err }));
         if (proxyRes && proxyRes.success) {
           return { data: proxyRes.data, error: null };
         }
-        return origRes;
+        return await Promise.resolve(query.insert(data, options)).catch((err: any) => ({ data: null, error: err }));
       },
       update: (data: any) => {
         const origUpdate = query.update(data);
@@ -84,11 +82,10 @@ export const supabase = {
           ...origUpdate,
           eq: async (column: string, value: any) => {
             const proxyRes = await adminMutate('update', table, data, { [column]: value });
-            const origRes = await Promise.resolve(origUpdate.eq(column, value)).catch((err: any) => ({ data: null, error: err }));
             if (proxyRes && proxyRes.success) {
               return { data: proxyRes.data, error: null };
             }
-            return origRes;
+            return await Promise.resolve(origUpdate.eq(column, value)).catch((err: any) => ({ data: null, error: err }));
           }
         };
       },
@@ -98,19 +95,17 @@ export const supabase = {
           ...origDelete,
           eq: async (column: string, value: any) => {
             const proxyRes = await adminMutate('delete', table, undefined, { [column]: value });
-            const origRes = await Promise.resolve(origDelete.eq(column, value)).catch((err: any) => ({ data: null, error: err }));
             if (proxyRes && proxyRes.success) {
               return { data: proxyRes.data, error: null };
             }
-            return origRes;
+            return await Promise.resolve(origDelete.eq(column, value)).catch((err: any) => ({ data: null, error: err }));
           },
           like: async (column: string, pattern: string) => {
             const proxyRes = await adminMutate('delete', table, undefined, { [column]: `like:${pattern}` });
-            const origRes = await Promise.resolve(origDelete.like(column, pattern)).catch((err: any) => ({ data: null, error: err }));
             if (proxyRes && proxyRes.success) {
               return { data: proxyRes.data, error: null };
             }
-            return origRes;
+            return await Promise.resolve(origDelete.like(column, pattern)).catch((err: any) => ({ data: null, error: err }));
           }
         };
       }

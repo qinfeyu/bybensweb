@@ -619,23 +619,26 @@ export default function App() {
 
   const syncNewOrders = useCallback(async () => {
     try {
-      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (data && data.length > 0) {
+      const res = await fetch('/api/admin-data');
+      if (!res.ok) return;
+      const data = await res.json();
+      const orders = data && Array.isArray(data.orders) ? data.orders : [];
+      if (orders.length > 0) {
         let hasNew = false;
         let newestOrderName = '';
 
-        data.forEach((o: any) => {
+        orders.forEach((o: any) => {
           if (!knownOrderIdsRef.current.has(o.id)) {
             hasNew = true;
             knownOrderIdsRef.current.add(o.id);
             if (!newestOrderName) {
-              newestOrderName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || `#${o.id.slice(-6)}`;
+              newestOrderName = `${o.first_name || o.firstName || ''} ${o.last_name || o.lastName || ''}`.trim() || `#${String(o.id).slice(-6)}`;
             }
           }
         });
 
         if (hasNew) {
-          setOrders(data);
+          setOrders(orders);
           playNewOrderSound();
           showToast(`🔔 New Order Received from ${newestOrderName}!`);
         }
@@ -648,8 +651,8 @@ export default function App() {
 
     refreshAllData();
 
-    // 1. Polling timer every 5 seconds for background sync
-    const interval = setInterval(syncNewOrders, 5000);
+    // 1. Polling timer every 4 seconds for instant storefront order sync
+    const interval = setInterval(syncNewOrders, 4000);
 
     // 2. Real-time Supabase Subscription for instant order updates
     const channel = supabase
@@ -660,7 +663,7 @@ export default function App() {
           knownOrderIdsRef.current.add(newOrder.id);
           setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
           playNewOrderSound();
-          const custName = `${newOrder.first_name || newOrder.firstName || ''} ${newOrder.last_name || newOrder.lastName || ''}`.trim() || `#${newOrder.id.slice(-6)}`;
+          const custName = `${newOrder.first_name || newOrder.firstName || ''} ${newOrder.last_name || newOrder.lastName || ''}`.trim() || `#${String(newOrder.id).slice(-6)}`;
           showToast(`🔔 New Order Received from ${custName}!`);
         }
       })
