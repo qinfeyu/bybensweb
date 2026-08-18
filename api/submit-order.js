@@ -32,7 +32,19 @@ module.exports = async function handler(req, res) {
       Authorization: `Bearer ${SUPABASE_KEY}`
     };
 
-    // 1. Submit order to Supabase Edge Function
+    // 1. Record exact pre-order DZD budget balance
+    let preBudgetDzd = null;
+    if (SUPABASE_KEY) {
+      try {
+        const getRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd&select=value`, { headers });
+        const getRows = await getRes.json();
+        if (Array.isArray(getRows) && getRows.length > 0) {
+          preBudgetDzd = getRows[0].value;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Submit order to Supabase Edge Function
     const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-order`, {
       method: "POST",
       headers,
@@ -41,27 +53,19 @@ module.exports = async function handler(req, res) {
 
     const data = await response.json().catch(() => ({ success: true }));
 
-    // 2. Revert automatic PostgreSQL database trigger budget addition for 'waiting' orders
-    const orderTotal = Number(req.body?.total || req.body?.totalAmount) || 0;
-    if (orderTotal > 0 && SUPABASE_KEY) {
+    // 3. Forcefully restore original DZD budget balance (reverting PostgreSQL trigger additions)
+    if (SUPABASE_KEY && preBudgetDzd !== null && preBudgetDzd !== undefined) {
       try {
-        const getRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd&select=value`, { headers });
-        const getRows = await getRes.json();
-        if (Array.isArray(getRows) && getRows.length > 0) {
-          const currentDzd = Number(getRows[0].value) || 0;
-          const restoredDzd = Math.round(currentDzd - orderTotal).toString();
-          
-          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd`, {
-            method: "PATCH",
-            headers: {
-              ...headers,
-              Prefer: "return=minimal"
-            },
-            body: JSON.stringify({ value: restoredDzd })
-          });
-        }
+        await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd`, {
+          method: "PATCH",
+          headers: {
+            ...headers,
+            Prefer: "return=minimal"
+          },
+          body: JSON.stringify({ value: String(preBudgetDzd) })
+        });
       } catch (err) {
-        console.warn("Failed to revert DB trigger budget addition:", err);
+        console.warn("Failed to restore DZD budget balance:", err);
       }
     }
 
