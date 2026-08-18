@@ -198,17 +198,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   useEffect(() => { const t = setTimeout(() => setLoaded(true), 80); return () => clearTimeout(t); }, []);
 
-  // ── Sorted paid orders (excluding unpaid credit sales until marked as paid) ──
+  // ── All orders sorted by date ──
+  const rawAllOrders = useMemo(() => [...orders].sort((a, b) => getDateMs(b) - getDateMs(a)), [orders]);
+
+  // ── Revenue-qualifying orders (delivered orders & POS sales, excluding unpaid/waiting/confirmed/canceled) ──
   const paidOrders = useMemo(() => {
-    return orders.filter(o => o.status !== 'unpaid' && o.payment_status !== 'unpaid' && o.is_unpaid !== true);
+    return orders.filter(o => 
+      o.status === 'delivered' || 
+      o.source === 'POS' || 
+      o.source === 'POS Checkout' || 
+      String(o.id || '').startsWith('POS-')
+    );
   }, [orders]);
+  
   const allOrders = useMemo(() => [...paidOrders].sort((a, b) => getDateMs(b) - getDateMs(a)), [paidOrders]);
   const posOrders = useMemo(() => allOrders.filter(o => o.source === 'POS' || o.source === 'POS Checkout' || String(o.id || '').startsWith('POS-')), [allOrders]);
   const onlineOrders = useMemo(() => allOrders.filter(o => !posOrders.includes(o)), [allOrders, posOrders]);
 
   // ── Today ──
-  const todayOrders = allOrders.filter(o => isToday(getDateMs(o)));
-  const todayRevenue = todayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const todayOrders = rawAllOrders.filter(o => isToday(getDateMs(o)));
+  const todayDeliveredOrders = allOrders.filter(o => isToday(getDateMs(o)));
+  const todayRevenue = todayDeliveredOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const todayTopProd = useMemo(() => {
     const qty: Record<string, number> = {};
     todayOrders.forEach(o => (o.items || []).forEach(it => { const n = (it.name || it.product_name || ''); if (n) qty[n] = (qty[n] || 0) + (Number(it.qty) || 1); }));
@@ -217,17 +227,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   }, [todayOrders]);
 
   // ── Week / period ──
-  const weekOrders = allOrders.filter(o => isInPeriod(getDateMs(o), 'week'));
-  const prevWeekOrders = allOrders.filter(o => isInPrevPeriod(getDateMs(o), 'week'));
+  const weekOrders = rawAllOrders.filter(o => isInPeriod(getDateMs(o), 'week'));
+  const prevWeekOrders = rawAllOrders.filter(o => isInPrevPeriod(getDateMs(o), 'week'));
   const weekTrend = weekOrders.length - prevWeekOrders.length;
 
-  // ── Status ──
+  // ── Status counts (using rawAllOrders) ──
   const statusCounts = useMemo(() => ({
-    waiting: allOrders.filter(o => o.status === 'waiting').length,
-    confirmed: allOrders.filter(o => o.status === 'confirmed').length,
-    delivered: allOrders.filter(o => o.status === 'delivered').length,
-    canceled: allOrders.filter(o => o.status === 'canceled').length,
-  }), [allOrders]);
+    waiting: rawAllOrders.filter(o => o.status === 'waiting').length,
+    confirmed: rawAllOrders.filter(o => o.status === 'confirmed').length,
+    delivered: rawAllOrders.filter(o => o.status === 'delivered').length,
+    canceled: rawAllOrders.filter(o => o.status === 'canceled').length,
+  }), [rawAllOrders]);
   const totalForBar = allOrders.length || 1;
 
   const deliveryRate = allOrders.length > 0 ? (statusCounts.delivered / allOrders.length) * 100 : 0;
