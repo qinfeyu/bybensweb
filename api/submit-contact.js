@@ -95,19 +95,6 @@ module.exports = async function handler(req, res) {
 
     await sendTelegram(telegramText);
 
-    // 3. Optional fallback trigger to Supabase Edge Function
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/submit-contact`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-        body: JSON.stringify(req.body || {}),
-      });
-    } catch (_) {}
-
     return res.status(200).json({ success: true, id });
   } catch (err) {
     return res.status(500).json({ error: err.message || "Failed to submit contact message" });
