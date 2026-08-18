@@ -32,19 +32,19 @@ module.exports = async function handler(req, res) {
       Authorization: `Bearer ${SUPABASE_KEY}`
     };
 
-    // 1. Record exact pre-order DZD budget balance
+    // 1. Snapshot exact pre-order DZD budget
     let preBudgetDzd = null;
     if (SUPABASE_KEY) {
       try {
         const getRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd&select=value`, { headers });
         const getRows = await getRes.json();
-        if (Array.isArray(getRows) && getRows.length > 0) {
-          preBudgetDzd = getRows[0].value;
+        if (Array.isArray(getRows) && getRows.length > 0 && getRows[0].value !== undefined) {
+          preBudgetDzd = String(getRows[0].value);
         }
       } catch (_) {}
     }
 
-    // 2. Submit order to Supabase Edge Function
+    // 2. Submit order to Supabase Edge Function (inserts order with status 'waiting')
     const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-order`, {
       method: "POST",
       headers,
@@ -53,19 +53,19 @@ module.exports = async function handler(req, res) {
 
     const data = await response.json().catch(() => ({ success: true }));
 
-    // 3. Forcefully restore original DZD budget balance (reverting PostgreSQL trigger additions)
+    // 3. Synchronously overwrite DB trigger addition, locking budget_dzd back to preBudgetDzd
     if (SUPABASE_KEY && preBudgetDzd !== null && preBudgetDzd !== undefined) {
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd`, {
           method: "PATCH",
           headers: {
             ...headers,
-            Prefer: "return=minimal"
+            Prefer: "return=representation"
           },
-          body: JSON.stringify({ value: String(preBudgetDzd) })
+          body: JSON.stringify({ value: preBudgetDzd })
         });
       } catch (err) {
-        console.warn("Failed to restore DZD budget balance:", err);
+        console.warn("Failed to overwrite DB trigger budget addition:", err);
       }
     }
 
