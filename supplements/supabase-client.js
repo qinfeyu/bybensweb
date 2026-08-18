@@ -225,21 +225,25 @@
       var cachedStr = sessionStorage.getItem(CACHE_KEY);
       if (cachedStr) {
         var cachedObj = JSON.parse(cachedStr);
-        if (cachedObj && cachedObj.timestamp && (Date.now() - cachedObj.timestamp < CACHE_TIME)) {
+        if (cachedObj && cachedObj.timestamp && (Date.now() - cachedObj.timestamp < CACHE_TIME) && cachedObj.data && Array.isArray(cachedObj.data.products) && cachedObj.data.products.length > 0) {
           return Promise.resolve(window.sbRemapInitialData(cachedObj.data));
         }
       }
     } catch(e) {}
 
-    var src = window.__initialDataPromise
-      ? window.__initialDataPromise
-      : fetch("/api/initial-data").then(function (r) { return r.ok ? r.json() : null; });
+    var src = (window.__initialDataPromise ? window.__initialDataPromise : Promise.resolve(null))
+      .then(function (d) {
+        if (d && Array.isArray(d.products) && d.products.length > 0) return d;
+        return fetch("/api/initial-data").then(function (r) { return r.ok ? r.json() : null; });
+      });
       
     return src.then(function (rawData) {
       if (!rawData) return null;
-      try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: rawData }));
-      } catch(e) {}
+      if (Array.isArray(rawData.products) && rawData.products.length > 0) {
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: rawData }));
+        } catch(e) {}
+      }
       return window.sbRemapInitialData(rawData);
     });
   };
