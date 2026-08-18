@@ -212,8 +212,8 @@
     const orig = btn.innerHTML;
     btn.innerHTML = '<span style="opacity:.7">Sending…</span>';
     try {
-      const sbUrl = window.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
-      const sbKey = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZ3dsenVpZW14d3NucGlneWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTA3MDMsImV4cCI6MjA5ODgyNjcwM30.3IrYmHPKPUwki-hmkysLw3EAEcr_h8wLHZmRphDiOpI";
+      const sbUrl = window.SUPABASE_URL;
+      const sbKey = window.SUPABASE_ANON_KEY;
       await fetch(sbUrl + '/functions/v1/submit-contact', {
         method: 'POST',
         headers: {
