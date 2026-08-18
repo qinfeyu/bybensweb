@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { supabase } from './lib/supabase';
+import { supabase, ensureSupabaseKey } from './lib/supabase';
 import type { 
   TabType, 
   InventoryItem, 
@@ -199,6 +199,7 @@ export default function App() {
   const refreshAllData = async () => {
     setIsLoading(true);
     try {
+      await ensureSupabaseKey();
       // 1. Fetch Inventory Items
       const invRes = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false });
       const cloudInv: InventoryItem[] = invRes.data || [];

@@ -2,12 +2,33 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = (typeof window !== 'undefined' && (window as any).SUPABASE_URL) || "https://uogwlzuiemxwsnpigydg.supabase.co";
 
-let rawKey = "";
+let activeKey = "";
 if (typeof window !== 'undefined') {
-  rawKey = (window as any).SUPABASE_PUBLISHABLE_KEY || (window as any).SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key') || "";
+  activeKey = (window as any).SUPABASE_PUBLISHABLE_KEY || (window as any).SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key') || "";
 }
 
-// Safe fallback string to prevent createClient from throwing "supabaseKey is required" during script import
-const SUPABASE_ANON_KEY = rawKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZ3dsenVpZW14d3NucGlneWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTA3MDMsImV4cCI6MjA5ODgyNjcwM30.placeholder";
+const initialKey = activeKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder";
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, initialKey);
+
+export async function ensureSupabaseKey(): Promise<string> {
+  if (typeof window === 'undefined') return initialKey;
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (data && data.supabaseKey) {
+      localStorage.setItem('supabase_anon_key', data.supabaseKey);
+      (window as any).SUPABASE_ANON_KEY = data.supabaseKey;
+      (supabase as any).rest.headers['apikey'] = data.supabaseKey;
+      (supabase as any).rest.headers['Authorization'] = `Bearer ${data.supabaseKey}`;
+      return data.supabaseKey;
+    }
+  } catch (e) {
+    console.warn("Failed to fetch /api/config:", e);
+  }
+  return initialKey;
+}
+
+if (typeof window !== 'undefined') {
+  ensureSupabaseKey();
+}
