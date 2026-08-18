@@ -1,10 +1,23 @@
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://uogwlzuiemxwsnpigydg.supabase.co";
+
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "";
 
 module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
   if (req.method === 'OPTIONS') {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();
   }
 
@@ -13,9 +26,15 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const headers = { "Content-Type": "application/json" };
+    if (SUPABASE_KEY) {
+      headers["apikey"] = SUPABASE_KEY;
+      headers["Authorization"] = `Bearer ${SUPABASE_KEY}`;
+    }
+
     const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-order`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(req.body || {}),
     });
 
