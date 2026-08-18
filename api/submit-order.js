@@ -32,19 +32,7 @@ module.exports = async function handler(req, res) {
       Authorization: `Bearer ${SUPABASE_KEY}`
     };
 
-    // 1. Snapshot exact pre-order DZD budget
-    let preBudgetDzd = null;
-    if (SUPABASE_KEY) {
-      try {
-        const getRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd&select=value`, { headers });
-        const getRows = await getRes.json();
-        if (Array.isArray(getRows) && getRows.length > 0 && getRows[0].value !== undefined) {
-          preBudgetDzd = String(getRows[0].value);
-        }
-      } catch (_) {}
-    }
-
-    // 2. Submit order to Supabase Edge Function (inserts order with status 'waiting')
+    // Submit order to Supabase Edge Function (inserts order with status 'waiting')
     const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-order`, {
       method: "POST",
       headers,
@@ -52,21 +40,6 @@ module.exports = async function handler(req, res) {
     });
 
     const data = await response.json().catch(() => ({ success: true }));
-
-    // 3. Synchronously overwrite DB trigger addition, locking budget_dzd back to preBudgetDzd
-    if (SUPABASE_KEY && preBudgetDzd !== null && preBudgetDzd !== undefined) {
-      try {
-        const patchHeaders = { ...headers };
-        patchHeaders["Prefer"] = "resolution=merge-duplicates,return=representation";
-        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-          method: "POST",
-          headers: patchHeaders,
-          body: JSON.stringify([{ key: "budget_dzd", value: String(preBudgetDzd) }])
-        });
-      } catch (err) {
-        console.warn("Failed to overwrite DB trigger budget addition:", err);
-      }
-    }
 
     res.setHeader("Content-Type", "application/json");
     return res.status(response.status || 200).json(data);
