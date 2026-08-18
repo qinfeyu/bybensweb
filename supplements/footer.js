@@ -214,14 +214,9 @@
     const orig = btn.innerHTML;
     btn.innerHTML = '<span style="opacity:.7">Sending…</span>';
     try {
-      const sbUrl = window.SUPABASE_URL;
-      const sbKey = window.SUPABASE_ANON_KEY;
-      await fetch(sbUrl + '/functions/v1/submit-contact', {
+      await fetch('/api/submit-contact', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + sbKey,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), contact: contact.trim(), message: message.trim() }),
       });
     } catch (_) {}

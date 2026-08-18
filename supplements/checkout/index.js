@@ -3197,7 +3197,7 @@
         const submitBtn = document.getElementById("submitOrderBtn");
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; }
         try {
-          const res = await fetch(SUPABASE_URL + "/functions/v1/submit-order", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY }, body: JSON.stringify(payload) });
+          const res = await fetch("/api/submit-order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
           const data = await res.json().catch(() => ({ success: true }));
           if (!data || data.success === false) {
             showToast((data && data.error) || "Order failed. Please try again.");
@@ -3207,21 +3207,6 @@
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } catch (e) {
-          // Network error — still show success since order may have gone through
-          if (window.sendTelegramNotification) {
-            window.sendTelegramNotification({
-              source: "checkout",
-              firstName, lastName, phone, address,
-              wilaya: `${selectedWilayaCode} - ${wilayaName}`,
-              commune: selectedCommuneName,
-              deliveryType: selectedDelivery,
-              deliveryCost: freeDelivery ? 0 : deliveryCost,
-              promoCode: appliedPromos.map(pr => pr.code).join(","),
-              promoDiscount: discount,
-              items: payload.items,
-              subtotal, total
-            });
-          }
           document.getElementById("successMsg").textContent =
             `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
