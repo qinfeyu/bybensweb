@@ -32,7 +32,7 @@ module.exports = async function handler(req, res) {
       headers["Authorization"] = `Bearer ${SUPABASE_KEY}`;
     }
 
-    // 1. Submit order to Supabase Edge Function
+    // Submit order to Supabase Edge Function (order status is inserted as 'waiting', budget is unaffected)
     const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-order`, {
       method: "POST",
       headers,
@@ -40,31 +40,6 @@ module.exports = async function handler(req, res) {
     });
 
     const data = await response.json().catch(() => ({ success: true }));
-
-    // 2. Neutralize automatic PostgreSQL DB trigger budget addition for 'waiting' orders
-    const orderTotal = Number(req.body?.total) || 0;
-    if (SUPABASE_KEY && orderTotal > 0) {
-      try {
-        // Fetch current post-trigger DZD budget
-        const getRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd&select=value`, { headers });
-        const getRows = await getRes.json();
-        if (Array.isArray(getRows) && getRows.length > 0) {
-          const currentDzd = Number(getRows[0].value) || 0;
-          const restoredDzd = Math.round(currentDzd - orderTotal).toString();
-          
-          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.budget_dzd`, {
-            method: "PATCH",
-            headers: {
-              ...headers,
-              Prefer: "return=minimal"
-            },
-            body: JSON.stringify({ value: restoredDzd })
-          });
-        }
-      } catch (err) {
-        console.warn("Failed to neutralize DB trigger budget addition:", err);
-      }
-    }
 
     res.setHeader("Content-Type", "application/json");
     return res.status(response.status || 200).json(data);

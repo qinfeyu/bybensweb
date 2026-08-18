@@ -201,13 +201,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   // ── All orders sorted by date ──
   const rawAllOrders = useMemo(() => [...orders].sort((a, b) => getDateMs(b) - getDateMs(a)), [orders]);
 
-  // ── Revenue-qualifying orders (delivered orders & POS sales, excluding unpaid/waiting/confirmed/canceled) ──
+  // ── Revenue-qualifying orders (delivered orders & paid POS sales, excluding unpaid/waiting/confirmed/canceled) ──
   const paidOrders = useMemo(() => {
     return orders.filter(o => 
       o.status === 'delivered' || 
-      o.source === 'POS' || 
-      o.source === 'POS Checkout' || 
-      String(o.id || '').startsWith('POS-')
+      ((o.source === 'POS' || o.source === 'POS Checkout' || String(o.id || '').startsWith('POS-')) && o.status !== 'unpaid' && o.status !== 'waiting')
     );
   }, [orders]);
   
