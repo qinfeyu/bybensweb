@@ -32,43 +32,14 @@ module.exports = async function handler(req, res) {
       Authorization: `Bearer ${SUPABASE_KEY}`
     };
 
-    const realTotal = Number(req.body.total) || 0;
-    const realSubtotal = Number(req.body.subtotal) || 0;
-
-    // 1. Force total & subtotal to 0 for Edge Function insert to neutralize PostgreSQL DB trigger (+0 DA)
-    const edgePayload = {
-      ...req.body,
-      total: 0,
-      subtotal: 0
-    };
-
-    // 2. Submit order to Supabase Edge Function (inserts order with total 0 & status 'waiting')
+    // Submit order to Supabase Edge Function (inserts order with status 'waiting')
     const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-order`, {
       method: "POST",
       headers,
-      body: JSON.stringify(edgePayload),
+      body: JSON.stringify(req.body || {}),
     });
 
     const data = await response.json().catch(() => ({ success: true }));
-
-    // 3. Immediately update the order row to its real total & subtotal (UPDATE does NOT fire DB insert trigger!)
-    if (data && data.id) {
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${data.id}`, {
-          method: "PATCH",
-          headers: {
-            ...headers,
-            Prefer: "return=minimal"
-          },
-          body: JSON.stringify({
-            total: realTotal,
-            subtotal: realSubtotal
-          })
-        });
-      } catch (err) {
-        console.error("Failed to update real order total:", err);
-      }
-    }
 
     res.setHeader("Content-Type", "application/json");
     return res.status(response.status || 200).json(data);
