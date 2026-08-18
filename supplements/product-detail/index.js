@@ -3326,28 +3326,32 @@
           },
         ];
 
-        fetch("/api/submit-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "submitProductOrder",
-            firstName,
-            lastName,
-            phone,
-            address,
-            wilaya: selectedWilayaCode
-              ? `${selectedWilayaCode} - ${wilayaName}`
-              : "",
-            commune: selectedCommuneName,
-            deliveryType: selectedDelivery,
-            deliveryCost: deliveryCharge,
-            promoCode: appliedPromos.map((pr) => pr.code).join(","),
-            promoDiscount: discount,
-            items: orderItemPayload,
-            subtotal,
-            total: totalNum,
-          }),
-        }).catch(() => {});
+        try {
+          await fetch("/api/submit-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "submitProductOrder",
+              firstName,
+              lastName,
+              phone,
+              address,
+              wilaya: selectedWilayaCode
+                ? `${selectedWilayaCode} - ${wilayaName}`
+                : "",
+              commune: selectedCommuneName,
+              deliveryType: selectedDelivery,
+              deliveryCost: deliveryCharge,
+              promoCode: appliedPromos.map((pr) => pr.code).join(","),
+              promoDiscount: discount,
+              items: orderItemPayload,
+              subtotal,
+              total: totalNum,
+            }),
+          });
+        } catch (err) {
+          console.error("Order submission error:", err);
+        }
 
         document.getElementById("successMsg").textContent =
           `Thank you ${firstName}! Your order for ${p.name} × ${selectedQty} — Total: ${total} DA. We'll call you shortly to confirm.`;
