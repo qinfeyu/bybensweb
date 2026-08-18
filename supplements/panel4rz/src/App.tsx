@@ -1439,12 +1439,16 @@ export default function App() {
 
   const getOrderSubtotal = (o: Order) => {
     if (!o) return 0;
-    if (o.subtotal !== undefined && o.subtotal !== null && Number(o.subtotal) > 0) {
-      return Number(o.subtotal);
-    }
     const delCost = Number(o.delivery_cost !== undefined ? o.delivery_cost : (o.deliveryCost || 0));
+    const promoDisc = Number((o as any).promo_discount !== undefined ? (o as any).promo_discount : (o.promoDiscount || 0));
     const tot = Number(o.total || 0);
-    return Math.max(0, tot - delCost);
+
+    if (tot > 0) {
+      return Math.max(0, tot - delCost);
+    }
+
+    const sub = Number(o.subtotal || 0);
+    return Math.max(0, sub - promoDisc);
   };
 
   // ── ORDER MUTATIONS ──
