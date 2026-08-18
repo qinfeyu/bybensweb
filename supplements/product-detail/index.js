@@ -246,21 +246,29 @@
             if (p) {
               // Fetch heavy text fields (description, benefits, nutritional_facts) for this product only
               try {
+                let key = SUPABASE_ANON_KEY;
+                try {
+                  const cfg = await fetch("/api/config").then((r) => r.json());
+                  if (cfg && cfg.supabaseKey) key = cfg.supabaseKey;
+                } catch (e) {}
+
                 const detailRes = await fetch(
                   `${SUPABASE_URL}/rest/v1/products?select=description,benefits,nutritional_facts,stock,variants,flavors,status&id=eq.${p.id}`,
                   {
-                    headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY },
-                    cache: "no-store"
-                  }
+                    headers: { apikey: key, Authorization: "Bearer " + key },
+                    cache: "no-store",
+                  },
                 );
                 if (detailRes.ok) {
                   const detail = await detailRes.json();
                   if (detail && detail[0]) {
-                    p.description = detail[0].description || "";
-                    p.benefits = detail[0].benefits || "";
-                    p.nutritionalFacts = detail[0].nutritional_facts || "";
-                    if (detail[0].stock !== undefined) p.stock = detail[0].stock;
-                    if (detail[0].variants) p.variants = detail[0].variants;
+                    if (detail[0].description) p.description = detail[0].description;
+                    if (detail[0].benefits) p.benefits = detail[0].benefits;
+                    if (detail[0].nutritional_facts) p.nutritionalFacts = detail[0].nutritional_facts;
+                    if (detail[0].stock !== undefined && detail[0].stock !== null) p.stock = detail[0].stock;
+                    if (detail[0].variants && (Array.isArray(detail[0].variants) ? detail[0].variants.length > 0 : Boolean(detail[0].variants))) {
+                      p.variants = detail[0].variants;
+                    }
                     if (detail[0].flavors) p.flavors = detail[0].flavors;
                     if (detail[0].status) p.status = detail[0].status;
                   }
