@@ -619,7 +619,7 @@ export default function App() {
 
   const syncNewOrders = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin-data');
+      const res = await fetch('/api/admin-orders-sync');
       if (!res.ok) return;
       const data = await res.json();
 
@@ -668,8 +668,8 @@ export default function App() {
 
     refreshAllData();
 
-    // 1. Polling timer every 4 seconds for instant storefront order sync
-    const interval = setInterval(syncNewOrders, 4000);
+    // 1. Polling timer every 30 seconds for fallback order sync (Real-time subscription handles 0ms instant alerts)
+    const interval = setInterval(syncNewOrders, 30000);
 
     // 2. Real-time Supabase Subscription for instant order updates
     const channel = supabase
