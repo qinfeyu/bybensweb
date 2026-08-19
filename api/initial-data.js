@@ -33,7 +33,7 @@ module.exports = async function handler(_req, res) {
     }
 
     const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings] = await Promise.all([
-      sf("products?select=id,name,brand,category_ids,sub_category_ids,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
+      sf("products?select=id,name,brand,category_ids,sub_category_ids,description,benefits,nutritional_facts,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
       sf("categories?select=*&order=created_at.asc"),
       sf("sub_categories?select=*"),
       sf("bundle?select=*&limit=1"),

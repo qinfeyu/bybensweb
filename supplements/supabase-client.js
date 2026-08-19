@@ -36,6 +36,8 @@
       categoryIds: (p.category_ids || "").split(",").filter(Boolean),
       subCategoryIds: (p.sub_category_ids || "").split(",").filter(Boolean),
       description: p.description || "",
+      benefits: p.benefits || "",
+      nutritionalFacts: p.nutritional_facts || p.nutritionalFacts || "",
       imageUrl: optimizedUrls,
       variants: p.variants || [],
       flavors: p.flavors || [],
