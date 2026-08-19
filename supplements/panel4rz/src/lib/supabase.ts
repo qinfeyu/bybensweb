@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = (typeof window !== 'undefined' && (window as any).SUPABASE_URL) || "https://uogwlzuiemxwsnpigydg.supabase.co";
+const SUPABASE_URL = (typeof window !== 'undefined' && (window as any).SUPABASE_URL) || "https://dbezrrzmcosxdoorbrgx.supabase.co";
 
 let activeKey = "";
 if (typeof window !== 'undefined') {
