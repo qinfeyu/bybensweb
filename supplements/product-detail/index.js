@@ -415,6 +415,10 @@
         imgWrap.querySelector(".placeholder-img-wrap")?.remove();
         imgWrap.querySelectorAll("img").forEach((el) => el.remove());
         if (_imgs.length > 0) {
+          const ogImg = document.querySelector('meta[property="og:image"]');
+          if (ogImg) ogImg.setAttribute("content", _imgs[0]);
+          const twitterImg = document.querySelector('meta[name="twitter:image"]');
+          if (twitterImg) twitterImg.setAttribute("content", _imgs[0]);
           const mainImg = document.createElement("img");
           mainImg.src = _imgs[0];
           mainImg.alt = p.name;

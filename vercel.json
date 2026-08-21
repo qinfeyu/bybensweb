@@ -13,7 +13,7 @@
     { "source": "/supplements", "destination": "/supplements/home" },
     { "source": "/supplements/checkout", "destination": "/supplements/checkout" },
     { "source": "/supplements/products", "destination": "/supplements/products" },
-    { "source": "/supplements/product-detail", "destination": "/supplements/product-detail" },
+    { "source": "/supplements/product-detail", "destination": "/api/product-detail-page" },
     { "source": "/supplements/mgmt9kx", "destination": "/supplements/mgmt9kx" },
     { "source": "/supplements/panel4rz", "destination": "/supplements/panel4rz" },
     { "source": "/supplements/privacy", "destination": "/supplements/privacy" }
