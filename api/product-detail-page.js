@@ -101,7 +101,7 @@ module.exports = async function handler(req, res) {
       const pageTitle = `${prodName} – ByBens Sports Nutrition Algeria`;
 
       let rawImgs = Array.isArray(prod.image_url) ? prod.image_url : (prod.image_url ? [prod.image_url] : []);
-      let mainImg = rawImgs.length > 0 ? optimizeCloudinaryUrl(rawImgs[0]) : "https://www.bybens.com/images/logo.png";
+      let mainImg = rawImgs.length > 0 ? optimizeCloudinaryUrl(rawImgs[0]) : "https://www.bybens.com/images/og-main-banner.png";
       if (mainImg.startsWith("/")) {
         mainImg = `https://www.bybens.com${mainImg}`;
       }
