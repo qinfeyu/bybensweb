@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
 
   let baseHtml = "";
   try {
-    const filePath = path.join(process.cwd(), "supplements/product-detail/template.html");
+    const filePath = path.join(process.cwd(), "supplements/product-detail/index.html");
     baseHtml = fs.readFileSync(filePath, "utf8");
   } catch (err) {
     baseHtml = `<!doctype html><html><head><title>ByBens</title></head><body>Loading...</body></html>`;
