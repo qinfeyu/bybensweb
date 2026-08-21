@@ -47,6 +47,17 @@ function optimizeCloudinaryUrl(url) {
   return url;
 }
 
+async function sf(path) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: SB_HEADERS });
+    const data = await res.json().catch(() => ([]));
+    if (!res.ok) return [];
+    return Array.isArray(data) ? data : [];
+  } catch(e) {
+    return [];
+  }
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=600, max-age=30");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -65,12 +76,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Query product details from Supabase
-    const dbRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?select=id,name,brand,description,image_url,variants,discount,price&id=eq.${encodeURIComponent(productId)}&limit=1`,
-      { headers: SB_HEADERS }
-    );
-    const rows = await dbRes.json().catch(() => ([]));
+    const rows = await sf(`products?select=id,name,brand,description,image_url,variants,discount&id=eq.${encodeURIComponent(productId)}&limit=1`);
     const prod = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 
     if (prod) {
