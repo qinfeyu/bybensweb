@@ -47,13 +47,13 @@ function optimizeCloudinaryUrl(url) {
   return url;
 }
 
-async function sf(path) {
+async function sf(pathStr) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: SB_HEADERS });
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${pathStr}`, { headers: SB_HEADERS });
     const data = await res.json().catch(() => ([]));
     if (!res.ok) return [];
     return Array.isArray(data) ? data : [];
-  } catch(e) {
+  } catch (e) {
     return [];
   }
 }
@@ -76,8 +76,25 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const rows = await sf(`products?select=id,name,brand,description,image_url,variants,discount&id=eq.${encodeURIComponent(productId)}&limit=1`);
-    const prod = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+    // 1. Direct query by ID
+    let rows = await sf(`products?select=id,name,brand,description,image_url,variants,discount&id=eq.${encodeURIComponent(productId)}&limit=1`);
+
+    // 2. Fallback to initial-data endpoint if direct REST failed
+    if (!Array.isArray(rows) || rows.length === 0) {
+      const host = req.headers["x-forwarded-host"] || req.headers.host || "www.bybens.com";
+      const proto = req.headers["x-forwarded-proto"] || "https";
+      const initRes = await fetch(`${proto}://${host}/api/initial-data`).catch(() => null);
+      if (initRes && initRes.ok) {
+        const initData = await initRes.json().catch(() => ({}));
+        if (Array.isArray(initData.products)) {
+          rows = initData.products;
+        }
+      }
+    }
+
+    const prod = Array.isArray(rows)
+      ? rows.find((p) => String(p.id).trim() === String(productId).trim())
+      : null;
 
     if (prod) {
       const prodName = prod.name ? `${prod.name}${prod.brand ? " by " + prod.brand : ""}` : "Product Details";
