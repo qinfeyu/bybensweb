@@ -1,14 +1,15 @@
 {
   "cleanUrls": true,
   "routes": [
-    { "src": "/", "dest": "/supplements/home" },
-    { "src": "/products", "dest": "/supplements/products" },
-    { "src": "/product-detail", "dest": "/api/product-detail-page" },
-    { "src": "/supplements/product-detail", "dest": "/api/product-detail-page" },
-    { "src": "/checkout", "dest": "/supplements/checkout" },
-    { "src": "/mgmt9kx", "dest": "/supplements/mgmt9kx" },
-    { "src": "/panel4rz", "dest": "/supplements/panel4rz" },
-    { "src": "/privacy", "dest": "/supplements/privacy" },
+    { "src": "^/$", "dest": "/supplements/home" },
+    { "src": "^/supplements/?$", "dest": "/supplements/home" },
+    { "src": "^/products/?$", "dest": "/supplements/products" },
+    { "src": "^/product-detail$", "dest": "/api/product-detail-page" },
+    { "src": "^/supplements/product-detail$", "dest": "/api/product-detail-page" },
+    { "src": "^/checkout/?$", "dest": "/supplements/checkout" },
+    { "src": "^/mgmt9kx/?$", "dest": "/supplements/mgmt9kx" },
+    { "src": "^/panel4rz/?$", "dest": "/supplements/panel4rz" },
+    { "src": "^/privacy/?$", "dest": "/supplements/privacy" },
     { "handle": "filesystem" }
   ],
   "headers": [
