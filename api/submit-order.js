@@ -260,7 +260,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 3. Deduct stock asynchronously
-    adjustStock(items || [], -1).catch(() => {});
+    await adjustStock(items || [], -1).catch(() => {});
 
     // 4. Send Telegram notification
     const orderItems = items || [];
@@ -289,7 +289,7 @@ module.exports = async function handler(req, res) {
       promoLine +
       `💰 Total: ${total || 0} DA`;
 
-    sendTelegram(telegramMsg).catch(() => {});
+    await sendTelegram(telegramMsg).catch(() => {});
 
     return res.status(200).json({ success: true, id });
   } catch (err) {
