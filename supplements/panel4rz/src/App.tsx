@@ -1367,15 +1367,18 @@ export default function App() {
         }
       }
 
-      // 2. Fallback: Direct SKU or Name deduction in Inventory Items if item was added directly from Inventory SKUs tab
+      // 2. Direct SKU or Name deduction in Inventory Items (ALWAYS update inventory_items stock)
       const targetClean = (rawProdId || rawItemName).toLowerCase();
       if (targetClean) {
         const invIdx = updatedInventory.findIndex(i => 
           String(i.id || '').trim().toLowerCase() === targetClean ||
           String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === targetClean ||
-          (rawItemName.length > 2 && String(i.name || '').trim().toLowerCase() === rawItemName)
+          (rawItemName.length > 2 && (
+            String(i.name || '').trim().toLowerCase() === rawItemName ||
+            rawItemName.includes(String(i.name || '').trim().toLowerCase())
+          ))
         );
-        if (invIdx >= 0) {
+        if (invIdx >= 0 && !invUpdates.some(u => u.id === updatedInventory[invIdx].id)) {
           const invItem = { ...updatedInventory[invIdx] };
           const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
           invItem.stock = newInvStock;

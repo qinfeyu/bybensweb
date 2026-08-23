@@ -62,67 +62,35 @@ const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
     const list: { id: string; name: string; variant: string; price: number; image?: string; stock?: number; sku?: string }[] = [];
     const seenKeys = new Set<string>();
 
-    products.forEach(p => {
-      let img = '';
-      if (Array.isArray(p.imageUrl)) {
-        img = p.imageUrl[0] || '';
-      } else if (typeof p.imageUrl === 'string') {
-        img = p.imageUrl;
-      }
-      const variants = parseField(p.variants);
-
-      if (Array.isArray(variants) && variants.length > 0) {
-        variants.forEach(v => {
-          const vLabel = v.weight ? `${v.weight}${v.unit || ''}` : v.label || '';
-          const key = `${p.name}-${vLabel}`.toLowerCase();
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            list.push({
-              id: p.id,
-              name: p.name,
-              variant: vLabel,
-              price: Number(v.price) || Number(p.price) || 0,
-              image: img,
-              stock: Number(v.stock || 0),
-              sku: v.sku || p.id
-            });
-          }
-        });
-      } else {
-        const key = p.name.toLowerCase();
-        if (!seenKeys.has(key)) {
-          seenKeys.add(key);
-          list.push({
-            id: p.id,
-            name: p.name,
-            variant: '',
-            price: Number(p.price) || 0,
-            image: img,
-            stock: Number(p.stock || 0),
-            sku: p.id
-          });
-        }
-      }
-    });
-
     inventoryItems.forEach(inv => {
       const vSpec = inv.variant_spec || inv.size || '';
-      const key = `${inv.name}-${vSpec}`.toLowerCase();
+      const fullName = `${inv.brand ? inv.brand + ' - ' : ''}${inv.name}`;
+      const key = `${inv.sku || inv.id}-${fullName}-${vSpec}`.toLowerCase();
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
+
+        // Find linked image from products if available
+        let img = '';
+        const matchingProd = products.find(p => (p.sku && p.sku === inv.sku) || p.name.toLowerCase() === inv.name.toLowerCase());
+        if (matchingProd) {
+          if (Array.isArray(matchingProd.imageUrl)) img = matchingProd.imageUrl[0] || '';
+          else if (typeof matchingProd.imageUrl === 'string') img = matchingProd.imageUrl;
+        }
+
         list.push({
           id: inv.sku || inv.id,
-          name: inv.name,
+          name: fullName,
           variant: vSpec,
           price: Number(inv.retail_dzd) || 0,
           stock: Number(inv.stock || 0),
-          sku: inv.sku || inv.id
+          sku: inv.sku || inv.id,
+          image: img
         });
       }
     });
 
     return list;
-  }, [products, inventoryItems]);
+  }, [inventoryItems, products]);
 
   const filteredCandidates = useMemo(() => {
     if (!value.trim()) return candidates.slice(0, 8);
