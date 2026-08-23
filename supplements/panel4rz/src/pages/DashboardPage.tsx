@@ -195,6 +195,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [lowStockAll, setLowStockAll] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+  const [telegramSent, setTelegramSent] = useState(false);
 
   useEffect(() => { const t = setTimeout(() => setLoaded(true), 80); return () => clearTimeout(t); }, []);
 
@@ -495,6 +497,39 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </button>
             ))}
           </div>
+          {/* Telegram Daily Summary Trigger */}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                setSendingTelegram(true);
+                const r = await fetch('/api/cron/daily-summary');
+                const data = await r.json();
+                if (data.success) {
+                  setTelegramSent(true);
+                  setTimeout(() => setTelegramSent(false), 3000);
+                } else {
+                  alert("Failed to send report: " + (data.error || "Unknown error"));
+                }
+              } catch (e) {
+                alert("Failed to send report to Telegram");
+              } finally {
+                setSendingTelegram(false);
+              }
+            }}
+            disabled={sendingTelegram}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-amber-700 bg-white border border-slate-200 px-3 py-1.5 rounded-xl hover:shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            title="Send live daily business summary notification to Telegram channel"
+          >
+            {sendingTelegram ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+            ) : telegramSent ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
+            )}
+            <span>{sendingTelegram ? "Sending..." : telegramSent ? "Sent to Telegram!" : "Telegram Summary"}</span>
+          </button>
           {/* PDF Export */}
           <button onClick={handlePrint}
             className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded-xl hover:shadow-sm transition-all">

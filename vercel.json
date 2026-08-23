@@ -1,5 +1,11 @@
 {
   "cleanUrls": true,
+  "crons": [
+    {
+      "path": "/api/cron/daily-summary",
+      "schedule": "0 21 * * *"
+    }
+  ],
   "routes": [
     { "src": "^/$", "dest": "/supplements/home" },
     { "src": "^/supplements/?$", "dest": "/supplements/home" },
