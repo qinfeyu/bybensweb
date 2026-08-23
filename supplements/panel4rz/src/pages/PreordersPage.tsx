@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { PreOrder, InventoryItem, Product, Customer } from '../types';
 import { calculatePreorderProfit, getProductPricingAndCost } from '../lib/calculations';
 import { PhoneContactAction } from '../components/PhoneContactAction';
@@ -18,6 +18,200 @@ import {
   Check,
   User
 } from 'lucide-react';
+
+function parseField(val: any): any[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object') return [val];
+  try {
+    return JSON.parse(val);
+  } catch (_) {
+    return [];
+  }
+}
+
+interface PreorderItemSearchInputProps {
+  value: string;
+  onSelect: (item: { productId: string; name: string; variant: string; price: number }) => void;
+  onChangeText: (val: string) => void;
+  products: Product[];
+  inventoryItems: InventoryItem[];
+}
+
+const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
+  value,
+  onSelect,
+  onChangeText,
+  products = [],
+  inventoryItems = []
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const candidates = useMemo(() => {
+    const list: { id: string; name: string; variant: string; price: number; image?: string; stock?: number; sku?: string }[] = [];
+    const seenKeys = new Set<string>();
+
+    products.forEach(p => {
+      let img = '';
+      if (Array.isArray(p.imageUrl)) {
+        img = p.imageUrl[0] || '';
+      } else if (typeof p.imageUrl === 'string') {
+        img = p.imageUrl;
+      }
+      const variants = parseField(p.variants);
+
+      if (Array.isArray(variants) && variants.length > 0) {
+        variants.forEach(v => {
+          const vLabel = v.weight ? `${v.weight}${v.unit || ''}` : v.label || '';
+          const key = `${p.name}-${vLabel}`.toLowerCase();
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            list.push({
+              id: p.id,
+              name: p.name,
+              variant: vLabel,
+              price: Number(v.price) || Number(p.price) || 0,
+              image: img,
+              stock: Number(v.stock || 0),
+              sku: v.sku || p.id
+            });
+          }
+        });
+      } else {
+        const key = p.name.toLowerCase();
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            id: p.id,
+            name: p.name,
+            variant: '',
+            price: Number(p.price) || 0,
+            image: img,
+            stock: Number(p.stock || 0),
+            sku: p.id
+          });
+        }
+      }
+    });
+
+    inventoryItems.forEach(inv => {
+      const vSpec = inv.variant_spec || inv.size || '';
+      const key = `${inv.name}-${vSpec}`.toLowerCase();
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        list.push({
+          id: inv.sku || inv.id,
+          name: inv.name,
+          variant: vSpec,
+          price: Number(inv.retail_dzd) || 0,
+          stock: Number(inv.stock || 0),
+          sku: inv.sku || inv.id
+        });
+      }
+    });
+
+    return list;
+  }, [products, inventoryItems]);
+
+  const filteredCandidates = useMemo(() => {
+    if (!value.trim()) return candidates.slice(0, 8);
+    const q = value.toLowerCase().trim();
+    return candidates.filter(c => 
+      c.name.toLowerCase().includes(q) || 
+      c.variant.toLowerCase().includes(q) ||
+      (c.sku && c.sku.toLowerCase().includes(q))
+    ).slice(0, 10);
+  }, [candidates, value]);
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search SKU or Product Name..."
+          value={value}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            onChangeText(e.target.value);
+            setIsOpen(true);
+          }}
+          className="w-full bg-white border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 rounded-lg pl-8 pr-7 py-1.5 font-bold text-xs text-slate-800 transition-all outline-none"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => {
+              onChangeText('');
+              setIsOpen(true);
+            }}
+            className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {isOpen && filteredCandidates.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 max-h-64 overflow-y-auto thin-scrollbar divide-y divide-slate-100 animate-in fade-in zoom-in-95">
+          {filteredCandidates.map((c, i) => (
+            <div
+              key={`${c.id}-${i}`}
+              onClick={() => {
+                onSelect({
+                  productId: c.id,
+                  name: c.name,
+                  variant: c.variant,
+                  price: c.price,
+                });
+                setIsOpen(false);
+              }}
+              className="p-2.5 hover:bg-red-50/70 cursor-pointer flex items-center justify-between gap-2 transition-colors group"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {c.image ? (
+                  <img src={c.image} alt={c.name} className="w-8 h-8 object-cover rounded-md border border-slate-100 shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 bg-slate-100 rounded-md flex items-center justify-center text-slate-400 text-xs shrink-0 font-bold">
+                    {c.name.charAt(0)}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="font-bold text-xs text-slate-800 group-hover:text-red-700 truncate leading-tight">
+                    {c.name}
+                  </div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                    {c.variant && <span className="bg-slate-100 px-1.5 py-0.2 rounded font-semibold text-slate-600">{c.variant}</span>}
+                    {c.sku && <span>SKU: {c.sku}</span>}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="font-bold text-xs text-slate-900">{c.price.toLocaleString()} DA</div>
+                {c.stock !== undefined && (
+                  <span className={`text-[9px] font-bold ${c.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {c.stock > 0 ? `${c.stock} in stock` : 'Out of stock'}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface PreorderItemRow {
   product_id: string;
@@ -735,13 +929,23 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                     <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-5">
                         <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Product SKU / Name</label>
-                        <input
-                          type="text"
-                          list="preorder-inventory-skus-list"
-                          placeholder="Search SKU or Name..."
+                        <PreorderItemSearchInput
                           value={row.product_name}
-                          onChange={(e) => handleSelectInventoryItem(idx, e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg p-1.5 font-bold text-xs"
+                          onChangeText={(text) => {
+                            const next = [...itemRows];
+                            next[idx].product_name = text;
+                            setItemRows(next);
+                          }}
+                          onSelect={(sel) => {
+                            const next = [...itemRows];
+                            next[idx].product_id = sel.productId;
+                            next[idx].product_name = sel.name;
+                            if (sel.variant) next[idx].variant = sel.variant;
+                            if (sel.price) next[idx].unit_price = sel.price;
+                            setItemRows(next);
+                          }}
+                          products={products}
+                          inventoryItems={inventoryItems}
                         />
                       </div>
 
