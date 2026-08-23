@@ -1,5 +1,5 @@
-import React from 'react';
-import { MessageCircle, Phone } from 'lucide-react';
+import React, { useState } from 'react';
+import { MessageCircle, Phone, Copy, Check } from 'lucide-react';
 import { getWhatsAppUrl } from '../lib/whatsapp';
 
 interface PhoneContactActionProps {
@@ -17,20 +17,61 @@ export const PhoneContactAction: React.FC<PhoneContactActionProps> = ({
   className = '',
   showPhoneText = true
 }) => {
+  const [copied, setCopied] = useState(false);
+
   if (!phone) return <span className="text-slate-400">—</span>;
 
   const waUrl = getWhatsAppUrl(phone, message);
 
+  const handleCopyPhone = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!phone) return;
+
+    const copyText = phone.trim();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(copyText).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        fallbackCopy(copyText);
+      });
+    } else {
+      fallbackCopy(copyText);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    const input = document.createElement('input');
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    try {
+      document.execCommand('copy');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {}
+    document.body.removeChild(input);
+  };
+
   return (
     <div className={`inline-flex items-center gap-1.5 ${className}`}>
       {showPhoneText && (
-        <a
-          href={`tel:${phone}`}
-          className="font-semibold text-slate-700 hover:text-blue-700 flex items-center gap-1 text-xs transition-colors"
-          title={`Call ${phone}`}
+        <button
+          type="button"
+          onClick={handleCopyPhone}
+          className="font-semibold text-slate-700 hover:text-blue-700 flex items-center gap-1 text-xs transition-colors cursor-pointer group px-1.5 py-0.5 rounded hover:bg-slate-100 border border-transparent hover:border-slate-200"
+          title="Click to copy phone number to clipboard"
         >
           <span>{phone}</span>
-        </a>
+          {copied ? (
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded flex items-center gap-0.5 animate-in fade-in">
+              <Check className="w-3 h-3 text-emerald-600" /> Copied!
+            </span>
+          ) : (
+            <Copy className="w-3 h-3 text-slate-400 group-hover:text-blue-600 transition-colors opacity-70 group-hover:opacity-100" />
+          )}
+        </button>
       )}
 
       {/* 1-Tap WhatsApp Button */}
