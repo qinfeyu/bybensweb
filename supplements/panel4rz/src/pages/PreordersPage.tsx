@@ -164,7 +164,7 @@ const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
       </div>
 
       {isOpen && filteredCandidates.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 max-h-64 overflow-y-auto thin-scrollbar divide-y divide-slate-100 animate-in fade-in zoom-in-95">
+        <div className="absolute left-0 top-full mt-1 w-[320px] sm:w-[380px] bg-white rounded-2xl shadow-2xl border border-slate-200 z-[100] max-h-72 overflow-y-auto thin-scrollbar divide-y divide-slate-100 animate-in fade-in zoom-in-95">
           {filteredCandidates.map((c, i) => (
             <div
               key={`${c.id}-${i}`}
@@ -177,30 +177,30 @@ const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
                 });
                 setIsOpen(false);
               }}
-              className="p-2.5 hover:bg-red-50/70 cursor-pointer flex items-center justify-between gap-2 transition-colors group"
+              className="p-3 hover:bg-red-50/70 cursor-pointer flex items-center justify-between gap-3 transition-colors group"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 {c.image ? (
-                  <img src={c.image} alt={c.name} className="w-8 h-8 object-cover rounded-md border border-slate-100 shrink-0" />
+                  <img src={c.image} alt={c.name} className="w-10 h-10 object-cover rounded-lg border border-slate-100 shrink-0 shadow-2xs" />
                 ) : (
-                  <div className="w-8 h-8 bg-slate-100 rounded-md flex items-center justify-center text-slate-400 text-xs shrink-0 font-bold">
+                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 text-xs shrink-0 font-black border border-slate-200">
                     {c.name.charAt(0)}
                   </div>
                 )}
-                <div className="min-w-0">
-                  <div className="font-bold text-xs text-slate-800 group-hover:text-red-700 truncate leading-tight">
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-xs text-slate-900 group-hover:text-red-700 leading-snug line-clamp-2">
                     {c.name}
                   </div>
-                  <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                    {c.variant && <span className="bg-slate-100 px-1.5 py-0.2 rounded font-semibold text-slate-600">{c.variant}</span>}
-                    {c.sku && <span>SKU: {c.sku}</span>}
+                  <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-1 flex-wrap">
+                    {c.variant && <span className="bg-slate-100 border border-slate-200/60 px-1.5 py-0.5 rounded font-semibold text-slate-700">{c.variant}</span>}
+                    {c.sku && !c.sku.startsWith('prod_') && <span className="text-slate-400 font-mono">SKU: {c.sku}</span>}
                   </div>
                 </div>
               </div>
-              <div className="text-right shrink-0">
-                <div className="font-bold text-xs text-slate-900">{c.price.toLocaleString()} DA</div>
+              <div className="text-right shrink-0 flex flex-col items-end justify-center pl-2">
+                <div className="font-black text-xs text-slate-900">{c.price.toLocaleString()} DA</div>
                 {c.stock !== undefined && (
-                  <span className={`text-[9px] font-bold ${c.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                  <span className={`text-[10px] font-bold mt-1 px-1.5 py-0.5 rounded-full ${c.stock > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-rose-50 text-rose-600 border border-rose-200/60'}`}>
                     {c.stock > 0 ? `${c.stock} in stock` : 'Out of stock'}
                   </span>
                 )}
