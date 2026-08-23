@@ -1,9 +1,47 @@
 import React, { useState } from 'react';
 import { Order, InventoryItem, Product } from '../types';
 import { calculateOrderProfit } from '../lib/calculations';
-import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter, Printer, MapPin, User, Calendar } from 'lucide-react';
+import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter, Printer, MapPin, User, Calendar, Copy, Check } from 'lucide-react';
 import { PhoneContactAction } from '../components/PhoneContactAction';
 import { WhatsAppTemplates } from '../lib/whatsapp';
+
+export function shortenProductName(name: string, variant?: string): string {
+  if (!name) return "";
+  let clean = name.trim();
+  
+  // 1. Strip brand prefixes
+  clean = clean.replace(/^(prozis|optimum nutrition|applied nutrition|biotechusa|scitec|muscletech|dymatize|allmax|rule 1|mutant|olimp|now foods)\s*[-:]\s*/i, "");
+  
+  // 2. Strip generic filler words like "Tablets of", "Capsules of", "Boite de", "Softgels of"
+  clean = clean.replace(/\b(tablets|capsules|caps|softgels|gummies|sachets|packs)\s+of\b/gi, "");
+  clean = clean.replace(/(\d+)\s*(capsules|caps|tablets|softgels|gummies|sachets|packs)\b/gi, "$1");
+  clean = clean.replace(/\b(tablets|capsules|caps|softgels|gummies|sachets|packs)\b/gi, "");
+  clean = clean.replace(/\b1000mg\b/gi, "");
+  clean = clean.replace(/\b500mg\b/gi, "");
+  clean = clean.replace(/\s+/g, " ").trim();
+
+  // 3. Extract quantity / size specification from variant
+  let varStr = (variant || "").trim();
+  varStr = varStr.replace(/(\d+)\s*(capsules|caps|tablets|softgels|gummies|sachets|packs)\b/gi, "$1");
+  varStr = varStr.replace(/\b(capsules|caps|tablets|softgels)\b/gi, "").trim();
+
+  if (varStr && !clean.toLowerCase().includes(varStr.toLowerCase())) {
+    clean = `${clean} ${varStr}`;
+  }
+
+  return clean;
+}
+
+export function formatOrderShortSummary(items: any[]): string {
+  if (!Array.isArray(items) || items.length === 0) return "—";
+  return items.map(item => {
+    const rawName = item.name || item.product_name || item.productName || "Product";
+    const rawVariant = item.variant || item.variant_spec || "";
+    const qty = Number(item.qty || item.quantity || 1);
+    const shortName = shortenProductName(rawName, rawVariant);
+    return `${shortName} (${qty})`;
+  }).join(", ");
+}
 
 interface OrdersPageProps {
   orders: Order[];
@@ -21,6 +59,66 @@ export function getSourceType(source?: string): 'pos' | 'pre-order' | 'storefron
   if (s.includes('pre')) return 'pre-order';
   return 'storefront';
 }
+
+const OrderSummaryBox: React.FC<{ items: any[] }> = ({ items }) => {
+  const [copied, setCopied] = useState(false);
+  const summaryText = formatOrderShortSummary(items);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!summaryText || summaryText === '—') return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(summaryText).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    } else {
+      const input = document.createElement('input');
+      input.value = summaryText;
+      document.body.appendChild(input);
+      input.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {}
+      document.body.removeChild(input);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/90 p-3.5 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+      <div className="flex-1 min-w-0">
+        <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+          <span>📦 Order Summary</span>
+        </span>
+        <p className="text-xs font-semibold text-slate-800 leading-relaxed font-mono bg-white/90 p-2 rounded-lg border border-amber-200/60 select-all break-words">
+          {summaryText}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="px-3 py-2 bg-white hover:bg-amber-100/80 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-2xs active:scale-95 cursor-pointer"
+        title="Copy formatted order summary to clipboard"
+      >
+        {copied ? (
+          <>
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="text-emerald-700 font-bold">Copied!</span>
+          </>
+        ) : (
+          <>
+            <Copy className="w-3.5 h-3.5 text-amber-700" />
+            <span>Copy Summary</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+};
 
 export const OrdersPage: React.FC<OrdersPageProps> = ({
   orders,
@@ -717,6 +815,9 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   </strong>
                 </div>
               </div>
+
+              {/* Structured Order Summary Card */}
+              <OrderSummaryBox items={selectedOrder.items || []} />
 
               {/* Items */}
               <div>
