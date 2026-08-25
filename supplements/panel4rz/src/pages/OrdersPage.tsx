@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Order, InventoryItem, Product } from '../types';
 import { calculateOrderProfit } from '../lib/calculations';
-import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter, Printer, MapPin, User, Calendar, Copy, Check } from 'lucide-react';
+import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter, Printer, MapPin, User, Calendar, Copy, Check, MessageCircle } from 'lucide-react';
 import { PhoneContactAction } from '../components/PhoneContactAction';
-import { WhatsAppTemplates } from '../lib/whatsapp';
+import { WhatsAppTemplates, getWhatsAppUrl } from '../lib/whatsapp';
 
 export function shortenProductName(name: string, variant?: string): string {
   if (!name) return "";
@@ -676,6 +676,26 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     </td>
                     <td className="py-2.5 px-2 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
+                        {o.phone && (
+                          <a
+                            href={getWhatsAppUrl(
+                              o.phone,
+                              WhatsAppTemplates.orderConfirmationRequest(
+                                `${o.first_name || o.firstName || ''}`,
+                                o.id,
+                                formatOrderShortSummary(o.items || []),
+                                Number(o.total || 0),
+                                o.wilaya || ''
+                              )
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors border border-emerald-200/80"
+                            title="Ask Customer Order Confirmation via WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20" />
+                          </a>
+                        )}
                         <button
                           onClick={() => setSelectedOrder(o)}
                           className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
@@ -815,6 +835,29 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   </strong>
                 </div>
               </div>
+
+              {/* WhatsApp Confirmation Request Button */}
+              {selectedOrder.phone && (
+                <a
+                  href={getWhatsAppUrl(
+                    selectedOrder.phone,
+                    WhatsAppTemplates.orderConfirmationRequest(
+                      `${selectedOrder.first_name || selectedOrder.firstName || ''}`,
+                      selectedOrder.id,
+                      formatOrderShortSummary(selectedOrder.items || []),
+                      Number(selectedOrder.total || 0),
+                      selectedOrder.wilaya || ''
+                    )
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white p-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border border-emerald-500"
+                  title="Contact customer on WhatsApp to confirm order before dispatching"
+                >
+                  <MessageCircle className="w-4 h-4 fill-white/20" />
+                  <span>Ask Customer Order Confirmation via WhatsApp 💬</span>
+                </a>
+              )}
 
               {/* Structured Order Summary Card */}
               <OrderSummaryBox items={selectedOrder.items || []} />
