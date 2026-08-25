@@ -42,7 +42,7 @@ export const WhatsAppTemplates = {
     const summary = itemsSummary && itemsSummary !== '—' ? ` (${itemsSummary})` : '';
     const location = wilaya ? ` vers ${wilaya}` : '';
 
-    return `Bonjour ${name},\n\nNous vous contactons de la part de BYBENS Sports Nutrition concernant votre commande #${orderId}${summary} d'un montant de ${Number(total || 0).toLocaleString()} DA${location}.\n\nMerci de nous confirmer si vous souhaitez que nous procédions à l'expédition de votre colis aujourd'hui ? 📦🚚\n\nDans l'attente de votre réponse !`;
+    return `Bonjour ${name},\n\nNous vous contactons de la part de BYBENS Sports Nutrition concernant votre commande #${orderId}${summary} d'un montant de ${Number(total || 0).toLocaleString()} DA${location}.\n\nMerci de nous confirmer votre commande. 🛒✅\n\nDans l'attente de votre réponse !`;
   },
 
   preorderUpdate: (customerName: string, preorderId: string, itemsSummary: string) => {
