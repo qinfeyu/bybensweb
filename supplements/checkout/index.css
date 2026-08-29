@@ -2111,4 +2111,82 @@
         100% { color: var(--black); background: transparent; transform: scale(1); }
       }
       .qty-adjusted { animation: qtyAdjustPulse 1s ease; }
+
+      /* ══ FREE DELIVERY THRESHOLD ══ */
+      .free-delivery-threshold-box {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(245, 158, 11, 0.07));
+        border: 1.5px solid rgba(239, 68, 68, 0.2);
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin-bottom: 20px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.05);
+      }
+      [data-theme="dark"] .free-delivery-threshold-box {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(245, 158, 11, 0.12));
+        border-color: rgba(239, 68, 68, 0.35);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+      .free-delivery-threshold-box.unlocked {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(5, 150, 105, 0.12));
+        border-color: rgba(16, 185, 129, 0.35);
+        box-shadow: 0 4px 16px rgba(16, 185, 129, 0.1);
+      }
+      [data-theme="dark"] .free-delivery-threshold-box.unlocked {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.2));
+        border-color: rgba(16, 185, 129, 0.45);
+      }
+      .fdt-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .fdt-icon {
+        font-size: 22px;
+        line-height: 1;
+        flex-shrink: 0;
+        animation: fdtBounce 2s infinite ease-in-out;
+      }
+      @keyframes fdtBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+      }
+      .fdt-text-wrap {
+        flex: 1;
+        min-width: 0;
+      }
+      .fdt-msg {
+        font-family: var(--font-body, system-ui);
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--black, #0f172a);
+        margin-bottom: 6px;
+        line-height: 1.35;
+      }
+      .free-delivery-threshold-box.unlocked .fdt-msg {
+        color: #047857;
+      }
+      [data-theme="dark"] .free-delivery-threshold-box.unlocked .fdt-msg {
+        color: #34d399;
+      }
+      .fdt-progress-bg {
+        width: 100%;
+        height: 8px;
+        background: rgba(0, 0, 0, 0.08);
+        border-radius: 99px;
+        overflow: hidden;
+        position: relative;
+      }
+      [data-theme="dark"] .fdt-progress-bg {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .fdt-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #f59e0b, #ef4444);
+        border-radius: 99px;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .free-delivery-threshold-box.unlocked .fdt-progress-fill {
+        background: linear-gradient(90deg, #10b981, #059669);
+      }
     </style>

@@ -327,6 +327,41 @@
         updateBulkNoticeVisibility();
       }
 
+      function updateFreeDeliveryThresholdBanner(subtotal) {
+        const threshold = 15000;
+        const bannerEl = document.getElementById("freeDeliveryThresholdBanner");
+        const msgEl = document.getElementById("fdtMessage");
+        const barEl = document.getElementById("fdtBar");
+        if (!bannerEl || !msgEl || !barEl) return;
+
+        const lang = currentLang || "en";
+        const progressPct = Math.min(100, Math.max(0, (subtotal / threshold) * 100));
+
+        barEl.style.width = progressPct + "%";
+
+        if (subtotal >= threshold) {
+          bannerEl.classList.add("unlocked");
+          if (lang === "fr") {
+            msgEl.innerHTML = "🎉 Félicitations ! Vous bénéficiez de la <strong>LIVRAISON GRATUITE</strong> !";
+          } else if (lang === "ar") {
+            msgEl.innerHTML = "🎉 مبروك! لقد حصلت على <strong>توصيل مجاني</strong>!";
+          } else {
+            msgEl.innerHTML = "🎉 Congratulations! You unlocked <strong>FREE DELIVERY</strong>!";
+          }
+        } else {
+          bannerEl.classList.remove("unlocked");
+          const needed = threshold - subtotal;
+          const formattedNeeded = needed.toLocaleString(lang === "ar" ? "ar-DZ" : "fr-DZ");
+          if (lang === "fr") {
+            msgEl.innerHTML = `Ajoutez <strong>${formattedNeeded} DA</strong> pour bénéficier de la <strong>LIVRAISON GRATUITE</strong> !`;
+          } else if (lang === "ar") {
+            msgEl.innerHTML = `أضف <strong>${formattedNeeded} دج</strong> للحصول على <strong>توصيل مجاني</strong>!`;
+          } else {
+            msgEl.innerHTML = `Add <strong>${formattedNeeded} DA</strong> more to get <strong>FREE DELIVERY</strong>!`;
+          }
+        }
+      }
+
       function updateOrderSummary() {
         const items = cartGet();
         const summaryList = document.getElementById("summaryItemsList");
@@ -335,13 +370,20 @@
         const totalEl = document.getElementById("summaryTotal");
 
         const subtotal = items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+        updateFreeDeliveryThresholdBanner(subtotal);
+
         const deliveryCost = getDeliveryCost()[selectedDelivery];
         const { discount, freeDelivery } = getPromoDiscount(
           items,
           deliveryCost,
         );
+
+        // 15,000 DA Free Delivery Rule
+        const isThresholdFreeDelivery = subtotal >= 15000;
+        const isFreeDel = freeDelivery || isThresholdFreeDelivery;
+
         const deliveryCharge = selectedWilayaCode
-          ? freeDelivery
+          ? isFreeDel
             ? 0
             : deliveryCost
           : 0;
@@ -367,23 +409,27 @@
           subtotalEl.textContent = subtotal.toLocaleString("fr-DZ") + " DA";
 
         if (deliveryEl) {
-          if (freeDelivery) deliveryEl.textContent = "FREE 🎉";
-          else
+          if (isFreeDel) {
+            deliveryEl.textContent = "FREE 🎉 (0 DA)";
+          } else {
             deliveryEl.textContent = selectedWilayaCode
               ? `+${deliveryCost.toLocaleString("fr-DZ")} DA (${selectedDelivery === "home" ? "Home" : "Office"})`
               : "Select wilaya";
+          }
         }
 
         const discountRow = document.getElementById("summaryDiscountRow");
         const discountVal = document.getElementById("summaryDiscountVal");
         const discountLabel = document.getElementById("summaryDiscountLabel");
         if (discountRow) {
-          if (appliedPromos.length) {
+          if (appliedPromos.length || isThresholdFreeDelivery) {
             discountRow.style.display = "";
-            discountLabel.textContent = `Promo (${appliedPromos.map(p => p.code).join(", ")})`;
+            discountLabel.textContent = appliedPromos.length
+              ? `Promo (${appliedPromos.map(p => p.code).join(", ")})`
+              : "Free Shipping Benefit";
             const parts = [];
             if (discount > 0) parts.push(`−${discount.toLocaleString("fr-DZ")} DA`);
-            if (freeDelivery) parts.push("Free delivery");
+            if (isFreeDel) parts.push("Free delivery");
             discountVal.textContent = parts.join(" + ") || "Applied";
           } else {
             discountRow.style.display = "none";
@@ -2930,6 +2976,11 @@
       }
 
       function updateDeliveryPriceDisplay() {
+        const items = cartGet();
+        const subtotal = items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+        const { freeDelivery } = getPromoDiscount(items, 0);
+        const isFreeDel = freeDelivery || subtotal >= 15000;
+
         const costs = getDeliveryCost();
         const homePriceEl = document.querySelector(
           "#deliveryHome .delivery-option-price",
@@ -2939,11 +2990,11 @@
         );
         if (homePriceEl)
           homePriceEl.textContent = selectedWilayaCode
-            ? `+${costs.home.toLocaleString("fr-DZ")} DA`
+            ? (isFreeDel ? "FREE 🎉 (0 DA)" : `+${costs.home.toLocaleString("fr-DZ")} DA`)
             : "—";
         if (officePriceEl)
           officePriceEl.textContent = selectedWilayaCode
-            ? `+${costs.office.toLocaleString("fr-DZ")} DA`
+            ? (isFreeDel ? "FREE 🎉 (0 DA)" : `+${costs.office.toLocaleString("fr-DZ")} DA`)
             : "—";
       }
 
@@ -3167,7 +3218,9 @@
           items,
           deliveryCost,
         );
-        const total = subtotal + (freeDelivery ? 0 : deliveryCost) - discount;
+        const isFreeDel = freeDelivery || subtotal >= 15000;
+        const finalDeliveryCost = isFreeDel ? 0 : deliveryCost;
+        const total = subtotal + finalDeliveryCost - discount;
 
         const payload = {
           action: "submitCartOrder",
@@ -3178,7 +3231,7 @@
           wilaya: `${selectedWilayaCode} - ${wilayaName}`,
           commune: selectedCommuneName,
           deliveryType: selectedDelivery,
-          deliveryCost: freeDelivery ? 0 : deliveryCost,
+          deliveryCost: finalDeliveryCost,
           promoCode: appliedPromos.map((pr) => pr.code).join(","),
           promoDiscount: discount,
           items: items.map((i) => ({
