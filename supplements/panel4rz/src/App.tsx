@@ -384,10 +384,28 @@ export default function App() {
       } catch(e) {}
 
       const mergedPreItemMap = new Map<string, any>();
-      localPreItems.forEach(i => { if (i.id) mergedPreItemMap.set(i.id, i); });
-      cloudPreItems.forEach(i => { if (i.id) mergedPreItemMap.set(i.id, i); });
+      localPreItems.forEach(i => { if (i && i.id) mergedPreItemMap.set(i.id, i); });
+      cloudPreItems.forEach(i => {
+        if (i && i.id) {
+          const existingLocal = mergedPreItemMap.get(i.id);
+          const uPrice = existingLocal?.unit_price || existingLocal?.price || 0;
+          mergedPreItemMap.set(i.id, {
+            ...i,
+            unit_price: uPrice,
+            price: uPrice
+          });
+        }
+      });
 
-      const finalPreItems = Array.from(mergedPreItemMap.values());
+      const finalPreItems = Array.from(mergedPreItemMap.values()).map(item => {
+        if (!item.unit_price && !item.price) {
+          const invMatch = finalInv.find(inv => inv.id === item.product_id || inv.sku === item.product_id || inv.name === item.product_name);
+          const priceVal = invMatch ? (Number(invMatch.retail_dzd) || 0) : 0;
+          return { ...item, unit_price: priceVal, price: priceVal };
+        }
+        return item;
+      });
+
       setPreorderItems(finalPreItems);
       localStorage.setItem('bb_preorder_items_cache', JSON.stringify(finalPreItems));
 
@@ -1765,7 +1783,7 @@ export default function App() {
     });
 
     try {
-      await supabase.from('pre_orders').upsert({
+      const { error: preErr } = await supabase.from('pre_orders').upsert({
         id: newPreorder.id,
         customer_name: newPreorder.customer_name,
         customer_phone: newPreorder.customer_phone,
@@ -1775,11 +1793,25 @@ export default function App() {
         date: newPreorder.date
       }, { onConflict: 'id' });
 
+      if (preErr) console.warn("pre_orders save notice:", preErr.message || preErr);
+
       await supabase.from('pre_order_items').delete().eq('pre_order_id', preId);
       if (newItems.length > 0) {
-        await supabase.from('pre_order_items').insert(newItems);
+        const dbItems = newItems.map(item => ({
+          id: item.id,
+          pre_order_id: item.pre_order_id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          variant: item.variant || null,
+          flavor: item.flavor || null,
+          qty: item.qty
+        }));
+        const { error: itemErr } = await supabase.from('pre_order_items').insert(dbItems);
+        if (itemErr) console.warn("pre_order_items save notice:", itemErr.message || itemErr);
       }
-    } catch(e) {}
+    } catch(e: any) {
+      console.warn("handleSavePreorder notice:", e.message || e);
+    }
 
     showToast(`✓ Pre-order #${preId} saved successfully!`);
   };
