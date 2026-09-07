@@ -211,14 +211,46 @@ export default function App() {
         }
       } catch (e) {}
 
-      // 1. Fetch Inventory Items
-      let cloudInv: InventoryItem[] = [];
-      if (adminData && Array.isArray(adminData.inventoryItems)) {
-        cloudInv = adminData.inventoryItems;
-      } else {
-        const invRes = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false });
-        cloudInv = invRes.data || [];
+      // If /api/admin-data failed or returned no success, execute client fallback queries concurrently in parallel!
+      if (!adminData || !adminData.success) {
+        const [
+          invRes,
+          catRes,
+          subRes,
+          prodRes,
+          ordersRes,
+          preRes,
+          preItemsRes,
+          expRes,
+          custRes
+        ] = await Promise.all([
+          supabase.from('inventory_items').select('*').order('created_at', { ascending: false }),
+          supabase.from('categories').select('*').order('created_at', { ascending: true }),
+          supabase.from('sub_categories').select('*'),
+          supabase.from('products').select('*'),
+          supabase.from('orders').select('*').order('created_at', { ascending: false }),
+          supabase.from('pre_orders').select('*').order('date', { ascending: false }),
+          supabase.from('pre_order_items').select('*'),
+          supabase.from('expenses').select('*').order('date', { ascending: false }),
+          supabase.from('customers').select('*')
+        ]);
+
+        adminData = {
+          success: true,
+          inventoryItems: invRes.data || [],
+          categories: catRes.data || [],
+          subCategories: subRes.data || [],
+          products: prodRes.data || [],
+          orders: ordersRes.data || [],
+          preOrders: preRes.data || [],
+          preOrderItems: preItemsRes.data || [],
+          expenses: expRes.data || [],
+          customers: custRes.data || []
+        };
       }
+
+      // 1. Process Inventory Items with Smart Timestamp-based Cache Merging
+      const cloudInv: InventoryItem[] = Array.isArray(adminData.inventoryItems) ? adminData.inventoryItems : [];
 
       let localInv: InventoryItem[] = [];
       try {
@@ -236,25 +268,42 @@ export default function App() {
         }
       });
 
+      const localInvMap = new Map<string, InventoryItem>();
+      localInv.forEach(item => {
+        if (item.id) localInvMap.set(item.id, item);
+      });
+
       const mergedInvMap = new Map<string, InventoryItem>();
+      const unsavedLocalEdits: InventoryItem[] = [];
 
       cloudInv.forEach(cloudItem => {
         if (cloudItem.id) {
-          const cloudStock = Number(cloudItem.stock) || 0;
-          const hasCloudEu = cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null;
-          const cloudStockEu = hasCloudEu ? (Number(cloudItem.stock_eu) || 0) : (localEuMap[cloudItem.id] ?? 0);
+          const localItem = localInvMap.get(cloudItem.id);
+          const cloudTime = cloudItem._lastUpdated ? new Date(cloudItem._lastUpdated).getTime() : 0;
+          const localTime = localItem?._lastUpdated ? new Date(localItem._lastUpdated).getTime() : 0;
 
-          mergedInvMap.set(cloudItem.id, {
-            ...cloudItem,
-            stock: cloudStock,
-            stock_eu: cloudStockEu
-          });
+          // If local item has a strictly newer update timestamp, preserve the local item's edited stock/values!
+          if (localItem && localTime > cloudTime && localTime > 0) {
+            mergedInvMap.set(cloudItem.id, localItem);
+            unsavedLocalEdits.push(localItem);
+          } else {
+            const cloudStock = Number(cloudItem.stock) || 0;
+            const hasCloudEu = cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null;
+            const cloudStockEu = hasCloudEu ? (Number(cloudItem.stock_eu) || 0) : (localEuMap[cloudItem.id] ?? 0);
+
+            mergedInvMap.set(cloudItem.id, {
+              ...cloudItem,
+              stock: cloudStock,
+              stock_eu: cloudStockEu
+            });
+          }
         }
       });
 
       localInv.forEach(item => {
         if (item.id && !mergedInvMap.has(item.id)) {
           mergedInvMap.set(item.id, item);
+          unsavedLocalEdits.push(item);
         }
       });
 
@@ -264,22 +313,10 @@ export default function App() {
       localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(localEuMap));
 
       // 2. Fetch Categories & Sub-Categories
-      let catData: any[] = [];
-      if (adminData && Array.isArray(adminData.categories)) {
-        catData = adminData.categories;
-      } else {
-        const catRes = await supabase.from('categories').select('*').order('created_at', { ascending: true });
-        catData = catRes.data || [];
-      }
+      const catData: any[] = Array.isArray(adminData.categories) ? adminData.categories : [];
       setCategories(catData.map((c: any) => ({ id: String(c.id), name: c.name })));
 
-      let subData: any[] = [];
-      if (adminData && Array.isArray(adminData.subCategories)) {
-        subData = adminData.subCategories;
-      } else {
-        const subRes = await supabase.from('sub_categories').select('*');
-        subData = subRes.data || [];
-      }
+      const subData: any[] = Array.isArray(adminData.subCategories) ? adminData.subCategories : [];
       setSubCategories(subData.map((s: any) => ({
         id: String(s.id),
         name: s.name,
@@ -287,13 +324,7 @@ export default function App() {
       })));
 
       // 3. Fetch Products
-      let prodData: any[] = [];
-      if (adminData && Array.isArray(adminData.products)) {
-        prodData = adminData.products;
-      } else {
-        const prodRes = await supabase.from('products').select('*');
-        prodData = prodRes.data || [];
-      }
+      const prodData: any[] = Array.isArray(adminData.products) ? adminData.products : [];
 
       const cloudProds: Product[] = prodData.map((p: any) => ({
         id: String(p.id),
@@ -334,13 +365,7 @@ export default function App() {
       localStorage.setItem('bb_products_cache', JSON.stringify(finalProds));
 
       // 4. Fetch Orders
-      let rawOrders: any[] = [];
-      if (adminData && Array.isArray(adminData.orders)) {
-        rawOrders = adminData.orders;
-      } else {
-        const ordersRes = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        rawOrders = ordersRes.data || [];
-      }
+      const rawOrders: any[] = Array.isArray(adminData.orders) ? adminData.orders : [];
 
       setOrders(rawOrders);
       rawOrders.forEach((o: any) => {
@@ -350,13 +375,7 @@ export default function App() {
       });
 
       // 5. Fetch Pre-Orders & Pre-Order Items
-      let cloudPreorders: any[] = [];
-      if (adminData && Array.isArray(adminData.preOrders)) {
-        cloudPreorders = adminData.preOrders;
-      } else {
-        const preRes = await supabase.from('pre_orders').select('*').order('date', { ascending: false });
-        cloudPreorders = preRes.data || [];
-      }
+      const cloudPreorders: any[] = Array.isArray(adminData.preOrders) ? adminData.preOrders : [];
 
       let localPreorders: PreOrder[] = [];
       try {
@@ -371,13 +390,7 @@ export default function App() {
       setPreorders(finalPreorders);
       localStorage.setItem('bb_preorders_cache', JSON.stringify(finalPreorders));
 
-      let cloudPreItems: any[] = [];
-      if (adminData && Array.isArray(adminData.preOrderItems)) {
-        cloudPreItems = adminData.preOrderItems;
-      } else {
-        const preItemsRes = await supabase.from('pre_order_items').select('*');
-        cloudPreItems = preItemsRes.data || [];
-      }
+      const cloudPreItems: any[] = Array.isArray(adminData.preOrderItems) ? adminData.preOrderItems : [];
 
       let localPreItems: PreOrderItem[] = [];
       try {
@@ -411,23 +424,11 @@ export default function App() {
       localStorage.setItem('bb_preorder_items_cache', JSON.stringify(finalPreItems));
 
       // 6. Fetch Expenses
-      let rawExpenses: any[] = [];
-      if (adminData && Array.isArray(adminData.expenses)) {
-        rawExpenses = adminData.expenses;
-      } else {
-        const expRes = await supabase.from('expenses').select('*').order('date', { ascending: false });
-        rawExpenses = expRes.data || [];
-      }
+      const rawExpenses: any[] = Array.isArray(adminData.expenses) ? adminData.expenses : [];
       setExpenses(rawExpenses);
 
       // 7. Fetch Customers & Extract Profiles
-      let rawCusts: any[] = [];
-      if (adminData && Array.isArray(adminData.customers)) {
-        rawCusts = adminData.customers;
-      } else {
-        const custRes = await supabase.from('customers').select('*');
-        rawCusts = custRes.data || [];
-      }
+      const rawCusts: any[] = Array.isArray(adminData.customers) ? adminData.customers : [];
 
       const cloudCusts: Customer[] = rawCusts.map((c: any) => ({
         id: String(c.id),
