@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { InventoryItem } from '../types';
 import { calculateLandedCost, calculateMargin, calculateMarginPct, calculateWeightedAverageEurPrice } from '../lib/calculations';
 import { 
@@ -17,7 +17,8 @@ import {
   Copy,
   Sparkles,
   ListPlus,
-  Layers
+  Layers,
+  Filter
 } from 'lucide-react';
 
 interface InventoryPageProps {
@@ -65,13 +66,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'supplement' | 'snack'>('supplement');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [isSpreadsheetMode, setIsSpreadsheetMode] = useState(false);
   const [pendingSpreadsheetEdits, setPendingSpreadsheetEdits] = useState<Record<string, InventoryItem>>({});
   const [sortField, setSortField] = useState<keyof InventoryItem | 'landed' | 'margin'>('id');
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedSkuIds, setSelectedSkuIds] = useState<string[]>([]);
-
-
 
   // Bulk Restock Modal State
   const [isBulkRestockOpen, setIsBulkRestockOpen] = useState(false);
@@ -87,10 +87,24 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [csvDiffs, setCsvDiffs] = useState<CsvDiffItem[]>([]);
   const [pendingCsvItems, setPendingCsvItems] = useState<InventoryItem[]>([]);
 
-  // Filter Items by activeTab & searchQuery
+  // Filter Items by activeTab & searchQuery & selectedBrand
   const tabItems = inventoryItems.filter(item => (item.type || 'supplement') === activeTab);
 
+  // Extract unique sorted list of brands for current tabItems
+  const availableBrands = useMemo(() => {
+    const brands = new Set<string>();
+    tabItems.forEach(item => {
+      if (item.brand && item.brand.trim()) {
+        brands.add(item.brand.trim());
+      }
+    });
+    return Array.from(brands).sort((a, b) => a.localeCompare(b));
+  }, [tabItems]);
+
   const filteredItems = tabItems.filter(item => {
+    if (selectedBrand !== 'all' && (item.brand || '').trim() !== selectedBrand) {
+      return false;
+    }
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -700,11 +714,14 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       </div>
 
       {/* Tabs & Search Filter */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col lg:flex-row gap-3 items-center justify-between">
         {/* Category Segment Tabs */}
-        <div className="flex p-1 bg-slate-100 rounded-xl gap-1 w-full sm:w-auto">
+        <div className="flex p-1 bg-slate-100 rounded-xl gap-1 w-full lg:w-auto">
           <button
-            onClick={() => setActiveTab('supplement')}
+            onClick={() => {
+              setActiveTab('supplement');
+              setSelectedBrand('all');
+            }}
             className={`flex-1 sm:flex-none px-5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'supplement' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
@@ -712,7 +729,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
             Supplements ({inventoryItems.filter(i => (i.type || 'supplement') === 'supplement').length})
           </button>
           <button
-            onClick={() => setActiveTab('snack')}
+            onClick={() => {
+              setActiveTab('snack');
+              setSelectedBrand('all');
+            }}
             className={`flex-1 sm:flex-none px-5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'snack' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
@@ -721,16 +741,44 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           </button>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search by SKU, Brand, or Name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
-          />
+        {/* Brand & Search Controls */}
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full lg:w-auto">
+          {/* Brand Filter Dropdown */}
+          <div className="relative w-full sm:w-56">
+            <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-7 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600/20 cursor-pointer appearance-none"
+            >
+              <option value="all">All Brands ({tabItems.length})</option>
+              {availableBrands.map(brand => {
+                const count = tabItems.filter(i => (i.brand || '').trim() === brand).length;
+                return (
+                  <option key={brand} value={brand}>
+                    {brand} ({count})
+                  </option>
+                );
+              })}
+            </select>
+            <div className="absolute right-3 top-2.5 pointer-events-none text-slate-400">
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search by SKU, Brand, or Name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
+            />
+          </div>
         </div>
       </div>
 
