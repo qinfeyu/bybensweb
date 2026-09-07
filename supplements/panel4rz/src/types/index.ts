@@ -34,6 +34,7 @@ export interface InventoryItem {
   retail_dzd: number;
   stock: number;      // DZ Stock (sellable)
   stock_eu: number;   // EU Stock;
+  is_archived?: boolean;
   created_at?: string;
   _lastUpdated?: string;
 }

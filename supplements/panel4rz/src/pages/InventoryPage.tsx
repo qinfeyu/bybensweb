@@ -18,7 +18,8 @@ import {
   Sparkles,
   ListPlus,
   Layers,
-  Filter
+  Filter,
+  Archive
 } from 'lucide-react';
 
 interface InventoryPageProps {
@@ -65,6 +66,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   showToast
 }) => {
   const [activeTab, setActiveTab] = useState<'supplement' | 'snack'>('supplement');
+  const [showArchived, setShowArchived] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [isSpreadsheetMode, setIsSpreadsheetMode] = useState(false);
@@ -87,8 +89,17 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [csvDiffs, setCsvDiffs] = useState<CsvDiffItem[]>([]);
   const [pendingCsvItems, setPendingCsvItems] = useState<InventoryItem[]>([]);
 
-  // Filter Items by activeTab & searchQuery & selectedBrand
-  const tabItems = inventoryItems.filter(item => (item.type || 'supplement') === activeTab);
+  // Total archived items count across inventory
+  const archivedCount = useMemo(() => {
+    return inventoryItems.filter(i => Boolean(i.is_archived)).length;
+  }, [inventoryItems]);
+
+  // Filter Items by activeTab & showArchived & searchQuery & selectedBrand
+  const tabItems = inventoryItems.filter(item => {
+    const matchesTab = (item.type || 'supplement') === activeTab;
+    const matchesArchive = showArchived ? Boolean(item.is_archived) : !item.is_archived;
+    return matchesTab && matchesArchive;
+  });
 
   // Extract unique sorted list of brands for current tabItems
   const availableBrands = useMemo(() => {
@@ -225,6 +236,36 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       showToast(`✓ Changed type to ${newType} for ${count} SKUs`);
     } catch (e) {
       showToast("Error updating type", "error");
+    }
+  };
+
+  const handleToggleArchiveItem = async (item: InventoryItem) => {
+    const nextState = !item.is_archived;
+    await onSaveItem({ ...item, is_archived: nextState });
+    showToast(
+      nextState 
+        ? `✓ Archived SKU [${item.id}] ${item.name}` 
+        : `✓ Restored SKU [${item.id}] ${item.name} to active inventory`
+    );
+  };
+
+  const handleBulkToggleArchive = async (targetArchivedState: boolean) => {
+    if (selectedSkuIds.length === 0) return;
+    const actionLabel = targetArchivedState ? 'archive' : 'restore';
+    if (!confirm(`Are you sure you want to ${actionLabel} ${selectedSkuIds.length} selected SKUs?`)) return;
+    try {
+      let count = 0;
+      for (const id of selectedSkuIds) {
+        const item = inventoryItems.find(i => i.id === id);
+        if (item) {
+          await onSaveItem({ ...item, is_archived: targetArchivedState });
+          count++;
+        }
+      }
+      setSelectedSkuIds([]);
+      showToast(`✓ ${targetArchivedState ? 'Archived' : 'Restored'} ${count} SKUs`);
+    } catch (e) {
+      showToast("Error updating archive status", "error");
     }
   };
 
@@ -715,29 +756,53 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* Tabs & Search Filter */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col lg:flex-row gap-3 items-center justify-between">
-        {/* Category Segment Tabs */}
-        <div className="flex p-1 bg-slate-100 rounded-xl gap-1 w-full lg:w-auto">
+        {/* Category Segment Tabs & Archived Toggle */}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="flex p-1 bg-slate-100 rounded-xl gap-1 flex-1 sm:flex-none">
+            <button
+              onClick={() => {
+                setActiveTab('supplement');
+                setSelectedBrand('all');
+              }}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'supplement' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Supplements ({inventoryItems.filter(i => (i.type || 'supplement') === 'supplement' && (!showArchived ? !i.is_archived : Boolean(i.is_archived))).length})
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('snack');
+                setSelectedBrand('all');
+              }}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'snack' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Snacks & Bars ({inventoryItems.filter(i => i.type === 'snack' && (!showArchived ? !i.is_archived : Boolean(i.is_archived))).length})
+            </button>
+          </div>
+
+          {/* Archived Toggle Button */}
           <button
             onClick={() => {
-              setActiveTab('supplement');
+              setShowArchived(!showArchived);
               setSelectedBrand('all');
             }}
-            className={`flex-1 sm:flex-none px-5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'supplement' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+              showArchived
+                ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
             }`}
+            title={showArchived ? "Switch to Active Inventory" : "View Archived Products"}
           >
-            Supplements ({inventoryItems.filter(i => (i.type || 'supplement') === 'supplement').length})
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('snack');
-              setSelectedBrand('all');
-            }}
-            className={`flex-1 sm:flex-none px-5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'snack' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Snacks & Bars ({inventoryItems.filter(i => i.type === 'snack').length})
+            <Archive className="w-3.5 h-3.5" />
+            <span>{showArchived ? 'Archived View' : 'Archived'}</span>
+            <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-extrabold ${
+              showArchived ? 'bg-white/30 text-white' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {archivedCount}
+            </span>
           </button>
         </div>
 
@@ -1054,6 +1119,17 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button
+                          onClick={() => handleToggleArchiveItem(item)}
+                          className={`p-1 rounded transition-colors ${
+                            item.is_archived
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-50 hover:bg-amber-100 text-amber-700'
+                          }`}
+                          title={item.is_archived ? "Restore to active inventory" : "Archive product"}
+                        >
+                          {item.is_archived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
                           onClick={() => handleDuplicateItem(item)}
                           className="p-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded transition-colors"
                           title="Duplicate / Clone SKU"
@@ -1086,7 +1162,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 <tr>
                   <td colSpan={14} className="p-12 text-center space-y-4">
                     <div className="text-slate-400 font-medium text-sm">
-                      No inventory items found for {activeTab}s.
+                      {showArchived 
+                        ? `No archived items found in ${activeTab}s.`
+                        : `No active inventory items found for ${activeTab}s.`
+                      }
                     </div>
                     <div className="flex items-center justify-center gap-3 flex-wrap">
                       <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-2">
@@ -1105,12 +1184,26 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* Sticky Floating Bulk Action Bar for Inventory */}
       {selectedSkuIds.length > 0 && (
-        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-xl w-[94vw] animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-2xl w-[94vw] animate-in slide-in-from-bottom-4">
           <span className="text-xs font-black bg-red-600 px-2.5 py-1 rounded-lg shrink-0">
             {selectedSkuIds.length} SKUs Selected
           </span>
 
           <div className="flex items-center gap-2 flex-1 justify-end overflow-x-auto text-xs">
+            {/* Bulk Archive / Restore Button */}
+            <button
+              onClick={() => handleBulkToggleArchive(!showArchived)}
+              className={`px-3 py-1.5 font-bold text-xs rounded-xl flex items-center gap-1 transition-colors shrink-0 ${
+                showArchived
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  : 'bg-amber-600 hover:bg-amber-500 text-white'
+              }`}
+              title={showArchived ? "Restore selected SKUs to active inventory" : "Archive selected SKUs"}
+            >
+              {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+              <span>{showArchived ? 'Restore' : 'Archive'}</span>
+            </button>
+
             {/* Bulk Restock Stock Pill Buttons */}
             <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-xl shrink-0">
               <span className="text-[10px] text-slate-400 font-bold px-1 hidden sm:inline">Stock:</span>
