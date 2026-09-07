@@ -1,5 +1,23 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { supabase, ensureSupabaseKey } from './lib/supabase';
+import { supabase, ensureSupabaseKey, safeSetLocalStorage } from './lib/supabase';
+
+// Strip heavy fields from products before caching to stay well under the 5MB localStorage limit.
+// nutritionalFacts, benefits, description can be very long strings — we omit them from cache.
+// base64 image data:// URLs are replaced with empty strings (actual URLs are kept).
+const sanitizeProductsForCache = (prods: Product[]) => {
+  return prods.map(p => {
+    const imgs: string[] = Array.isArray(p.imageUrl)
+      ? p.imageUrl
+      : typeof p.imageUrl === 'string' ? [p.imageUrl] : [];
+    return {
+      ...p,
+      nutritionalFacts: '',
+      benefits: '',
+      description: '',
+      imageUrl: imgs.map((img: string) => (img && img.length > 500 && img.startsWith('data:') ? '' : img))
+    };
+  });
+};
 import type { 
   TabType, 
   InventoryItem, 
@@ -117,10 +135,10 @@ export default function App() {
       const data = await res.json();
       if (res.ok && data.success) {
         setIsAuthenticated(true);
-        localStorage.setItem('bb_admin_auth', '1');
-        localStorage.setItem('bb_admin_name', data.user?.email || loginEmailInput.trim());
+        safeSetLocalStorage('bb_admin_auth', '1');
+        safeSetLocalStorage('bb_admin_name', data.user?.email || loginEmailInput.trim());
         if (data.access_token) {
-          localStorage.setItem('bb_admin_token', data.access_token);
+          safeSetLocalStorage('bb_admin_token', data.access_token);
         }
         setAdminEmail(data.user?.email || loginEmailInput.trim());
         showToast('✓ Welcome back, Admin!');
@@ -309,8 +327,8 @@ export default function App() {
 
       const finalInv = Array.from(mergedInvMap.values());
       setInventoryItems(finalInv);
-      localStorage.setItem('bb_inventory_items', JSON.stringify(finalInv));
-      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(localEuMap));
+      safeSetLocalStorage('bb_inventory_items', JSON.stringify(finalInv));
+      safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(localEuMap));
 
       // 2. Fetch Categories & Sub-Categories
       const catData: any[] = Array.isArray(adminData.categories) ? adminData.categories : [];
@@ -362,7 +380,7 @@ export default function App() {
 
       const finalProds = Array.from(mergedProdMap.values());
       setProducts(finalProds);
-      localStorage.setItem('bb_products_cache', JSON.stringify(finalProds));
+      safeSetLocalStorage('bb_products_cache', JSON.stringify(sanitizeProductsForCache(finalProds)));
 
       // 4. Fetch Orders
       const rawOrders: any[] = Array.isArray(adminData.orders) ? adminData.orders : [];
@@ -388,7 +406,7 @@ export default function App() {
 
       const finalPreorders = Array.from(mergedPreMap.values());
       setPreorders(finalPreorders);
-      localStorage.setItem('bb_preorders_cache', JSON.stringify(finalPreorders));
+      safeSetLocalStorage('bb_preorders_cache', JSON.stringify(finalPreorders));
 
       const cloudPreItems: any[] = Array.isArray(adminData.preOrderItems) ? adminData.preOrderItems : [];
 
@@ -421,7 +439,7 @@ export default function App() {
       });
 
       setPreorderItems(finalPreItems);
-      localStorage.setItem('bb_preorder_items_cache', JSON.stringify(finalPreItems));
+      safeSetLocalStorage('bb_preorder_items_cache', JSON.stringify(finalPreItems));
 
       // 6. Fetch Expenses
       const rawExpenses: any[] = Array.isArray(adminData.expenses) ? adminData.expenses : [];
@@ -509,7 +527,7 @@ export default function App() {
       cloudCusts.forEach(processCustomer);
 
       setCustomers(mergedCustList);
-      localStorage.setItem('bb_customers_cache', JSON.stringify(mergedCustList));
+      safeSetLocalStorage('bb_customers_cache', JSON.stringify(mergedCustList));
 
       // 8. Fetch Settings & Hidden Wilayas
       let rawSettings: any[] = [];
@@ -831,7 +849,7 @@ export default function App() {
 
     if (prodUpdates.length > 0) {
       setProducts(updatedProds);
-      localStorage.setItem('bb_products_cache', JSON.stringify(updatedProds));
+      safeSetLocalStorage('bb_products_cache', JSON.stringify(updatedProds));
       prodUpdates.forEach(async (u) => {
         try {
           await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
@@ -850,7 +868,7 @@ export default function App() {
     try {
       const euMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');
       euMap[item.id] = Number(item.stock_eu) || 0;
-      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
+      safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
     let nextInv: InventoryItem[] = [];
@@ -859,7 +877,7 @@ export default function App() {
       const idx = nextInv.findIndex(x => x.id === item.id);
       if (idx >= 0) nextInv[idx] = payload;
       else nextInv.push(payload);
-      localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
+      safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
       return nextInv;
     });
 
@@ -880,7 +898,7 @@ export default function App() {
       items.forEach(i => {
         euMap[i.id] = Number(i.stock_eu) || 0;
       });
-      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
+      safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
     let nextInv: InventoryItem[] = [];
@@ -891,7 +909,7 @@ export default function App() {
         if (idx >= 0) nextInv[idx] = { ...nextInv[idx], ...item };
         else nextInv.push(item);
       });
-      localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
+      safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
       return nextInv;
     });
 
@@ -1072,12 +1090,12 @@ export default function App() {
     try {
       const euMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');
       delete euMap[id];
-      localStorage.setItem('bb_inventory_stock_eu_map', JSON.stringify(euMap));
+      safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
     const nextInv = inventoryItems.filter(x => x.id !== id);
     setInventoryItems(nextInv);
-    localStorage.setItem('bb_inventory_items', JSON.stringify(nextInv));
+    safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
     showToast("✓ Inventory item deleted!");
   };
 
@@ -1156,7 +1174,7 @@ export default function App() {
       const idx = nextProds.findIndex(p => p.id === payload.id);
       if (idx >= 0) nextProds[idx] = payload;
       else nextProds.push(payload);
-      localStorage.setItem('bb_products_cache', JSON.stringify(nextProds));
+      safeSetLocalStorage('bb_products_cache', JSON.stringify(nextProds));
       return nextProds;
     });
 
@@ -1173,7 +1191,7 @@ export default function App() {
 
     const nextProds = products.filter(p => p.id !== id);
     setProducts(nextProds);
-    localStorage.setItem('bb_products_cache', JSON.stringify(nextProds));
+    safeSetLocalStorage('bb_products_cache', JSON.stringify(nextProds));
     showToast("✓ Product deleted!");
   };
 
@@ -1434,11 +1452,11 @@ export default function App() {
 
     if (invUpdates.length > 0) {
       setInventoryItems([...updatedInventory]);
-      localStorage.setItem('bb_inventory_items', JSON.stringify(updatedInventory));
+      safeSetLocalStorage('bb_inventory_items', JSON.stringify(updatedInventory));
     }
     if (prodUpdates.length > 0) {
       setProducts([...updatedProducts]);
-      localStorage.setItem('bb_products_cache', JSON.stringify(updatedProducts));
+      safeSetLocalStorage('bb_products_cache', JSON.stringify(updatedProducts));
     }
 
     // Always run automatic catalog product sync to ensure all variant & flavor stocks stay 100% refreshed
@@ -1771,7 +1789,7 @@ export default function App() {
       let next = [...prev];
       if (idx >= 0) next[idx] = newPreorder;
       else next = [newPreorder, ...prev];
-      localStorage.setItem('bb_preorders_cache', JSON.stringify(next));
+      safeSetLocalStorage('bb_preorders_cache', JSON.stringify(next));
       return next;
     });
 
@@ -1780,7 +1798,7 @@ export default function App() {
         ...prev.filter(i => i.pre_order_id !== preId),
         ...newItems
       ];
-      localStorage.setItem('bb_preorder_items_cache', JSON.stringify(next));
+      safeSetLocalStorage('bb_preorder_items_cache', JSON.stringify(next));
       return next;
     });
 
@@ -1848,7 +1866,7 @@ export default function App() {
 
     setPreorders(prev => {
       const next = prev.map(p => p.id === preorderId ? { ...p, status: nextStatus } : p);
-      localStorage.setItem('bb_preorders_cache', JSON.stringify(next));
+      safeSetLocalStorage('bb_preorders_cache', JSON.stringify(next));
       return next;
     });
     showToast(`✓ Pre-order status changed to ${nextStatus}${nextStatus === 'fulfilled' ? ` (${totalAmt.toLocaleString()} DA added to Orders & Budget)` : ''}`);
@@ -1881,12 +1899,12 @@ export default function App() {
 
     setPreorders(prev => {
       const next = prev.filter(p => p.id !== preorderId);
-      localStorage.setItem('bb_preorders_cache', JSON.stringify(next));
+      safeSetLocalStorage('bb_preorders_cache', JSON.stringify(next));
       return next;
     });
     setPreorderItems(prev => {
       const next = prev.filter(i => i.pre_order_id !== preorderId);
-      localStorage.setItem('bb_preorder_items_cache', JSON.stringify(next));
+      safeSetLocalStorage('bb_preorder_items_cache', JSON.stringify(next));
       return next;
     });
     showToast("✓ Pre-order deleted!");
@@ -2083,7 +2101,7 @@ export default function App() {
       const idx = next.findIndex(c => c.phone === cust.phone || (c.id && c.id === cust.id));
       if (idx >= 0) next[idx] = cust;
       else next.push(cust);
-      localStorage.setItem('bb_customers_cache', JSON.stringify(next));
+      safeSetLocalStorage('bb_customers_cache', JSON.stringify(next));
       return next;
     });
 

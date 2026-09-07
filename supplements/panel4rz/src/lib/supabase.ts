@@ -11,13 +11,90 @@ const initialKey = activeKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholde
 
 const rawSupabase = createClient(SUPABASE_URL, initialKey);
 
+// Non-critical cache keys that can be evicted when storage is full.
+// Ordered from largest/least-critical to smallest/more-critical.
+const EVICTABLE_CACHE_KEYS = [
+  'bb_customers_cache',
+  'bb_preorder_items_cache',
+  'bb_preorders_cache',
+  'bb_products_cache',
+  'bb_inventory_stock_eu_map',
+  'bb_inventory_items',
+];
+
+/** Estimate current localStorage usage in KB for debugging */
+function estimateStorageKB(): number {
+  let total = 0;
+  try {
+    for (const k in localStorage) {
+      if (Object.prototype.hasOwnProperty.call(localStorage, k)) {
+        total += (localStorage.getItem(k) || '').length;
+      }
+    }
+  } catch (_) {}
+  return Math.round(total / 1024);
+}
+
+/**
+ * Safe wrapper around localStorage.setItem that gracefully handles QuotaExceededError.
+ * On failure it progressively evicts non-critical caches and retries.
+ * Auth tokens are never evicted.
+ */
+export function safeSetLocalStorage(key: string, value: string): boolean {
+  if (typeof window === 'undefined') return false;
+
+  // Fast path — just write and return
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (_) {
+    // Quota hit — start eviction
+  }
+
+  const usageKB = estimateStorageKB();
+  console.warn(
+    `[safeSetLocalStorage] QuotaExceededError for key="${key}" (≈${usageKB} KB used). Evicting caches...`
+  );
+
+  // Progressively evict caches and retry after each eviction
+  for (const cacheKey of EVICTABLE_CACHE_KEYS) {
+    if (cacheKey === key) continue; // don't evict the key we're about to write
+    localStorage.removeItem(cacheKey);
+    try {
+      localStorage.setItem(key, value);
+      console.info(`[safeSetLocalStorage] Retry succeeded after evicting "${cacheKey}"`);
+      return true;
+    } catch (_) {
+      // Continue evicting
+    }
+  }
+
+  // Last resort: clear everything except auth credentials
+  const PROTECTED_KEYS = ['bb_admin_auth', 'bb_admin_name', 'bb_admin_token', 'supabase_anon_key'];
+  try {
+    const keysToRemove = [];
+    for (const k in localStorage) {
+      if (Object.prototype.hasOwnProperty.call(localStorage, k) && !PROTECTED_KEYS.includes(k)) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem(key, value);
+    console.info(`[safeSetLocalStorage] Retry succeeded after full cache clear`);
+    return true;
+  } catch (finalErr) {
+    console.error(`[safeSetLocalStorage] Could not write key="${key}" even after full eviction`, finalErr);
+    return false;
+  }
+}
+
 export async function ensureSupabaseKey(): Promise<string> {
   if (typeof window === 'undefined') return initialKey;
   try {
     const res = await fetch('/api/config');
     const data = await res.json();
     if (data && data.supabaseKey) {
-      localStorage.setItem('supabase_anon_key', data.supabaseKey);
+      safeSetLocalStorage('supabase_anon_key', data.supabaseKey);
       (window as any).SUPABASE_ANON_KEY = data.supabaseKey;
       (rawSupabase as any).rest.headers['apikey'] = data.supabaseKey;
       (rawSupabase as any).rest.headers['Authorization'] = `Bearer ${data.supabaseKey}`;
