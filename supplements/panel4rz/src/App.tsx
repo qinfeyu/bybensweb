@@ -162,6 +162,9 @@ export default function App() {
   // App Data States
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  // Always-current ref so sync callbacks are never stale
+  const productsRef = useRef<Product[]>([]);
+  useEffect(() => { productsRef.current = products; }, [products]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [deliveryPrices, setDeliveryPrices] = useState<DeliveryPrice[]>([]);
@@ -755,37 +758,46 @@ export default function App() {
   }, [isAuthenticated, syncNewOrders, playNewOrderSound]);
 
   // ── AUTOMATIC CATALOG PRODUCT STOCK SYNC WITH INVENTORY ITEMS ──
+  // FIX: All product objects are spread into fresh copies (never mutated in-place)
+  // so that React detects the change and re-renders the Products page.
   const syncProductsWithInventory = (currentProds: Product[], currentInv: InventoryItem[]) => {
     const prodUpdates: { id: string; variants: any[]; stock: number }[] = [];
 
     const updatedProds = currentProds.map(p => {
+      // FIX: spread into a new object so React sees a reference change
+      let updated = { ...p };
       let pChanged = false;
-      let bItems = p.bundleItems || (p as any).bundle_items || [];
+      let bItems = updated.bundleItems || (updated as any).bundle_items || [];
       if (typeof bItems === 'string') { try { bItems = JSON.parse(bItems); } catch(e) { bItems = []; } }
 
       // 1. Composite Bundle Pack stock recalculation
       if (Array.isArray(bItems) && bItems.length > 0) {
         let minStock = Infinity;
-        bItems.forEach(b => {
+        bItems.forEach((b: any) => {
           const bQty = Number(b.qty) || 1;
           const targetSku = String(b.sku || b.productId || '').trim().toLowerCase();
-          const invMatch = currentInv.find(i => 
-            String(i.id || '').trim().toLowerCase() === targetSku || 
+          const invMatch = currentInv.find(i =>
+            String(i.id || '').trim().toLowerCase() === targetSku ||
             String(i.sku || '').trim().toLowerCase() === targetSku
           );
           const cStock = invMatch ? (Number(invMatch.stock) || 0) : 0;
           minStock = Math.min(minStock, Math.floor(cStock / bQty));
         });
         const computedBStock = minStock === Infinity ? 0 : Math.max(0, minStock);
-        if (p.stock !== computedBStock) {
+        if (updated.stock !== computedBStock) {
           pChanged = true;
-          p.stock = computedBStock;
-          if (p.variants && p.variants.length > 0) p.variants[0].stock = computedBStock;
+          updated.stock = computedBStock;
+          if (updated.variants && updated.variants.length > 0) {
+            updated.variants = updated.variants.map((v: any, vi: number) =>
+              vi === 0 ? { ...v, stock: computedBStock } : { ...v }
+            );
+          }
         }
-      } 
+      }
       // 2. Product with Variants
-      else if (p.variants && p.variants.length > 0) {
-        const variants = JSON.parse(JSON.stringify(p.variants));
+      else if (updated.variants && updated.variants.length > 0) {
+        // Deep-clone variants so we never mutate the originals
+        const variants: any[] = JSON.parse(JSON.stringify(updated.variants));
         variants.forEach((v: any) => {
           // If variant uses flavorSkus + flavorStock
           if (v.flavorSkus && typeof v.flavorSkus === 'object') {
@@ -793,8 +805,8 @@ export default function App() {
             Object.keys(v.flavorSkus).forEach(fKey => {
               const sku = String(v.flavorSkus[fKey] || '').trim().toLowerCase();
               if (sku) {
-                const invMatch = currentInv.find(i => 
-                  String(i.id || '').trim().toLowerCase() === sku || 
+                const invMatch = currentInv.find(i =>
+                  String(i.id || '').trim().toLowerCase() === sku ||
                   String(i.sku || '').trim().toLowerCase() === sku
                 );
                 if (invMatch && Number(v.flavorStock[fKey]) !== Number(invMatch.stock)) {
@@ -803,17 +815,18 @@ export default function App() {
                 }
               }
             });
-            const sumFStock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + (Number(q) || 0), 0);
+            const sumFStock = Object.values(v.flavorStock as Record<string,unknown>)
+              .reduce((s: number, q: unknown) => s + (Number(q) || 0), 0);
             if (v.stock !== sumFStock) {
               v.stock = sumFStock;
               pChanged = true;
             }
-          } 
+          }
           // If variant uses single v.sku
           else if (v.sku) {
             const vSku = String(v.sku).trim().toLowerCase();
-            const invMatch = currentInv.find(i => 
-              String(i.id || '').trim().toLowerCase() === vSku || 
+            const invMatch = currentInv.find(i =>
+              String(i.id || '').trim().toLowerCase() === vSku ||
               String(i.sku || '').trim().toLowerCase() === vSku
             );
             if (invMatch && Number(v.stock) !== Number(invMatch.stock)) {
@@ -824,32 +837,34 @@ export default function App() {
         });
 
         const newTotStock = variants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
-        if (pChanged || p.stock !== newTotStock) {
-          p.variants = variants;
-          p.stock = newTotStock;
-          prodUpdates.push({ id: p.id, variants, stock: newTotStock });
+        if (pChanged || updated.stock !== newTotStock) {
+          updated.variants = variants;
+          updated.stock = newTotStock;
+          prodUpdates.push({ id: updated.id, variants, stock: newTotStock });
         }
-      } 
-      // 3. Simple Product without variants
+      }
+      // 3. Simple product without variants
       else {
-        const pSku = String((p as any).sku || p.id || '').trim().toLowerCase();
-        const invMatch = currentInv.find(i => 
-          String(i.id || '').trim().toLowerCase() === pSku || 
+        const pSku = String((updated as any).sku || updated.id || '').trim().toLowerCase();
+        const invMatch = currentInv.find(i =>
+          String(i.id || '').trim().toLowerCase() === pSku ||
           String(i.sku || '').trim().toLowerCase() === pSku ||
-          (p.name && String(i.name || '').trim().toLowerCase() === p.name.trim().toLowerCase())
+          (updated.name && String(i.name || '').trim().toLowerCase() === updated.name.trim().toLowerCase())
         );
-        if (invMatch && Number(p.stock) !== Number(invMatch.stock)) {
-          p.stock = Number(invMatch.stock) || 0;
-          prodUpdates.push({ id: p.id, variants: [], stock: p.stock });
+        if (invMatch && Number(updated.stock) !== Number(invMatch.stock)) {
+          updated = { ...updated, stock: Number(invMatch.stock) || 0 };
+          prodUpdates.push({ id: updated.id, variants: [], stock: updated.stock });
+          pChanged = true;
         }
       }
 
-      return p;
+      return pChanged ? updated : p;
     });
 
     if (prodUpdates.length > 0) {
-      setProducts(updatedProds);
-      safeSetLocalStorage('bb_products_cache', JSON.stringify(updatedProds));
+      // FIX: setProducts with a new array reference so React re-renders the Products page
+      setProducts([...updatedProds]);
+      safeSetLocalStorage('bb_products_cache', JSON.stringify(sanitizeProductsForCache(updatedProds)));
       prodUpdates.forEach(async (u) => {
         try {
           await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
@@ -871,17 +886,20 @@ export default function App() {
       safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
-    let nextInv: InventoryItem[] = [];
-    setInventoryItems(prev => {
-      nextInv = [...prev];
-      const idx = nextInv.findIndex(x => x.id === item.id);
-      if (idx >= 0) nextInv[idx] = payload;
-      else nextInv.push(payload);
-      safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
-      return nextInv;
-    });
+    // FIX: Build nextInv SYNCHRONOUSLY before calling setInventoryItems so it is
+    // not empty when passed to syncProductsWithInventory (React setState is async).
+    const prevInv = inventoryItems;
+    const nextInv = [...prevInv];
+    const idx = nextInv.findIndex(x => x.id === item.id);
+    if (idx >= 0) nextInv[idx] = payload;
+    else nextInv.push(payload);
 
-    syncProductsWithInventory(products, nextInv);
+    setInventoryItems(nextInv);
+    safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
+
+    // FIX: Use productsRef.current so we always have the latest products,
+    // not a stale closure snapshot.
+    syncProductsWithInventory(productsRef.current, nextInv);
 
     try {
       const { error } = await supabase.from('inventory_items').upsert(dbPayload, { onConflict: 'id' });
@@ -901,19 +919,19 @@ export default function App() {
       safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
-    let nextInv: InventoryItem[] = [];
-    setInventoryItems(prev => {
-      nextInv = [...prev];
-      payloads.forEach(item => {
-        const idx = nextInv.findIndex(x => x.id === item.id);
-        if (idx >= 0) nextInv[idx] = { ...nextInv[idx], ...item };
-        else nextInv.push(item);
-      });
-      safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
-      return nextInv;
+    // FIX: Build nextInv synchronously before setState (same race condition fix as above)
+    const nextInv = [...inventoryItems];
+    payloads.forEach(item => {
+      const idx = nextInv.findIndex(x => x.id === item.id);
+      if (idx >= 0) nextInv[idx] = { ...nextInv[idx], ...item };
+      else nextInv.push(item);
     });
 
-    syncProductsWithInventory(products, nextInv);
+    setInventoryItems(nextInv);
+    safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
+
+    // FIX: Use productsRef.current for latest products
+    syncProductsWithInventory(productsRef.current, nextInv);
 
     try {
       const { error } = await supabase.from('inventory_items').upsert(dbPayloads, { onConflict: 'id' });
