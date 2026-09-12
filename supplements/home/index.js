@@ -241,10 +241,10 @@ function hideLoader() {
   if (!l || l._exiting) return;
   sessionStorage.setItem('bb_wl', '1');
   var delay = Math.max(0, 1600 - (Date.now() - _wlStart));
-  setTimeout(function() {
+  setTimeout(function () {
     l._exiting = true;
     l.classList.add('wl-exit');
-    setTimeout(function() { l.classList.add('hidden'); }, 700);
+    setTimeout(function () { l.classList.add('hidden'); }, 700);
   }, delay);
 }
 
@@ -286,8 +286,8 @@ function openAddToCartModal(productId) {
   const weightSec = document.getElementById("atcWeightSection");
   if (variants.length) {
     document.getElementById("atcWeightOptions").innerHTML = variants.map((v, i) => {
-      const lbl = typeof v === "object" ? (v.weight ? `${v.weight}${v.unit||""}` : v.label || v.name || `Option ${i+1}`) : String(v);
-      return `<button class="atc-option${i===0?" active":""}" onclick="atcPickVariant(this,${i})">${lbl}</button>`;
+      const lbl = typeof v === "object" ? (v.weight ? `${v.weight}${v.unit || ""}` : v.label || v.name || `Option ${i + 1}`) : String(v);
+      return `<button class="atc-option${i === 0 ? " active" : ""}" onclick="atcPickVariant(this,${i})">${lbl}</button>`;
     }).join("");
     weightSec.style.display = "";
   } else { weightSec.style.display = "none"; }
@@ -320,7 +320,7 @@ function _atcRefreshPrice() {
   const v = (Array.isArray(p.variants) ? p.variants : [])[_atcVariantIdx];
   const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
   const disc = Number(p.discount) || 0;
-  const final = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc))) : base;
+  const final = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
   document.getElementById("atcPrice").textContent = final > 0 ? `${final.toLocaleString()} DA` : "";
 }
 function atcPickFlavor(btn, f) {
@@ -358,8 +358,8 @@ function confirmAddToCart() {
   const v = variants[_atcVariantIdx];
   const base = (v && typeof v === "object" && Number(v.price)) ? Number(v.price) : (Number(p.price) || 0);
   const disc = Number(p.discount) || 0;
-  const unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc/100))) : Math.max(0, Math.round(base - disc))) : base;
-  const variantLabel = v ? (typeof v === "object" ? (v.weight ? `${v.weight}${v.unit||""}` : v.label || v.name || "") : String(v)) : "";
+  const unitPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
+  const variantLabel = v ? (typeof v === "object" ? (v.weight ? `${v.weight}${v.unit || ""}` : v.label || v.name || "") : String(v)) : "";
   const items = cartGet();
   const existing = items.find(i => i.productId === p.id && i.flavor === _atcFlavor && i.variant === variantLabel);
   if (existing) { existing.qty = Math.min(_itemMaxQty(existing), existing.qty + _atcQty); }
@@ -412,7 +412,7 @@ function _itemMaxQty(item) {
   const product = products.find(p => p.id === pid || p.productId === pid);
   if (!product) return 5;
   const variants = Array.isArray(product.variants) ? product.variants : (typeof product.variants === 'string' ? JSON.parse(product.variants) : (product.variants || []));
-  const variantLabels = variants.map(v => typeof v === 'object' ? (v.weight ? `${v.weight}${v.unit||''}` : v.label || v.name || '') : String(v));
+  const variantLabels = variants.map(v => typeof v === 'object' ? (v.weight ? `${v.weight}${v.unit || ''}` : v.label || v.name || '') : String(v));
   const vIdx = Math.max(0, variantLabels.indexOf(item.variant));
   const v = variants[vIdx];
   if (v && typeof v === 'object' && v.flavorStock && item.flavor) {
@@ -448,12 +448,12 @@ let _bundleText = { titleEn: "", titleFr: "", titleAr: "", descriptionEn: "", de
 
 function updateBannerLang(lang) {
   const titleEl = document.getElementById("bundleBannerTitle");
-  const descEl  = document.getElementById("bundleBannerDesc");
+  const descEl = document.getElementById("bundleBannerDesc");
   if (!titleEl || !descEl) return;
   const titles = { en: _bundleText.titleEn, fr: _bundleText.titleFr, ar: _bundleText.titleAr };
-  const descs  = { en: _bundleText.descriptionEn, fr: _bundleText.descriptionFr, ar: _bundleText.descriptionAr };
+  const descs = { en: _bundleText.descriptionEn, fr: _bundleText.descriptionFr, ar: _bundleText.descriptionAr };
   const fallbackTitle = "RAMP UP YOUR<em>PERFORMANCE</em>";
-  const fallbackDesc  = "Get our most popular bundle at 20% off. Limited stock — order now and fuel your next workout.";
+  const fallbackDesc = "Get our most popular bundle at 20% off. Limited stock — order now and fuel your next workout.";
   titleEl.innerHTML = titles[lang] || fallbackTitle;
   descEl.textContent = descs[lang] || fallbackDesc;
 }
@@ -465,21 +465,21 @@ function computeTopSoldIds(orders, prods) {
     const name = (it.name || '').split(' (')[0].trim().toLowerCase();
     if (name) qty[name] = (qty[name] || 0) + (Number(it.qty) || 1);
   }));
-  const top3 = Object.entries(qty).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n])=>n);
+  const top3 = Object.entries(qty).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => n);
   const ids = [];
-  top3.forEach(name => { const p = prods.find(x=>x.name.toLowerCase().trim()===name); if(p&&!ids.includes(p.id))ids.push(p.id); });
+  top3.forEach(name => { const p = prods.find(x => x.name.toLowerCase().trim() === name); if (p && !ids.includes(p.id)) ids.push(p.id); });
   return ids;
 }
 
 function computeBadge(p, bundleId, topSoldIds) {
   const stock = Number(p.stock);
-  if (stock <= 0) return { type:'oos', label:'OUT OF STOCK' };
-  if (stock > 0 && stock === 1) return { type:'lowstock', label:`🔥 ONLY ${stock} LEFT` };
-  if (topSoldIds && topSoldIds.includes(p.id)) return { type:'hot', label:'HOT' };
-  if (bundleId && p.id === bundleId) return { type:'bundle', label:'BUNDLE' };
-  if (p.createdAt) { const c=new Date(p.createdAt),n=new Date(); if(c.toDateString()===n.toDateString()) return { type:'new', label:'NEW' }; }
+  if (stock <= 0) return { type: 'oos', label: 'OUT OF STOCK' };
+  if (stock > 0 && stock === 1) return { type: 'lowstock', label: `🔥 ONLY ${stock} LEFT` };
+  if (topSoldIds && topSoldIds.includes(p.id)) return { type: 'hot', label: 'HOT' };
+  if (bundleId && p.id === bundleId) return { type: 'bundle', label: 'BUNDLE' };
+  if (p.createdAt) { const c = new Date(p.createdAt), n = new Date(); if (c.toDateString() === n.toDateString()) return { type: 'new', label: 'NEW' }; }
   const disc = p.discount || 0;
-  if (disc > 0) return { type:'promo', label:'PROMO' };
+  if (disc > 0) return { type: 'promo', label: 'PROMO' };
   return null;
 }
 
@@ -557,8 +557,8 @@ function renderProductListToContainer(containerId, productList, lang) {
     </div>
     <div class="product-actions">
       ${Number(p.stock) <= 0
-        ? `<button class="btn-cart" disabled style="flex:1;opacity:0.45;cursor:not-allowed">Out of Stock</button>`
-        : `<button class="btn-cart" onclick="event.stopPropagation();openAddToCartModal('${p.id}')">
+          ? `<button class="btn-cart" disabled style="flex:1;opacity:0.45;cursor:not-allowed">Out of Stock</button>`
+          : `<button class="btn-cart" onclick="event.stopPropagation();openAddToCartModal('${p.id}')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         <span>${t["btn.addcart"]}</span>
       </button>
@@ -566,7 +566,7 @@ function renderProductListToContainer(containerId, productList, lang) {
         <span>${t["btn.buynow"]}</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
       </button>`
-      }
+        }
     </div>
   </div>
 </article>`;
@@ -577,17 +577,7 @@ function renderProductListToContainer(containerId, productList, lang) {
 let _rawOrders = [];
 
 function getBestSellerSessionSeed() {
-  const STORAGE_KEY = "bb_home_best_sellers_seed";
-  try {
-    const existing = sessionStorage.getItem(STORAGE_KEY);
-    if (existing && /^\d+$/.test(existing)) return Number(existing);
-  } catch (_) {}
-
-  const nextSeed = Math.floor(Math.random() * 1000000000) + Date.now();
-  try {
-    sessionStorage.setItem(STORAGE_KEY, String(nextSeed));
-  } catch (_) {}
-  return nextSeed;
+  return Math.floor(Math.random() * 1000000000) + Date.now();
 }
 
 function shuffleBySeed(items, seed) {
@@ -614,7 +604,7 @@ function getDynamicBestSellers(prods, orders) {
   const nonBundles = inStockProducts.filter((p) => {
     const bItems = p.bundleItems || p.bundle_items;
     const isB = (Array.isArray(bItems) && bItems.length > 0) ||
-                (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+      (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
     return !isB;
   });
 
@@ -667,7 +657,7 @@ function renderProducts(lang) {
     .filter((p) => {
       const bItems = p.bundleItems || p.bundle_items;
       const isB = (Array.isArray(bItems) && bItems.length > 0) ||
-                  (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+        (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
       return !isB;
     })
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
@@ -679,7 +669,7 @@ function renderProducts(lang) {
     .filter((p) => {
       const bItems = p.bundleItems || p.bundle_items;
       const isB = (Array.isArray(bItems) && bItems.length > 0) ||
-                  (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+        (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
       return isB && p.status === "active";
     });
   renderProductListToContainer("bundlesGrid", bundles, lang);
@@ -910,9 +900,9 @@ async function loadInitialData() {
     if (bundle.bundleId) {
       _bundleId = bundle.bundleId;
       _bundleText = {
-        titleEn:       bundle.titleEn       || "",
-        titleFr:       bundle.titleFr       || "",
-        titleAr:       bundle.titleAr       || "",
+        titleEn: bundle.titleEn || "",
+        titleFr: bundle.titleFr || "",
+        titleAr: bundle.titleAr || "",
         descriptionEn: bundle.descriptionEn || "",
         descriptionFr: bundle.descriptionFr || "",
         descriptionAr: bundle.descriptionAr || "",
@@ -1015,7 +1005,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const savedLang = localStorage.getItem("bybens_lang") || "en";
   // Merge content.js into i18n so static texts can be edited from that file
   if (window.BYBENS_CONTENT) {
-    ["en", "fr", "ar"].forEach(function(lang) {
+    ["en", "fr", "ar"].forEach(function (lang) {
       if (window.BYBENS_CONTENT[lang]) Object.assign(i18n[lang], window.BYBENS_CONTENT[lang]);
     });
   }
@@ -1111,7 +1101,7 @@ async function handleAuthSubmit(e, type) {
   const formData = new FormData(e.target);
   const data = Object.fromEntries(formData.entries());
   data.action = type === 'login' ? 'loginCustomer' : 'registerCustomer';
-  
+
   const btn = e.target.querySelector('button');
   btn.disabled = true;
   btn.textContent = 'Processing...';
@@ -1184,16 +1174,16 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ══════════════ ANIMATIONS ══════════════ */
 
 // 1. Scroll progress bar
-(function() {
+(function () {
   var bar = document.getElementById('scroll-progress');
-  window.addEventListener('scroll', function() {
+  window.addEventListener('scroll', function () {
     var scrolled = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
     bar.style.width = Math.min(scrolled, 100) + '%';
   }, { passive: true });
 })();
 
 // 2. Hero particles
-(function() {
+(function () {
   var container = document.getElementById('heroParticles');
   if (!container) return;
   var count = 22;
@@ -1216,21 +1206,21 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 // 3. Scroll reveal with IntersectionObserver
-(function() {
+(function () {
   var els = document.querySelectorAll('.reveal');
   if (!els.length) return;
-  var obs = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) {
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
       if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
     });
   }, { threshold: 0.12 });
-  els.forEach(function(el) { obs.observe(el); });
+  els.forEach(function (el) { obs.observe(el); });
 })();
 
 // 4. Product card 3D tilt on mouse move
-(function() {
+(function () {
   function addTilt(card) {
-    card.addEventListener('mousemove', function(e) {
+    card.addEventListener('mousemove', function (e) {
       var rect = card.getBoundingClientRect();
       var cx = rect.left + rect.width / 2;
       var cy = rect.top + rect.height / 2;
@@ -1239,15 +1229,15 @@ document.addEventListener('DOMContentLoaded', () => {
       card.style.transform = 'perspective(600px) rotateY(' + (dx * 6) + 'deg) rotateX(' + (-dy * 6) + 'deg) translateY(-4px)';
     });
     card.style.transformStyle = 'preserve-3d';
-    card.addEventListener('mouseleave', function() {
+    card.addEventListener('mouseleave', function () {
       card.style.transform = '';
     });
   }
   // Apply to existing + future cards
   document.querySelectorAll('.product-card').forEach(addTilt);
-  var gridObs = new MutationObserver(function(muts) {
-    muts.forEach(function(m) {
-      m.addedNodes.forEach(function(n) {
+  var gridObs = new MutationObserver(function (muts) {
+    muts.forEach(function (m) {
+      m.addedNodes.forEach(function (n) {
         if (n.nodeType === 1) {
           if (n.classList && n.classList.contains('product-card')) addTilt(n);
           n.querySelectorAll && n.querySelectorAll('.product-card').forEach(addTilt);
@@ -1260,26 +1250,26 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 // 5. Button ripple on click
-(function() {
-  document.addEventListener('click', function(e) {
+(function () {
+  document.addEventListener('click', function (e) {
     var btn = e.target.closest('.btn-primary, .btn-outline, .btn-send');
     if (!btn) return;
     var rect = btn.getBoundingClientRect();
     var r = document.createElement('span');
     var d = Math.max(rect.width, rect.height);
     r.className = 'ripple-wave';
-    r.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - rect.left - d/2) + 'px;top:' + (e.clientY - rect.top - d/2) + 'px;';
+    r.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - rect.left - d / 2) + 'px;top:' + (e.clientY - rect.top - d / 2) + 'px;';
     btn.appendChild(r);
-    r.addEventListener('animationend', function() { r.remove(); });
+    r.addEventListener('animationend', function () { r.remove(); });
   });
 })();
 
 // 6. Count-up for hero stats
-(function() {
+(function () {
   var counters = document.querySelectorAll('.stat-num[data-count]');
   if (!counters.length) return;
-  var obs = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) {
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
       if (!e.isIntersecting) return;
       var el = e.target;
       var target = parseInt(el.dataset.count, 10);
@@ -1296,5 +1286,5 @@ document.addEventListener('DOMContentLoaded', () => {
       obs.unobserve(el);
     });
   }, { threshold: 0.5 });
-  counters.forEach(function(c) { obs.observe(c); });
+  counters.forEach(function (c) { obs.observe(c); });
 })();
