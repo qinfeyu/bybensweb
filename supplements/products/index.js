@@ -289,6 +289,17 @@
           .filter(Boolean);
       }
 
+      function isBundleProduct(product = {}) {
+        const bItems = product.bundleItems || product.bundle_items;
+        if (Array.isArray(bItems) && bItems.length > 0) return true;
+
+        const name = (product.name || '').trim();
+        if (!name) return false;
+
+        const lower = name.toLowerCase();
+        return /\bbundle\b/.test(lower) || /\bcombo\b/.test(lower);
+      }
+
       function getProductPrice(p) {
         const base = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);
         const disc = Number(p.discount) || 0;
@@ -359,13 +370,7 @@
               const count = allProducts.filter((p) => {
                 const isMatch = p.categoryIds.includes(cat.id);
                 if (isBundleCat) {
-                  const isB = (() => {
-                    const bItems = p.bundleItems || p.bundle_items;
-                    if (Array.isArray(bItems) && bItems.length > 0) return true;
-                    const name = (p.name || '').trim().toLowerCase();
-                    return /\bbundle\b/.test(name) || /\bcombo\b/.test(name);
-                  })();
-                  return isMatch || isB;
+                  return isMatch || isBundleProduct(p);
                 }
                 return isMatch;
               }).length;
@@ -654,10 +659,7 @@
             });
 
             if (isBundleCatFilter) {
-              const bItems = p.bundleItems || p.bundle_items;
-              const isB = (Array.isArray(bItems) && bItems.length > 0) ||
-                          (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
-              return isMatch || isB;
+              return isMatch || isBundleProduct(p);
             }
 
             return isMatch;
