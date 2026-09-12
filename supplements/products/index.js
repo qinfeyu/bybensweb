@@ -359,9 +359,12 @@
               const count = allProducts.filter((p) => {
                 const isMatch = p.categoryIds.includes(cat.id);
                 if (isBundleCat) {
-                  const bItems = p.bundleItems || p.bundle_items;
-                  const isB = (Array.isArray(bItems) && bItems.length > 0) ||
-                              (p.name && (p.name.toLowerCase().includes("bundle") || p.name.toLowerCase().includes("pack")));
+                  const isB = (() => {
+                    const bItems = p.bundleItems || p.bundle_items;
+                    if (Array.isArray(bItems) && bItems.length > 0) return true;
+                    const name = (p.name || '').trim().toLowerCase();
+                    return /\bbundle\b/.test(name) || /\bcombo\b/.test(name);
+                  })();
                   return isMatch || isB;
                 }
                 return isMatch;
