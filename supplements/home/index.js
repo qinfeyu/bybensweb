@@ -576,6 +576,36 @@ function renderProductListToContainer(containerId, productList, lang) {
 
 let _rawOrders = [];
 
+function getBestSellerSessionSeed() {
+  const STORAGE_KEY = "bb_home_best_sellers_seed";
+  try {
+    const existing = sessionStorage.getItem(STORAGE_KEY);
+    if (existing && /^\d+$/.test(existing)) return Number(existing);
+  } catch (_) {}
+
+  const nextSeed = Math.floor(Math.random() * 1000000000) + Date.now();
+  try {
+    sessionStorage.setItem(STORAGE_KEY, String(nextSeed));
+  } catch (_) {}
+  return nextSeed;
+}
+
+function shuffleBySeed(items, seed) {
+  if (!Array.isArray(items) || items.length < 2) return (items || []).slice();
+
+  const shuffled = items.slice();
+  let state = seed % 2147483647;
+  if (state <= 0) state = 1;
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    state = (state * 16807) % 2147483647;
+    const j = state % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
+}
+
 function getDynamicBestSellers(prods, orders) {
   const inStockProducts = prods.filter((p) => Number(p.stock) > 0);
   if (!inStockProducts.length) return [];
@@ -620,7 +650,8 @@ function getDynamicBestSellers(prods, orders) {
 
   scored.sort((a, b) => b.score - a.score);
 
-  return scored.map((item) => item.product).slice(0, 8);
+  const ranked = scored.map((item) => item.product).slice(0, 8);
+  return shuffleBySeed(ranked, getBestSellerSessionSeed());
 }
 
 function renderProducts(lang) {
