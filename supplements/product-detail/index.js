@@ -402,6 +402,9 @@
         document.getElementById("breadcrumbName").textContent = p.name;
         document.getElementById("productBrand").textContent = p.brand || "";
         document.getElementById("productName").textContent = p.name;
+        
+        const sbbNameEl = document.getElementById("sbbName");
+        if (sbbNameEl) sbbNameEl.textContent = p.name;
 
         // Image
         const imgWrap = document.getElementById("productImgWrap");
@@ -618,6 +621,9 @@
 
         document.getElementById("productPrice").textContent =
           currentPrice.toLocaleString("fr-DZ") + " DA";
+
+        const sbbPriceEl = document.getElementById("sbbPrice");
+        if (sbbPriceEl) sbbPriceEl.textContent = currentPrice.toLocaleString("fr-DZ") + " DA";
 
         const oldPriceEl = document.getElementById("productOldPrice");
         const saveEl = document.getElementById("productSave");
@@ -3380,6 +3386,14 @@
         window.location.href = "/supplements/products";
       }
 
+      function scrollToOrderForm() {
+        const formTitle = document.querySelector('.order-form-title');
+        if (formTitle) {
+          const y = formTitle.getBoundingClientRect().top + window.scrollY - 80;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }
+
       /* ══════════════════════════════════════════════════════
          I18N
       ══════════════════════════════════════════════════════ */
@@ -4174,6 +4188,26 @@
           document
             .getElementById("scrollTop")
             .classList.toggle("visible", window.scrollY > 400);
+            
+          // Sticky Buy Bar Logic
+          if (window.innerWidth <= 900) {
+            const stickyBar = document.getElementById("stickyBuyBar");
+            const formTitle = document.querySelector(".order-form-title");
+            if (stickyBar && formTitle) {
+              const rect = formTitle.getBoundingClientRect();
+              // Show bar if scrolled past 400px AND the form is NOT yet fully in view or user scrolled past it.
+              // Actually, we want it to disappear when the form comes into view.
+              // rect.top is the distance from viewport top.
+              // So if rect.top < window.innerHeight, the form is on screen.
+              if (window.scrollY > 400 && rect.top > window.innerHeight) {
+                stickyBar.classList.add("sbb-visible");
+                document.body.classList.add("has-sticky-bar");
+              } else {
+                stickyBar.classList.remove("sbb-visible");
+                document.body.classList.remove("has-sticky-bar");
+              }
+            }
+          }
         },
         { passive: true },
       );

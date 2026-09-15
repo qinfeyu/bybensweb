@@ -1780,12 +1780,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        text-decoration: none;
-        z-index: 9999;
-        animation:
-          wa-float 2.4s ease-in-out infinite,
-          wa-pulse 2.4s ease-in-out infinite;
+        color: white;
+        z-index: 1000;
+        box-shadow: 0 4px 16px rgba(37, 211, 102, 0.4);
+        animation: pulseWa 2s infinite;
         transition:
+          bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1),
           transform 0.2s ease,
           box-shadow 0.2s ease;
       }
@@ -2556,3 +2556,90 @@
       .cart-checkout:hover {
         background: var(--red-hover);
       }
+
+/* STICKY MOBILE BUY BAR */
+.sticky-buy-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--white);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  z-index: 999;
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+  pointer-events: none;
+}
+html[data-theme="dark"] .sticky-buy-bar {
+  background: var(--dark-card);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.sticky-buy-bar.sbb-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sbb-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding-right: 12px;
+}
+
+.sbb-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-body);
+}
+
+.sbb-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--black);
+  font-family: var(--font-display);
+}
+
+.sbb-btn {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 20px;
+  height: 44px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  flex-shrink: 0;
+  cursor: pointer;
+  box-shadow: var(--shadow-red);
+  transition: background var(--transition), transform var(--transition);
+}
+
+.sbb-btn:hover {
+  background: var(--red-hover);
+  transform: translateY(-1px);
+}
+
+/* Hide entirely on desktop */
+@media (min-width: 901px) {
+  .sticky-buy-bar {
+    display: none !important;
+  }
+}
+
+body.has-sticky-bar .wa-btn {
+  bottom: 80px;
+}
