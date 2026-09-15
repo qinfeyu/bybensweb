@@ -12,14 +12,12 @@ const SUPABASE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "";
 
-const TELEGRAM_BOT_TOKEN =
-  process.env.TELEGRAM_BOT_TOKEN ||
-  "8737005667:AAGyExL8mgh8YxNaKGjzo6O99IuflmGA5rg";
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 
 const TELEGRAM_CHAT_ID =
   process.env.TELEGRAM_CONTACTS_CHAT_ID ||
   process.env.TELEGRAM_CHAT_ID ||
-  "-1003790940322";
+  "";
 
 async function sendTelegram(message) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
