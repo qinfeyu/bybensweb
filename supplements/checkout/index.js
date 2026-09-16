@@ -1,37 +1,45 @@
 
   // --- FREE GIFT LOGIC ---
   function updateGiftUI(subtotal) {
-    if (!window.initialData || !window.initialData.giftConfig || !window.initialData.giftConfig.enabled) {
-      document.getElementById('checkoutGiftSection')?.classList.add('hidden');
+    const sec = document.getElementById('checkoutGiftSection');
+    if (!sec) return false;
+    
+    if (!_giftConfig || !_giftConfig.enabled) {
+      sec.style.display = 'none';
       return false;
     }
-    const gc = window.initialData.giftConfig;
-    const prod = window.initialData.products.find(p => p.id == gc.productId);
-    if (!prod || prod.stock <= 0) {
-      document.getElementById('checkoutGiftSection')?.classList.add('hidden');
+    const gc = _giftConfig;
+    const prod = _allProducts.find(p => String(p.id) === String(gc.productId));
+    if (!prod || Number(prod.stock) <= 0) {
+      sec.style.display = 'none';
       return false;
     }
     
-    document.getElementById('checkoutGiftSection').classList.remove('hidden');
+    sec.style.display = 'block';
     
-    // Set UI elements
     const imgEl = document.getElementById('giftImage');
     if (imgEl && prod.imageUrl && prod.imageUrl[0]) imgEl.src = prod.imageUrl[0];
     
     const nameEl = document.getElementById('giftName');
     if (nameEl) nameEl.textContent = prod.name;
     
-    const variantStr = gc.variantIndex !== undefined && prod.variants && prod.variants[gc.variantIndex] 
-      ? ((prod.variants[gc.variantIndex].weight || '') + (prod.variants[gc.variantIndex].unit || ''))
+    const variantObj = gc.variantIndex !== undefined && prod.variants && prod.variants[gc.variantIndex] 
+      ? prod.variants[gc.variantIndex] : null;
+      
+    const variantStr = variantObj 
+      ? ((variantObj.weight || '') + (variantObj.unit || ''))
       : '';
     const flavorStr = gc.flavor || '';
+    const originalPrice = variantObj && variantObj.price ? variantObj.price : 0;
+    
     const vfEl = document.getElementById('giftVariantFlavor');
-    if (vfEl) vfEl.textContent = [variantStr, flavorStr].filter(Boolean).join(' - ');
+    if (vfEl) {
+      const parts = [variantStr, flavorStr].filter(Boolean).join(' - ');
+      vfEl.innerHTML = parts + (originalPrice ? ` <span style="text-decoration:line-through; opacity:0.6; margin-left: 8px;">${originalPrice} DA</span>` : '');
+    }
 
     const isUnlocked = subtotal >= gc.threshold;
-    const sec = document.getElementById('checkoutGiftSection');
     const pb = document.getElementById('giftProgressBar');
-    const pwrap = document.getElementById('giftProgressWrap');
     const pt = document.getElementById('giftProgressText');
     const st = document.getElementById('giftStatusText');
     
@@ -58,7 +66,7 @@
       }
     }
     
-    return isUnlocked ? { prod, gc, variantStr, flavorStr } : false;
+    return isUnlocked ? { prod, gc, variantStr, flavorStr, originalPrice } : false;
   }
 
       /* ══════════════════════════════════════════════════════
@@ -115,6 +123,7 @@
       let selectedWilayaCode = "";
       let selectedCommuneName = "";
       let _allProducts = [];
+        let _giftConfig = null;
       let _allCategories = [];
       let _allSubCategories = [];
       let _bundleId = null;
@@ -207,7 +216,7 @@
         
         const giftInfo = typeof updateGiftUI === 'function' ? updateGiftUI(subtotal) : null;
         if (giftInfo) {
-          const { prod, gc, variantStr, flavorStr } = giftInfo;
+          const { prod, gc, variantStr, flavorStr, originalPrice } = giftInfo;
           const giftItem = {
             productId: prod.id,
             name: prod.name,
@@ -215,6 +224,8 @@
             variant: variantStr,
             qty: 1,
             unitPrice: 0,
+            originalPrice: originalPrice,
+            imageUrl: prod.imageUrl,
             isGift: true
           };
           if (!items.find(i => i.isGift)) {
@@ -240,7 +251,27 @@
         list.innerHTML =
           items
             .map(
-              (item, idx) => `
+              (item, idx) => {
+                if (item.isGift) {
+                  return `
+          <div class="checkout-item" style="border: 2px dashed #10b981; background: #ecfdf5;">
+            <div class="checkout-item-img">
+              ${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="Gift">` : ''}
+            </div>
+            <div class="checkout-item-info">
+              <div class="checkout-item-name">${item.name} <span style="color:#10b981;font-size:12px;margin-left:8px;font-weight:bold;">(FREE GIFT)</span></div>
+              ${item.variant || item.flavor ? `<div class="item-meta" style="color:var(--gray-400);font-size:12px;margin-top:2px;">${[item.variant, item.flavor].filter(Boolean).join(' - ')}</div>` : ''}
+              <div class="checkout-item-price" style="margin-top: 4px;">
+                ${item.originalPrice ? `<del style="color:#9ca3af; margin-right:8px; font-weight:normal; font-size: 13px;">${item.originalPrice.toLocaleString('fr-DZ')} DA</del>` : ''}
+                <span style="color:#10b981; font-weight: 800;">0 DA</span>
+              </div>
+            </div>
+            <div class="checkout-item-qty" style="padding-right: 16px; align-items: center; display: flex;">
+              <span style="font-weight: bold; color: #10b981;">x1</span>
+            </div>
+          </div>`;
+                }
+                return `
           <div class="checkout-item">
             <div class="checkout-item-img">
               ${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="${item.name}">` : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`}
@@ -315,7 +346,8 @@
                 </button>
               </div>
             </div>
-          </div>`,
+          </div>`;
+              }
             )
             .join("") + // Append bulk notice HTML here
           getBulkNoticeHTML() +
@@ -892,6 +924,7 @@
           _allSubCategories = res.subCategories || [];
           _deliveryPrices = res.deliveryPrices || [];
           _allProducts = res.products || [];
+            _giftConfig = res.giftConfig || null;
           _allPromos = res.promos || [];
           _hiddenWilayas = [];
           if (Array.isArray(res.settings)) {

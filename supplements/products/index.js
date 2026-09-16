@@ -1,32 +1,34 @@
 
   // --- FREE GIFT TEASER LOGIC ---
   function updateGiftTeaser() {
-    if (!window.initialData || !window.initialData.giftConfig || !window.initialData.giftConfig.enabled) {
-      document.getElementById('giftTeaserBanner')?.classList.add('hidden');
+    const banner = document.getElementById('giftTeaserBanner');
+    if (!banner) return;
+    if (!giftConfig || !giftConfig.enabled) {
+      banner.style.display = 'none';
       return;
     }
-    const gc = window.initialData.giftConfig;
-    const prod = window.initialData.products.find(p => p.id == gc.productId);
+    const gc = giftConfig;
+    const prod = allProducts.find(p => String(p.id) === String(gc.productId));
     if (!prod || prod.stock <= 0) {
-      document.getElementById('giftTeaserBanner')?.classList.add('hidden');
+      banner.style.display = 'none';
       return;
     }
     
-    document.getElementById('giftTeaserBanner').classList.remove('hidden');
+    banner.style.display = 'flex';
     
     const lang = localStorage.getItem('bybens_lang') || 'en';
     const titleEl = document.getElementById('teaserTitle');
     const textEl = document.getElementById('teaserText');
     
     if (lang === 'fr') {
-      titleEl.textContent = 'Offre Spéciale !';
-      textEl.textContent = `Dépensez ${gc.threshold} DA pour débloquer un ${prod.name} gratuit à la caisse.`;
+      if(titleEl) titleEl.textContent = 'Offre Spéciale !';
+      if(textEl) textEl.textContent = `Dépensez ${gc.threshold} DA pour débloquer un ${prod.name} gratuit à la caisse.`;
     } else if (lang === 'ar') {
-      titleEl.textContent = 'عرض خاص!';
-      textEl.textContent = `أنفق ${gc.threshold} دج لفتح ${prod.name} مجاني عند الدفع.`;
+      if(titleEl) titleEl.textContent = 'عرض خاص!';
+      if(textEl) textEl.textContent = `أنفق ${gc.threshold} دج لفتح ${prod.name} مجاني عند الدفع.`;
     } else {
-      titleEl.textContent = 'Special Offer!';
-      textEl.textContent = `Spend ${gc.threshold} DA to unlock a free ${prod.name} at checkout.`;
+      if(titleEl) titleEl.textContent = 'Special Offer!';
+      if(textEl) textEl.textContent = `Spend ${gc.threshold} DA to unlock a free ${prod.name} at checkout.`;
     }
   }
 
@@ -276,6 +278,7 @@
       }
 
       let allProducts = [];
+        let giftConfig = null;
       let categoryOptions = [];
       let subCategoryOptions = [];
       let brandOptions = [];
@@ -387,6 +390,7 @@
           const res = await getInitialData();
           if (!res || !res.success) throw new Error("getInitialData failed");
 
+          giftConfig = res.giftConfig || null;
           allProducts = res.products
             .filter((p) => p.status === "active")
             .map((p) => ({
