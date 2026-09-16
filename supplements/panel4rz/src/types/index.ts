@@ -223,6 +223,8 @@ export interface GiftConfig {
   id?: number;
   enabled: boolean;
   threshold: number;
+  condition_type: 'amount' | 'products' | 'both';
+  required_products: string[];
   product_id: string;
   variant_index: number;
   flavor: string;

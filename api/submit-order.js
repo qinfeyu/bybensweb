@@ -213,7 +213,18 @@ module.exports = async function handler(req, res) {
         const gcRes = await fetch(`${SUPABASE_URL}/rest/v1/gift_config?select=*&limit=1`, { headers: SB_HEADERS });
         const gcRows = await gcRes.json().catch(() => ([]));
         const gc = gcRows[0] || {};
-        if (!gc.enabled || Number(subtotal) < Number(gc.threshold)) {
+        const conditionType = gc.condition_type || 'amount';
+          const reqProducts = Array.isArray(gc.required_products) ? gc.required_products : [];
+          
+          const hasAmount = Number(subtotal) >= Number(gc.threshold);
+          const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId => items.some(item => !item.isGift && String(item.productId) === String(reqId)));
+
+          let isUnlocked = false;
+          if (conditionType === 'amount') isUnlocked = hasAmount;
+          else if (conditionType === 'products') isUnlocked = hasProducts;
+          else if (conditionType === 'both') isUnlocked = hasAmount || hasProducts;
+
+          if (!gc.enabled || !isUnlocked) {
           return res.status(400).json({ success: false, error: "Gift conditions not met." });
         }
       } catch (e) {}

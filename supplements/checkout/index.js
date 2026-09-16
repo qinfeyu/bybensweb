@@ -1,6 +1,7 @@
 
   // --- FREE GIFT LOGIC ---
-  function updateGiftUI(subtotal) {
+  function updateGiftUI(subtotal, items) {
+    items = items || cartGet();
     const sec = document.getElementById('checkoutGiftSection');
     if (!sec) return false;
     
@@ -38,7 +39,49 @@
       vfEl.innerHTML = parts + (originalPrice ? ` <span style="text-decoration:line-through; opacity:0.6; margin-left: 8px;">${originalPrice} DA</span>` : '');
     }
 
-    const isUnlocked = subtotal >= gc.threshold;
+        const conditionType = gc.condition_type || 'amount';
+    const reqProducts = Array.isArray(gc.required_products) ? gc.required_products : [];
+    
+    const hasAmount = subtotal >= gc.threshold;
+    const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId => items.some(item => !item.isGift && String(item.productId) === String(reqId)));
+
+    let isUnlocked = false;
+    let progressTextObj = { en: '', fr: '', ar: '' };
+    let progressPct = 0;
+
+    if (conditionType === 'amount') {
+      isUnlocked = hasAmount;
+      if (!isUnlocked) {
+        progressPct = Math.min(100, Math.max(0, (subtotal / gc.threshold) * 100));
+        const rem = gc.threshold - subtotal;
+        progressTextObj = {
+          en: 'Add ' + rem + ' DA more to unlock your free gift!',
+          fr: 'Ajoutez ' + rem + ' DA pour débloquer votre cadeau !',
+          ar: 'أضف ' + rem + ' دج لفتح هديتك!'
+        };
+      }
+    } else if (conditionType === 'products') {
+      isUnlocked = hasProducts;
+      if (!isUnlocked) {
+        progressTextObj = {
+          en: 'Add the required products to unlock your free gift!',
+          fr: 'Ajoutez les produits requis pour débloquer votre cadeau !',
+          ar: 'أضف المنتجات المطلوبة لفتح هديتك!'
+        };
+      }
+    } else if (conditionType === 'both') {
+      isUnlocked = hasAmount || hasProducts;
+      if (!isUnlocked) {
+        progressPct = Math.min(100, Math.max(0, (subtotal / gc.threshold) * 100));
+        const rem = gc.threshold - subtotal;
+        progressTextObj = {
+          en: 'Add ' + rem + ' DA or required products to unlock!',
+          fr: 'Ajoutez ' + rem + ' DA ou les produits requis pour débloquer !',
+          ar: 'أضف ' + rem + ' دج لفتح هديتك!'
+        };
+      }
+    }
+
     const pb = document.getElementById('giftProgressBar');
     const pt = document.getElementById('giftProgressText');
     const st = document.getElementById('giftStatusText');
@@ -51,17 +94,13 @@
       if (st) st.textContent = msg;
     } else {
       sec.classList.remove('unlocked');
-      const rem = gc.threshold - subtotal;
-      const pct = Math.min(100, Math.max(0, (subtotal / gc.threshold) * 100));
-      if (pb) pb.style.width = pct + '%';
+      if (pb) pb.style.width = progressPct + '%';
       if (pt) {
-        if (lang === 'fr') pt.textContent = 'Ajoutez ' + rem + ' DA pour débloquer votre cadeau !';
-        else if (lang === 'ar') pt.textContent = 'أضف ' + rem + ' دج لفتح هديتك!';
-        else pt.textContent = 'Add ' + rem + ' DA more to unlock your free gift!';
+        pt.textContent = progressTextObj[lang] || progressTextObj.en;
       }
       if (st) {
-        if (lang === 'fr') st.textContent = 'Verrouillé';
-        else if (lang === 'ar') st.textContent = 'مغلق';
+        if (lang === 'fr') st.textContent = 'VerrouillǸ';
+        else if (lang === 'ar') st.textContent = '."';
         else st.textContent = 'Locked';
       }
     }
@@ -214,7 +253,7 @@
 
         let subtotal = items.filter(i => !i.isGift).reduce((s, i) => s + i.unitPrice * i.qty, 0);
         
-        const giftInfo = typeof updateGiftUI === 'function' ? updateGiftUI(subtotal) : null;
+        const giftInfo = typeof updateGiftUI === 'function' ? updateGiftUI(subtotal, items) : null;
         if (giftInfo) {
           const { prod, gc, variantStr, flavorStr, originalPrice } = giftInfo;
           const giftItem = {

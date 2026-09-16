@@ -11,6 +11,8 @@ interface GiftPageProps {
 export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: GiftPageProps) {
   const [config, setConfig] = useState({
     enabled: false,
+    condition_type: 'amount',
+    required_products: [] as string[],
     threshold: 20000,
     product_id: '',
     variant_index: 0,
@@ -25,6 +27,8 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
     if (giftConfig) {
       setConfig({
         enabled: giftConfig.enabled === true || String(giftConfig.enabled) === 'true',
+        condition_type: giftConfig.condition_type || 'amount',
+        required_products: Array.isArray(giftConfig.required_products) ? giftConfig.required_products : [],
         threshold: Number(giftConfig.threshold) || 20000,
         product_id: giftConfig.product_id || '',
         variant_index: Number(giftConfig.variant_index) || 0,
@@ -46,6 +50,18 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
   const variants = selectedProduct?.variants || [];
   const selectedVariant = variants[config.variant_index] || variants[0];
   const flavors = selectedVariant?.flavorStock ? Object.keys(selectedVariant.flavorStock) : [];
+
+  const handleRequiredProductToggle = (productId: string) => {
+    setConfig(c => {
+      const isSelected = c.required_products.includes(productId);
+      return {
+        ...c,
+        required_products: isSelected 
+          ? c.required_products.filter(id => id !== productId)
+          : [...c.required_products, productId]
+      };
+    });
+  };
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -81,9 +97,62 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
           </label>
         </div>
 
+        <div className="border-b pb-6 space-y-4">
+          <h3 className="font-bold">Unlock Conditions</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold mb-1">Condition Type</label>
+              <select
+                value={config.condition_type}
+                onChange={e => setConfig(c => ({ ...c, condition_type: e.target.value as any }))}
+                className="w-full p-2 border rounded-xl"
+              >
+                <option value="amount">Amount Threshold Only</option>
+                <option value="products">Specific Products Only (Requires ALL selected)</option>
+                <option value="both">Amount Threshold OR Specific Products</option>
+              </select>
+            </div>
+            
+            {(config.condition_type === 'amount' || config.condition_type === 'both') && (
+              <div>
+                <label className="block text-sm font-semibold mb-1">Unlock Threshold (DA)</label>
+                <input
+                  type="number"
+                  value={config.threshold}
+                  onChange={e => setConfig(c => ({ ...c, threshold: Number(e.target.value) }))}
+                  className="w-full p-2 border rounded-xl"
+                />
+              </div>
+            )}
+          </div>
+          
+          {(config.condition_type === 'products' || config.condition_type === 'both') && (
+            <div className="mt-4">
+              <label className="block text-sm font-semibold mb-2">Required Products (Must buy ALL selected)</label>
+              <div className="max-h-48 overflow-y-auto border rounded-xl p-3 space-y-2 bg-gray-50">
+                {products.length === 0 ? (
+                  <p className="text-sm text-gray-500">No products available.</p>
+                ) : (
+                  products.map(p => (
+                    <label key={p.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
+                      <input 
+                        type="checkbox" 
+                        checked={config.required_products.includes(String(p.id))}
+                        onChange={() => handleRequiredProductToggle(String(p.id))}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm">{p.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-semibold mb-1">Unlock Threshold (DA)</label>
+            <label className="block text-sm font-semibold mb-1">Select Gift Product</label>
             <input
               type="number"
               value={config.threshold}
