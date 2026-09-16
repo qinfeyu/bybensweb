@@ -32,7 +32,7 @@ module.exports = async function handler(_req, res) {
       throw new Error("SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY is missing from environment variables.");
     }
 
-    const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings] = await Promise.all([
+    const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings, giftConfig] = await Promise.all([
       sf("products?select=id,name,brand,category_ids,sub_category_ids,description,benefits,nutritional_facts,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
       sf("categories?select=*&order=created_at.asc"),
       sf("sub_categories?select=*"),
@@ -40,6 +40,7 @@ module.exports = async function handler(_req, res) {
       sf("promo_codes?select=*&order=created_at.desc"),
       sf("delivery_prices?select=*&order=wilaya.asc"),
       sf("settings?select=*"),
+      sf("gift_config?select=*&limit=1"),
     ]);
 
     const products = Array.isArray(rawProducts) ? rawProducts.filter((p) => !p.hidden) : [];
@@ -54,6 +55,7 @@ module.exports = async function handler(_req, res) {
       promos: Array.isArray(promos) ? promos : [],
       deliveryPrices: Array.isArray(deliveryPrices) ? deliveryPrices : [],
       settings: Array.isArray(settings) ? settings : [],
+      gift_config: Array.isArray(giftConfig) ? giftConfig[0] || {} : giftConfig || {},
       orders: [],
     });
   } catch (e) {

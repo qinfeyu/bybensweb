@@ -397,6 +397,31 @@
               <div id="checkoutItemsList">
                 <!-- populated by renderCheckoutItems() -->
               </div>
+              
+              <!-- FREE GIFT SECTION -->
+              <div id="checkoutGiftSection" class="checkout-gift-card hidden">
+                <div class="gift-progress-wrap" id="giftProgressWrap">
+                  <div class="gift-progress-bar" id="giftProgressBar"></div>
+                  <p class="gift-progress-text" id="giftProgressText"></p>
+                </div>
+                <div class="gift-product-info">
+                  <div class="gift-image-wrap">
+                    <img id="giftImage" src="" alt="Free Gift" />
+                    <div class="gift-lock-overlay" id="giftLockOverlay">
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </div>
+                    <div class="gift-unlock-overlay hidden" id="giftUnlockOverlay">
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    </div>
+                  </div>
+                  <div class="gift-details">
+                    <h4 id="giftName">Free Gift</h4>
+                    <p class="gift-variant-flavor" id="giftVariantFlavor"></p>
+                    <div class="gift-status-text" id="giftStatusText">Locked</div>
+                  </div>
+                </div>
+              </div>
+              <!-- END FREE GIFT SECTION -->
             </div>
 
             <!-- RIGHT: Delivery Form -->

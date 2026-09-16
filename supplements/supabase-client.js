@@ -207,6 +207,19 @@
 
     var bundleRow = raw.bundle;
     if (Array.isArray(bundleRow)) bundleRow = bundleRow[0] || {};
+    
+    var giftConfigRow = raw.gift_config || raw.giftConfig;
+    if (Array.isArray(giftConfigRow)) giftConfigRow = giftConfigRow[0] || {};
+    var giftConfig = {
+      enabled: giftConfigRow.enabled === true || giftConfigRow.enabled === 'true',
+      threshold: Number(giftConfigRow.threshold) || 0,
+      productId: giftConfigRow.product_id || '',
+      variantIndex: Number(giftConfigRow.variant_index) || 0,
+      flavor: giftConfigRow.flavor || '',
+      messageEn: giftConfigRow.message_en || '',
+      messageFr: giftConfigRow.message_fr || '',
+      messageAr: giftConfigRow.message_ar || '',
+    };
 
     return {
       success: true,
@@ -214,6 +227,7 @@
       categories: (Array.isArray(raw.categories) ? raw.categories : []).map(_remapCategory),
       subCategories: (Array.isArray(raw.subCategories) ? raw.subCategories : Array.isArray(raw.sub_categories) ? raw.sub_categories : []).map(_remapSubCategory),
       bundle: _remapBundle(bundleRow),
+      giftConfig: giftConfig,
       promos: (Array.isArray(raw.promos) ? raw.promos : Array.isArray(raw.promo_codes) ? raw.promo_codes : []).map(_remapPromo),
       deliveryPrices: (Array.isArray(raw.deliveryPrices) ? raw.deliveryPrices : Array.isArray(raw.delivery_prices) ? raw.delivery_prices : []).map(_remapDeliveryPrice),
       orders: (Array.isArray(raw.orders) ? raw.orders : []).map(_remapOrder),

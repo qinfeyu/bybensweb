@@ -2190,3 +2190,109 @@
         background: linear-gradient(90deg, #10b981, #059669);
       }
     </style>
+
+/* Free Gift Section */
+.checkout-gift-card {
+  margin-top: 24px;
+  background: var(--white);
+  border: 2px dashed var(--gray-200);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+.checkout-gift-card.unlocked {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+.gift-progress-wrap {
+  margin-bottom: 12px;
+  background: var(--gray-100);
+  border-radius: 99px;
+  height: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.checkout-gift-card.unlocked .gift-progress-wrap {
+  display: none;
+}
+.gift-progress-bar {
+  background: var(--red);
+  height: 100%;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+.gift-progress-text {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-top: 8px;
+  text-align: center;
+}
+.gift-product-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.gift-image-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--gray-50);
+}
+.gift-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+.checkout-gift-card.unlocked .gift-image-wrap img {
+  opacity: 1;
+}
+.gift-lock-overlay, .gift-unlock-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.1);
+}
+.gift-lock-overlay {
+  color: var(--gray-500);
+}
+.gift-unlock-overlay {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+.checkout-gift-card.unlocked .gift-lock-overlay {
+  display: none;
+}
+.checkout-gift-card:not(.unlocked) .gift-unlock-overlay {
+  display: none;
+}
+.gift-details h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--gray-400);
+  transition: color 0.3s ease;
+}
+.checkout-gift-card.unlocked .gift-details h4 {
+  color: var(--black);
+}
+.gift-variant-flavor {
+  font-size: 13px;
+  color: var(--gray-400);
+  margin: 2px 0 0 0;
+}
+.gift-status-text {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+  color: var(--gray-500);
+}
+.checkout-gift-card.unlocked .gift-status-text {
+  color: #10b981;
+}
+

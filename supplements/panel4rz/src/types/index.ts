@@ -1,4 +1,4 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'bundle' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'bundle' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'settings' | 'gift';
 
 export interface BundleConfig {
   id?: number | string;
@@ -217,4 +217,16 @@ export interface AppSettings {
   marquee_enabled?: string | boolean;
   marquee_text?: string;
   [key: string]: any;
+}
+
+export interface GiftConfig {
+  id?: number;
+  enabled: boolean;
+  threshold: number;
+  product_id: string;
+  variant_index: number;
+  flavor: string;
+  message_en: string;
+  message_fr: string;
+  message_ar: string;
 }

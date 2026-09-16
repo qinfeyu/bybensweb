@@ -206,6 +206,19 @@ module.exports = async function handler(req, res) {
     const id = Date.now().toString();
     const source = action === "submitCartOrder" ? "checkout" : "product-detail";
 
+    // 0. Server-side validation for free gift
+    const hasGift = items && items.some(it => it.isGift);
+    if (hasGift) {
+      try {
+        const gcRes = await fetch(`${SUPABASE_URL}/rest/v1/gift_config?select=*&limit=1`, { headers: SB_HEADERS });
+        const gcRows = await gcRes.json().catch(() => ([]));
+        const gc = gcRows[0] || {};
+        if (!gc.enabled || Number(subtotal) < Number(gc.threshold)) {
+          return res.status(400).json({ success: false, error: "Gift conditions not met." });
+        }
+      } catch (e) {}
+    }
+
     // 1. Insert order into Supabase REST API (NEVER modifies budget_dzd!)
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
       method: "POST",

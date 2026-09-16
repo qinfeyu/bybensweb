@@ -1,3 +1,66 @@
+
+  // --- FREE GIFT LOGIC ---
+  function updateGiftUI(subtotal) {
+    if (!window.initialData || !window.initialData.giftConfig || !window.initialData.giftConfig.enabled) {
+      document.getElementById('checkoutGiftSection')?.classList.add('hidden');
+      return false;
+    }
+    const gc = window.initialData.giftConfig;
+    const prod = window.initialData.products.find(p => p.id == gc.productId);
+    if (!prod || prod.stock <= 0) {
+      document.getElementById('checkoutGiftSection')?.classList.add('hidden');
+      return false;
+    }
+    
+    document.getElementById('checkoutGiftSection').classList.remove('hidden');
+    
+    // Set UI elements
+    const imgEl = document.getElementById('giftImage');
+    if (imgEl && prod.imageUrl && prod.imageUrl[0]) imgEl.src = prod.imageUrl[0];
+    
+    const nameEl = document.getElementById('giftName');
+    if (nameEl) nameEl.textContent = prod.name;
+    
+    const variantStr = gc.variantIndex !== undefined && prod.variants && prod.variants[gc.variantIndex] 
+      ? ((prod.variants[gc.variantIndex].weight || '') + (prod.variants[gc.variantIndex].unit || ''))
+      : '';
+    const flavorStr = gc.flavor || '';
+    const vfEl = document.getElementById('giftVariantFlavor');
+    if (vfEl) vfEl.textContent = [variantStr, flavorStr].filter(Boolean).join(' - ');
+
+    const isUnlocked = subtotal >= gc.threshold;
+    const sec = document.getElementById('checkoutGiftSection');
+    const pb = document.getElementById('giftProgressBar');
+    const pwrap = document.getElementById('giftProgressWrap');
+    const pt = document.getElementById('giftProgressText');
+    const st = document.getElementById('giftStatusText');
+    
+    const lang = localStorage.getItem('bybens_lang') || 'en';
+    const msg = gc['message' + lang.charAt(0).toUpperCase() + lang.slice(1)] || gc.messageEn || 'Free gift unlocked!';
+    
+    if (isUnlocked) {
+      sec.classList.add('unlocked');
+      if (st) st.textContent = msg;
+    } else {
+      sec.classList.remove('unlocked');
+      const rem = gc.threshold - subtotal;
+      const pct = Math.min(100, Math.max(0, (subtotal / gc.threshold) * 100));
+      if (pb) pb.style.width = pct + '%';
+      if (pt) {
+        if (lang === 'fr') pt.textContent = 'Ajoutez ' + rem + ' DA pour débloquer votre cadeau !';
+        else if (lang === 'ar') pt.textContent = 'أضف ' + rem + ' دج لفتح هديتك!';
+        else pt.textContent = 'Add ' + rem + ' DA more to unlock your free gift!';
+      }
+      if (st) {
+        if (lang === 'fr') st.textContent = 'Verrouillé';
+        else if (lang === 'ar') st.textContent = 'مغلق';
+        else st.textContent = 'Locked';
+      }
+    }
+    
+    return isUnlocked ? { prod, gc, variantStr, flavorStr } : false;
+  }
+
       /* ══════════════════════════════════════════════════════
          CONFIG
       ══════════════════════════════════════════════════════ */
@@ -139,7 +202,40 @@
           return;
         }
 
-        const subtotal = items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+
+        let subtotal = items.filter(i => !i.isGift).reduce((s, i) => s + i.unitPrice * i.qty, 0);
+        
+        const giftInfo = typeof updateGiftUI === 'function' ? updateGiftUI(subtotal) : null;
+        if (giftInfo) {
+          const { prod, gc, variantStr, flavorStr } = giftInfo;
+          const giftItem = {
+            productId: prod.id,
+            name: prod.name,
+            flavor: flavorStr,
+            variant: variantStr,
+            qty: 1,
+            unitPrice: 0,
+            isGift: true
+          };
+          if (!items.find(i => i.isGift)) {
+             items.push(giftItem);
+             cartSave(items);
+             renderCheckoutItems();
+             return; // renderCheckoutItems calls updateOrderSummary again
+          }
+        } else {
+          const giftIdx = items.findIndex(i => i.isGift);
+          if (giftIdx !== -1) {
+            items.splice(giftIdx, 1);
+            cartSave(items);
+            renderCheckoutItems();
+            return;
+          }
+        }
+        
+        // Ensure subtotal still includes gifts (which are 0) just in case
+        subtotal = items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+
 
         list.innerHTML =
           items

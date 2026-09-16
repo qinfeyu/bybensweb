@@ -1,3 +1,35 @@
+
+  // --- FREE GIFT TEASER LOGIC ---
+  function updateGiftTeaser() {
+    if (!window.initialData || !window.initialData.giftConfig || !window.initialData.giftConfig.enabled) {
+      document.getElementById('giftTeaserBanner')?.classList.add('hidden');
+      return;
+    }
+    const gc = window.initialData.giftConfig;
+    const prod = window.initialData.products.find(p => p.id == gc.productId);
+    if (!prod || prod.stock <= 0) {
+      document.getElementById('giftTeaserBanner')?.classList.add('hidden');
+      return;
+    }
+    
+    document.getElementById('giftTeaserBanner').classList.remove('hidden');
+    
+    const lang = localStorage.getItem('bybens_lang') || 'en';
+    const titleEl = document.getElementById('teaserTitle');
+    const textEl = document.getElementById('teaserText');
+    
+    if (lang === 'fr') {
+      titleEl.textContent = 'Offre Spéciale !';
+      textEl.textContent = `Dépensez ${gc.threshold} DA pour débloquer un ${prod.name} gratuit à la caisse.`;
+    } else if (lang === 'ar') {
+      titleEl.textContent = 'عرض خاص!';
+      textEl.textContent = `أنفق ${gc.threshold} دج لفتح ${prod.name} مجاني عند الدفع.`;
+    } else {
+      titleEl.textContent = 'Special Offer!';
+      textEl.textContent = `Spend ${gc.threshold} DA to unlock a free ${prod.name} at checkout.`;
+    }
+  }
+
       /* ══════════════════════════════════════════════════════════════
    TRANSLATIONS — same keys as index.html where applicable,
    plus products-page-specific keys
@@ -218,6 +250,7 @@
 
         // Re-render product buttons in new language
         renderProducts();
+          if (typeof updateGiftTeaser === "function") updateGiftTeaser();
       }
 
       /* ══════════════════════════════════════════════════════════════

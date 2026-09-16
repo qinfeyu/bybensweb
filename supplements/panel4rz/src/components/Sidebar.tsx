@@ -1,6 +1,6 @@
 import React from 'react';
 import type { TabType } from '../types';
-import { 
+import { Gift, 
   LayoutDashboard, 
   Boxes, 
   ShoppingBag, 
@@ -72,7 +72,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'inventory', label: 'Inventory (SKUs)', icon: <Boxes className="w-4 h-4" /> },
         { id: 'products', label: 'Products Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
         { id: 'categories', label: 'Categories', icon: <Layers className="w-4 h-4" /> },
-        { id: 'promos', label: 'Promo Codes', icon: <Tag className="w-4 h-4 text-red-400" /> },
+        { id: 'gift', label: 'Free Gift', icon: <Gift className="w-4 h-4" /> },
+      { id: 'promos', label: 'Promo Codes', icon: <Tag className="w-4 h-4 text-red-400" /> },
         { id: 'bundle', label: 'Featured Bundle', icon: <Package className="w-4 h-4 text-amber-400" /> }
       ]
     },

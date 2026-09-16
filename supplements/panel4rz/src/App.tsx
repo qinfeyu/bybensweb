@@ -1,3 +1,4 @@
+import GiftPage from './pages/GiftPage';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, ensureSupabaseKey, safeSetLocalStorage } from './lib/supabase';
 
@@ -170,6 +171,7 @@ export default function App() {
   const [deliveryPrices, setDeliveryPrices] = useState<DeliveryPrice[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [bundleConfig, setBundleConfig] = useState<BundleConfig | null>(null);
+  const [giftConfig, setGiftConfig] = useState<any | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [preorders, setPreorders] = useState<PreOrder[]>([]);
   const [preorderItems, setPreorderItems] = useState<PreOrderItem[]>([]);
@@ -1064,6 +1066,28 @@ export default function App() {
   };
 
   // ── BUNDLE MUTATIONS ──
+  
+  const handleSaveGiftConfig = async (config: any) => {
+    setGiftConfig(config);
+    const dbPayload = {
+      id: 1,
+      enabled: config.enabled,
+      threshold: config.threshold,
+      product_id: config.product_id,
+      variant_index: config.variant_index,
+      flavor: config.flavor,
+      message_en: config.message_en,
+      message_fr: config.message_fr,
+      message_ar: config.message_ar,
+    };
+    const res = await supabase.from('gift_config').upsert([dbPayload], { onConflict: 'id' });
+    if (res && res.error) {
+      showToast('Error saving gift config: ' + res.error.message, 'error');
+    } else {
+      showToast('Gift config saved successfully!', 'success');
+    }
+  };
+
   const handleSaveBundle = async (bundle: BundleConfig) => {
     const dbPayload = {
       id: 1,
@@ -2369,7 +2393,14 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'bundle' && (
+            {activeTab === 'gift' && (
+            <GiftPage
+              products={products}
+              giftConfig={giftConfig}
+              onSaveGiftConfig={handleSaveGiftConfig}
+            />
+          )}
+          {activeTab === 'bundle' && (
               <BundlePage
                 products={products}
                 bundleConfig={bundleConfig}
