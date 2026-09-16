@@ -43,7 +43,7 @@
     const reqProducts = Array.isArray(gc.requiredProducts) ? gc.requiredProducts : [];
     
     const hasAmount = subtotal >= gc.threshold;
-    const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId => items.some(item => !item.isGift && String(item.productId) === String(reqId)));
+    const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId => items.some(item => !item.isGift && String(item.productId || item.id) === String(reqId)));
 
     let isUnlocked = false;
     let progressTextObj = { en: '', fr: '', ar: '' };
@@ -975,6 +975,16 @@ if (pt) {
           _deliveryPrices = res.deliveryPrices || [];
           _allProducts = res.products || [];
             _giftConfig = res.giftConfig || null;
+          if (_giftConfig) {
+            console.info("[GiftConfig]", JSON.stringify({
+              enabled: _giftConfig.enabled,
+              conditionType: _giftConfig.conditionType,
+              requiredProducts: _giftConfig.requiredProducts,
+              threshold: _giftConfig.threshold,
+              productId: _giftConfig.productId,
+              flavor: _giftConfig.flavor
+            }));
+          }
           _allPromos = res.promos || [];
           _hiddenWilayas = [];
           if (Array.isArray(res.settings)) {

@@ -178,6 +178,41 @@
     };
   }
 
+  function _parseRequiredProducts(rp) {
+    if (Array.isArray(rp)) return rp.map(String);
+    if (typeof rp === 'string' && rp.trim()) {
+      try {
+        var arr = JSON.parse(rp);
+        if (Array.isArray(arr)) return arr.map(String);
+      } catch (e) {}
+      return rp.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+    return [];
+  }
+
+  function _giftRowFromRaw(raw) {
+    if (!raw) return {};
+    var row = raw.gift_config || raw.giftConfig;
+    if (Array.isArray(row)) row = row[0] || {};
+    return row || {};
+  }
+
+  function _remapGiftConfig(giftConfigRow) {
+    giftConfigRow = giftConfigRow || {};
+    return {
+      enabled: giftConfigRow.enabled === true || giftConfigRow.enabled === 'true',
+      threshold: Number(giftConfigRow.threshold) || 0,
+      conditionType: giftConfigRow.condition_type || 'amount',
+      requiredProducts: _parseRequiredProducts(giftConfigRow.required_products),
+      productId: giftConfigRow.product_id || '',
+      variantIndex: Number(giftConfigRow.variant_index) || 0,
+      flavor: giftConfigRow.flavor || '',
+      messageEn: giftConfigRow.message_en || '',
+      messageFr: giftConfigRow.message_fr || '',
+      messageAr: giftConfigRow.message_ar || '',
+    };
+  }
+
   window.sbRemapInitialData = function (raw) {
     if (!raw) return null;
     var prods = Array.isArray(raw.products) ? raw.products : [];
@@ -208,31 +243,7 @@
     var bundleRow = raw.bundle;
     if (Array.isArray(bundleRow)) bundleRow = bundleRow[0] || {};
     
-    var giftConfigRow = raw.gift_config || raw.giftConfig;
-    if (Array.isArray(giftConfigRow)) giftConfigRow = giftConfigRow[0] || {};
-    function _parseRequiredProducts(rp) {
-      if (Array.isArray(rp)) return rp.map(String);
-      if (typeof rp === 'string' && rp.trim()) {
-        try {
-          var arr = JSON.parse(rp);
-          if (Array.isArray(arr)) return arr.map(String);
-        } catch (e) {}
-        return rp.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-      }
-      return [];
-    }
-    var giftConfig = {
-      enabled: giftConfigRow.enabled === true || giftConfigRow.enabled === 'true',
-      threshold: Number(giftConfigRow.threshold) || 0,
-      conditionType: giftConfigRow.condition_type || 'amount',
-      requiredProducts: _parseRequiredProducts(giftConfigRow.required_products),
-      productId: giftConfigRow.product_id || '',
-      variantIndex: Number(giftConfigRow.variant_index) || 0,
-      flavor: giftConfigRow.flavor || '',
-      messageEn: giftConfigRow.message_en || '',
-      messageFr: giftConfigRow.message_fr || '',
-      messageAr: giftConfigRow.message_ar || '',
-    };
+    var giftConfig = _remapGiftConfig(_giftRowFromRaw(raw));
 
     return {
       success: true,
@@ -248,34 +259,71 @@
     };
   };
 
+  var GIFT_CACHE_KEY = "bb_gift_config_cache";
+  // Gift config (single row) is refreshed aggressively so admin edits appear quickly,
+  // instead of waiting out the 5-minute aggregate cache.
+  var GIFT_CACHE_TIME = 30 * 1000; // 30 seconds
+
+  function _readCache(key) {
+    try {
+      var s = sessionStorage.getItem(key);
+      if (s) return JSON.parse(s);
+    } catch(e) {}
+    return null;
+  }
+
+  function _writeCache(key, obj) {
+    try { sessionStorage.setItem(key, JSON.stringify(obj)); } catch(e) {}
+  }
+
+  // Resolves the freshest gift config: short-TTL cache first, else the current
+  // page's inline fetch (already in flight, no extra network), else a fresh fetch.
+  function _ensureFreshGiftConfig(inlinePromise) {
+    var gCache = _readCache(GIFT_CACHE_KEY);
+    if (gCache && gCache.ts && (Date.now() - gCache.ts < GIFT_CACHE_TIME)) {
+      return Promise.resolve(gCache.data);
+    }
+    var src = (inlinePromise || Promise.resolve(null)).then(function (d) {
+      if (d && Array.isArray(d.products) && d.products.length > 0) return d;
+      return fetch("/api/initial-data").then(function (r) { return r.ok ? r.json() : null; });
+    });
+    return src.then(function (rawData) {
+      if (!rawData) return _readCache(GIFT_CACHE_KEY) ? _readCache(GIFT_CACHE_KEY).data : null;
+      var g = _remapGiftConfig(_giftRowFromRaw(rawData));
+      _writeCache(GIFT_CACHE_KEY, { ts: Date.now(), data: g });
+      return g;
+    });
+  }
+
   window.getInitialData = function () {
     var CACHE_KEY = "bb_initial_data_cache";
     var CACHE_TIME = 5 * 60 * 1000; // 5 minutes
+    var inlinePromise = window.__initialDataPromise || Promise.resolve(null);
 
-    try {
-      var cachedStr = sessionStorage.getItem(CACHE_KEY);
-      if (cachedStr) {
-        var cachedObj = JSON.parse(cachedStr);
-        if (cachedObj && cachedObj.timestamp && (Date.now() - cachedObj.timestamp < CACHE_TIME) && cachedObj.data && Array.isArray(cachedObj.data.products) && cachedObj.data.products.length > 0) {
-          return Promise.resolve(window.sbRemapInitialData(cachedObj.data));
-        }
-      }
-    } catch(e) {}
-
-    var src = (window.__initialDataPromise ? window.__initialDataPromise : Promise.resolve(null))
-      .then(function (d) {
-        if (d && Array.isArray(d.products) && d.products.length > 0) return d;
-        return fetch("/api/initial-data").then(function (r) { return r.ok ? r.json() : null; });
+    var cached = _readCache(CACHE_KEY);
+    if (cached && cached.timestamp && (Date.now() - cached.timestamp < CACHE_TIME) && cached.data && Array.isArray(cached.data.products) && cached.data.products.length > 0) {
+      return _ensureFreshGiftConfig(inlinePromise).then(function (g) {
+        var remapped = window.sbRemapInitialData(cached.data);
+        if (g) remapped.giftConfig = g;
+        return remapped;
       });
-      
+    }
+
+    var src = inlinePromise.then(function (d) {
+      if (d && Array.isArray(d.products) && d.products.length > 0) return d;
+      return fetch("/api/initial-data").then(function (r) { return r.ok ? r.json() : null; });
+    });
+
     return src.then(function (rawData) {
       if (!rawData) return null;
       if (Array.isArray(rawData.products) && rawData.products.length > 0) {
-        try {
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: rawData }));
-        } catch(e) {}
+        _writeCache(CACHE_KEY, { timestamp: Date.now(), data: rawData });
       }
-      return window.sbRemapInitialData(rawData);
+      var g = _remapGiftConfig(_giftRowFromRaw(rawData));
+      _writeCache(GIFT_CACHE_KEY, { ts: Date.now(), data: g });
+      var remapped = window.sbRemapInitialData(rawData);
+      remapped.giftConfig = g;
+      return remapped;
     });
   };
 
