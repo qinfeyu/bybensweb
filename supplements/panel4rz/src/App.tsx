@@ -649,19 +649,31 @@ export default function App() {
         if (bundleRes.data && bundleRes.data.length > 0) rawBundle = bundleRes.data[0];
       }
 
-      if (rawBundle) {
-        setBundleConfig({
-          id: rawBundle.id,
-          bundleId: rawBundle.bundle_id || '',
-          titleEn: rawBundle.title_en || '',
-          titleFr: rawBundle.title_fr || '',
-          titleAr: rawBundle.title_ar || '',
-          descriptionEn: rawBundle.description_en || '',
-          descriptionFr: rawBundle.description_fr || '',
-          descriptionAr: rawBundle.description_ar || ''
-        });
-      }
-    } catch (e: any) {
+        if (rawBundle) {
+          setBundleConfig({
+            id: rawBundle.id,
+            bundleId: rawBundle.bundle_id || '',
+            titleEn: rawBundle.title_en || '',
+            titleFr: rawBundle.title_fr || '',
+            titleAr: rawBundle.title_ar || '',
+            descriptionEn: rawBundle.description_en || '',
+            descriptionFr: rawBundle.description_fr || '',
+            descriptionAr: rawBundle.description_ar || ''
+          });
+        }
+
+        // 12. Fetch Gift Configuration
+        let rawGiftConfig: any = null;
+        if (adminData && adminData.giftConfig) {
+          rawGiftConfig = Array.isArray(adminData.giftConfig) ? adminData.giftConfig[0] : adminData.giftConfig;
+        } else {
+          const giftRes = await supabase.from('gift_config').select('*').limit(1);
+          if (giftRes.data && giftRes.data.length > 0) rawGiftConfig = giftRes.data[0];
+        }
+        if (rawGiftConfig) {
+          setGiftConfig(rawGiftConfig);
+        }
+      } catch (e: any) {
       console.warn("Data refresh notice:", e);
     }
     setIsLoading(false);
