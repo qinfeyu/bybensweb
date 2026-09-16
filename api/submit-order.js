@@ -206,28 +206,64 @@ module.exports = async function handler(req, res) {
     const id = Date.now().toString();
     const source = action === "submitCartOrder" ? "checkout" : "product-detail";
 
-    // 0. Server-side validation for free gift
-    const hasGift = items && items.some(it => it.isGift);
-    if (hasGift) {
+    // 0. Server-side validation for free gift (authoritative — never trusts client state)
+    const giftItems = (items || []).filter(it => it.isGift);
+    if (giftItems.length > 0) {
       try {
         const gcRes = await fetch(`${SUPABASE_URL}/rest/v1/gift_config?select=*&limit=1`, { headers: SB_HEADERS });
         const gcRows = await gcRes.json().catch(() => ([]));
         const gc = gcRows[0] || {};
-        const conditionType = gc.condition_type || 'amount';
-          const reqProducts = Array.isArray(gc.required_products) ? gc.required_products : [];
-          
-          const hasAmount = Number(subtotal) >= Number(gc.threshold);
-          const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId => items.some(item => !item.isGift && String(item.productId) === String(reqId)));
 
-          let isUnlocked = false;
-          if (conditionType === 'amount') isUnlocked = hasAmount;
-          else if (conditionType === 'products') isUnlocked = hasProducts;
-          else if (conditionType === 'both') isUnlocked = hasAmount || hasProducts;
-
-          if (!gc.enabled || !isUnlocked) {
+        if (!gc.enabled) {
           return res.status(400).json({ success: false, error: "Gift conditions not met." });
         }
-      } catch (e) {}
+
+        // Server-side subtotal (excludes gift lines)
+        const realSubtotal = (items || [])
+          .filter(it => !it.isGift)
+          .reduce((s, it) => s + (Number(it.unitPrice) || Number(it.unit_price) || 0) * (Number(it.qty) || 1), 0);
+
+        let reqProducts = [];
+        if (Array.isArray(gc.required_products)) reqProducts = gc.required_products.map(String);
+        else if (typeof gc.required_products === "string" && gc.required_products.trim()) {
+          try {
+            const parsed = JSON.parse(gc.required_products);
+            if (Array.isArray(parsed)) reqProducts = parsed.map(String);
+          } catch (_) {
+            reqProducts = gc.required_products.split(",").map(s => s.trim()).filter(Boolean);
+          }
+        }
+
+        const conditionType = gc.condition_type || 'amount';
+        const hasAmount = Number(realSubtotal) >= Number(gc.threshold);
+        const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId =>
+          (items || []).some(item => !item.isGift && String(item.productId || item.product_id) === String(reqId))
+        );
+
+        let isUnlocked = false;
+        if (conditionType === 'amount') isUnlocked = hasAmount;
+        else if (conditionType === 'products') isUnlocked = hasProducts;
+        else if (conditionType === 'both') isUnlocked = hasAmount || hasProducts;
+
+        // Gift line must exactly match the configured offer: one line, qty 1, correct product & flavor
+        const giftMatches =
+          !!gc.product_id &&
+          giftItems.length === 1 &&
+          Number(giftItems[0].qty) === 1 &&
+          String(giftItems[0].productId || giftItems[0].product_id) === String(gc.product_id) &&
+          (!gc.flavor || String(giftItems[0].flavor || "") === String(gc.flavor));
+
+        if (!isUnlocked || !giftMatches) {
+          return res.status(400).json({ success: false, error: "Gift conditions not met." });
+        }
+
+        // Normalize the stored gift line
+        giftItems[0].qty = 1;
+        giftItems[0].unitPrice = 0;
+        giftItems[0].unit_price = 0;
+      } catch (e) {
+        return res.status(400).json({ success: false, error: "Gift conditions not met." });
+      }
     }
 
     // 1. Insert order into Supabase REST API (NEVER modifies budget_dzd!)
@@ -287,7 +323,7 @@ module.exports = async function handler(req, res) {
     // 4. Send Telegram notification
     const orderItems = items || [];
     const itemLines = orderItems.map((it) =>
-      `  • ${escapeHtml(it.name)}${it.flavor ? " – " + escapeHtml(it.flavor) : ""}${it.variant ? " (" + escapeHtml(it.variant) + ")" : ""} x${it.qty}`
+      `  • ${escapeHtml(it.name)}${it.isGift ? ' 🎁 (FREE GIFT)' : ''}${it.flavor ? " – " + escapeHtml(it.flavor) : ""}${it.variant ? " (" + escapeHtml(it.variant) + ")" : ""} x${it.qty}`
     ).join("\n");
     const promoLine = promoCode
       ? `🎟️ Promo: ${escapeHtml(promoCode)} (-${promoDiscount || 0} DA)\n`

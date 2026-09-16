@@ -1,5 +1,5 @@
 
-  // --- FREE GIFT TEASER LOGIC ---
+// --- FREE GIFT TEASER LOGIC ---
   function updateGiftTeaser() {
     const banner = document.getElementById('giftTeaserBanner');
     if (!banner) return;
@@ -9,7 +9,7 @@
     }
     const gc = giftConfig;
     const prod = allProducts.find(p => String(p.id) === String(gc.productId));
-    if (!prod || prod.stock <= 0) {
+    if (!prod || Number(prod.stock) <= 0) {
       banner.style.display = 'none';
       return;
     }
@@ -20,16 +20,36 @@
     const titleEl = document.getElementById('teaserTitle');
     const textEl = document.getElementById('teaserText');
     
-    if (lang === 'fr') {
-      if(titleEl) titleEl.textContent = 'Offre Spéciale !';
-      if(textEl) textEl.textContent = `Dépensez ${gc.threshold} DA pour débloquer un ${prod.name} gratuit à la caisse.`;
-    } else if (lang === 'ar') {
-      if(titleEl) titleEl.textContent = 'عرض خاص!';
-      if(textEl) textEl.textContent = `أنفق ${gc.threshold} دج لفتح ${prod.name} مجاني عند الدفع.`;
+    if (titleEl) titleEl.textContent = lang === 'fr' ? 'Offre Spéciale !' : lang === 'ar' ? 'عرض خاص!' : 'Special Offer!';
+
+    const type = gc.conditionType || 'amount';
+    const req = Array.isArray(gc.requiredProducts) ? gc.requiredProducts : [];
+    const reqNames = req.map(id => {
+      const p = allProducts.find(x => String(x.id) === String(id));
+      return p ? p.name : id;
+    }).join(', ');
+
+    let text = '';
+    if (type === 'products') {
+      text = lang === 'fr'
+        ? `Achetez ${reqNames ? reqNames : 'les produits requis'} pour débloquer un ${prod.name} gratuit à la caisse.`
+        : lang === 'ar'
+          ? `اشترِ ${reqNames ? reqNames : 'المنتجات المطلوبة'} لفتح ${prod.name} مجاني عند الدفع.`
+          : `Buy ${reqNames ? reqNames : 'the required products'} to unlock a free ${prod.name} at checkout.`;
+    } else if (type === 'both') {
+      text = lang === 'fr'
+        ? `Dépensez ${gc.threshold} DA ou achetez ${reqNames ? reqNames : 'les produits requis'} pour débloquer un ${prod.name} gratuit à la caisse.`
+        : lang === 'ar'
+          ? `أنفق ${gc.threshold} دج أو اشترِ ${reqNames ? reqNames : 'المنتجات المطلوبة'} لفتح ${prod.name} مجاني عند الدفع.`
+          : `Spend ${gc.threshold} DA or buy ${reqNames ? reqNames : 'the required products'} to unlock a free ${prod.name} at checkout.`;
     } else {
-      if(titleEl) titleEl.textContent = 'Special Offer!';
-      if(textEl) textEl.textContent = `Spend ${gc.threshold} DA to unlock a free ${prod.name} at checkout.`;
+      text = lang === 'fr'
+        ? `Dépensez ${gc.threshold} DA pour débloquer un ${prod.name} gratuit à la caisse.`
+        : lang === 'ar'
+          ? `أنفق ${gc.threshold} دج لفتح ${prod.name} مجاني عند الدفع.`
+          : `Spend ${gc.threshold} DA to unlock a free ${prod.name} at checkout.`;
     }
+    if (textEl) textEl.textContent = text;
   }
 
       /* ══════════════════════════════════════════════════════════════
@@ -493,6 +513,7 @@
               .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${cat.name}</a></li>`)
               .join("");
           }
+          updateGiftTeaser();
         } catch (err) {
           console.error("Failed to load data:", err);
         }
@@ -1512,7 +1533,7 @@
 
       function cartQty(idx, d) {
         const items = cartGet();
-        if (!items[idx]) return;
+        if (!items[idx] || items[idx].isGift) return;
         items[idx].qty = Math.min(_itemMaxQty(items[idx]), Math.max(1, items[idx].qty + d));
         cartSave(items);
         cartUpdateBadge();

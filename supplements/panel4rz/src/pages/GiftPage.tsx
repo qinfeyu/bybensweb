@@ -22,6 +22,7 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
     message_ar: 'تم فتح الهدية المجانية!',
   });
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (giftConfig) {
@@ -128,12 +129,21 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
           
           {(config.condition_type === 'products' || config.condition_type === 'both') && (
             <div className="mt-4">
-              <label className="block text-sm font-semibold mb-2">Required Products (Must buy ALL selected)</label>
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-2">
+                <label className="block text-sm font-semibold">Required Products (Must buy ALL selected)</label>
+                <input 
+                  type="text" 
+                  placeholder="Search products..." 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="p-1 border rounded text-sm w-full md:w-64"
+                />
+              </div>
               <div className="max-h-48 overflow-y-auto border rounded-xl p-3 space-y-2 bg-gray-50">
                 {products.length === 0 ? (
                   <p className="text-sm text-gray-500">No products available.</p>
                 ) : (
-                  products.map(p => (
+                  products.filter(p => (p.name || "").toLowerCase().includes(searchQuery.toLowerCase())).map(p => (
                     <label key={p.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
                       <input 
                         type="checkbox" 
@@ -151,15 +161,6 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-semibold mb-1">Select Gift Product</label>
-            <input
-              type="number"
-              value={config.threshold}
-              onChange={e => setConfig(c => ({ ...c, threshold: Number(e.target.value) }))}
-              className="w-full p-2 border rounded-xl"
-            />
-          </div>
           <div>
             <label className="block text-sm font-semibold mb-1">Select Gift Product</label>
             <select

@@ -39,8 +39,8 @@
       vfEl.innerHTML = parts + (originalPrice ? ` <span style="text-decoration:line-through; opacity:0.6; margin-left: 8px;">${originalPrice} DA</span>` : '');
     }
 
-        const conditionType = gc.condition_type || 'amount';
-    const reqProducts = Array.isArray(gc.required_products) ? gc.required_products : [];
+    const conditionType = gc.conditionType || 'amount';
+    const reqProducts = Array.isArray(gc.requiredProducts) ? gc.requiredProducts : [];
     
     const hasAmount = subtotal >= gc.threshold;
     const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId => items.some(item => !item.isGift && String(item.productId) === String(reqId)));
@@ -95,12 +95,12 @@
     } else {
       sec.classList.remove('unlocked');
       if (pb) pb.style.width = progressPct + '%';
-      if (pt) {
+if (pt) {
         pt.textContent = progressTextObj[lang] || progressTextObj.en;
       }
       if (st) {
-        if (lang === 'fr') st.textContent = 'VerrouillǸ';
-        else if (lang === 'ar') st.textContent = '."';
+        if (lang === 'fr') st.textContent = 'Verrouillée';
+        else if (lang === 'ar') st.textContent = 'مقفلة';
         else st.textContent = 'Locked';
       }
     }
@@ -272,6 +272,17 @@
              cartSave(items);
              renderCheckoutItems();
              return; // renderCheckoutItems calls updateOrderSummary again
+          } else {
+            // Gift already in cart — keep qty locked at 1 (self-heal legacy inflated carts)
+            const giftIdx = items.findIndex(i => i.isGift);
+            if (items[giftIdx].qty !== 1) {
+              items[giftIdx].qty = 1;
+              items[giftIdx].name = prod.name;
+              items[giftIdx].variant = variantStr;
+              items[giftIdx].flavor = flavorStr;
+              items[giftIdx].imageUrl = prod.imageUrl;
+              cartSave(items);
+            }
           }
         } else {
           const giftIdx = items.findIndex(i => i.isGift);
@@ -429,7 +440,7 @@
 
       function checkoutChangeQty(idx, delta) {
         const items = cartGet();
-        if (!items[idx]) return;
+        if (!items[idx] || items[idx].isGift) return;
         items[idx].qty = Math.min(_itemMaxQty(items[idx]), Math.max(1, items[idx].qty + delta));
         cartSave(items);
         cartUpdateBadge();
@@ -874,7 +885,7 @@
       }
       function cartQty(idx, d) {
         const items = cartGet();
-        if (!items[idx]) return;
+        if (!items[idx] || items[idx].isGift) return;
         items[idx].qty = Math.min(_itemMaxQty(items[idx]), Math.max(1, items[idx].qty + d));
         cartSave(items);
         cartUpdateBadge();
@@ -3405,11 +3416,12 @@
           items: items.map((i) => ({
             productId: i.productId || i.id || "",
             name: i.name,
+            isGift: !!i.isGift,
             flavor: i.flavor || "",
             variant: i.variant || "",
-            qty: i.qty,
+            qty: i.isGift ? 1 : i.qty,
             unitPrice: i.unitPrice,
-            lineTotal: i.unitPrice * i.qty,
+            lineTotal: i.isGift ? 0 : i.unitPrice * i.qty,
           })),
           subtotal,
           total,

@@ -210,9 +210,22 @@
     
     var giftConfigRow = raw.gift_config || raw.giftConfig;
     if (Array.isArray(giftConfigRow)) giftConfigRow = giftConfigRow[0] || {};
+    function _parseRequiredProducts(rp) {
+      if (Array.isArray(rp)) return rp.map(String);
+      if (typeof rp === 'string' && rp.trim()) {
+        try {
+          var arr = JSON.parse(rp);
+          if (Array.isArray(arr)) return arr.map(String);
+        } catch (e) {}
+        return rp.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      }
+      return [];
+    }
     var giftConfig = {
       enabled: giftConfigRow.enabled === true || giftConfigRow.enabled === 'true',
       threshold: Number(giftConfigRow.threshold) || 0,
+      conditionType: giftConfigRow.condition_type || 'amount',
+      requiredProducts: _parseRequiredProducts(giftConfigRow.required_products),
       productId: giftConfigRow.product_id || '',
       variantIndex: Number(giftConfigRow.variant_index) || 0,
       flavor: giftConfigRow.flavor || '',

@@ -1080,11 +1080,13 @@ export default function App() {
   // ── BUNDLE MUTATIONS ──
   
   const handleSaveGiftConfig = async (config: any) => {
-    setGiftConfig(config);
+setGiftConfig(config);
     const dbPayload = {
       id: 1,
       enabled: config.enabled,
       threshold: config.threshold,
+      condition_type: config.condition_type || 'amount',
+      required_products: Array.isArray(config.required_products) ? config.required_products.map(String) : [],
       product_id: config.product_id,
       variant_index: config.variant_index,
       flavor: config.flavor,
