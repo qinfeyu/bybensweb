@@ -331,6 +331,19 @@ if (pt) {
             <div class="checkout-item-info">
               <div class="checkout-item-name">${item.name} <span style="color:#10b981;font-size:12px;margin-left:8px;font-weight:bold;">(FREE GIFT)</span></div>
               ${item.variant || item.flavor ? `<div class="item-meta" style="color:var(--gray-400);font-size:12px;margin-top:2px;">${[item.variant, item.flavor].filter(Boolean).join(' - ')}</div>` : ''}
+              ${(() => {
+                const req = (Array.isArray(_giftConfig && _giftConfig.requiredProducts) ? _giftConfig.requiredProducts : [])
+                  .map(id => { const sp = _allProducts.find(x => String(x.id) === String(id)); return sp ? sp.name : ''; })
+                  .filter(Boolean).join(', ');
+                if (!req) return '';
+                const _lang = localStorage.getItem('bybens_lang') || 'en';
+                const tipText = _lang === 'fr'
+                  ? 'Astuce : ajoutez ces produits : ' + req + ' pour débloquer ce cadeau !'
+                  : _lang === 'ar'
+                    ? 'نصيحة: أضف هذه المنتجات: ' + req + ' لفتح هذه الهدية!'
+                    : 'Tip: Add these products: ' + req + ' to unlock this gift!';
+                return `<div style="margin-top:6px;background:#d1fae5;border:1px solid #a7f3d0;color:#047857;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;line-height:1.4;">${tipText}</div>`;
+              })()}
               <div class="checkout-item-price" style="margin-top: 4px;">
                 ${item.originalPrice ? `<del style="color:#9ca3af; margin-right:8px; font-weight:normal; font-size: 13px;">${item.originalPrice.toLocaleString('fr-DZ')} DA</del>` : ''}
                 <span style="color:#10b981; font-weight: 800;">0 DA</span>
@@ -3601,10 +3614,13 @@ if (pt) {
 
       function handleSearch(query) {
         const dropdown = document.getElementById("searchDropdown");
+        const mobileResults = document.getElementById("mobileSearchResults");
         const q = (query || "").trim().toLowerCase();
+        const tpl = `<p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">Start typing to search products…</p>`;
         if (!q) {
           dropdown.classList.remove("open");
           dropdown.innerHTML = "";
+          if (mobileResults) mobileResults.innerHTML = tpl;
           return;
         }
         const matches = _allProducts
@@ -3618,12 +3634,7 @@ if (pt) {
                   .includes(q),
               ),
           );
-        if (!matches.length) {
-          dropdown.innerHTML = `<div class="search-drop-empty">No results for "${query}"</div>`;
-          dropdown.classList.add("open");
-          return;
-        }
-        dropdown.innerHTML = matches
+        const rows = matches
           .map((p) => {
             const price = getProductPrice(p, 0).toLocaleString("fr-DZ");
             const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
@@ -3631,7 +3642,7 @@ if (pt) {
               ? `<img src="${_t0}" alt="${p.name}" />`
               : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
             return `
-            <div class="search-drop-item" onclick="window.location.href='/supplements/products?search=${encodeURIComponent(p.name)}'">
+            <div class="search-drop-item" onclick="window.location.href='/supplements/product-detail?id=${encodeURIComponent(p.id)}'">
               <div class="search-drop-thumb">${thumb}</div>
               <div class="search-drop-info">
                 <p class="search-drop-brand">${p.brand || ""}</p>
@@ -3641,7 +3652,16 @@ if (pt) {
             </div>`;
           })
           .join("");
+        if (!matches.length) {
+          const empty = `<div class="search-drop-empty">No results for "${query}"</div>`;
+          dropdown.innerHTML = empty;
+          dropdown.classList.add("open");
+          if (mobileResults) mobileResults.innerHTML = empty;
+          return;
+        }
+        dropdown.innerHTML = rows;
         dropdown.classList.add("open");
+        if (mobileResults) mobileResults.innerHTML = rows;
       }
 
       document.addEventListener("DOMContentLoaded", () => {
