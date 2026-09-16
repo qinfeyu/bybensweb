@@ -114,9 +114,10 @@
       if (st) st.textContent = msg;
     } else {
       sec.classList.remove('unlocked');
-      if (pb) pb.style.width = progressPct + '%';
-if (pt) {
-        pt.textContent = progressTextObj[lang] || progressTextObj.en;
+      if (pb) pb.style.setProperty('--gift-bar-pct', progressPct + '%');
+      if (pt) {
+        const _tipIcon = '<svg class="gift-tip-icon" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>';
+        pt.innerHTML = _tipIcon + '<span>' + (progressTextObj[lang] || progressTextObj.en) + '</span>';
       }
       if (st) {
         if (lang === 'fr') st.textContent = 'Verrouillée';
@@ -342,7 +343,8 @@ if (pt) {
                   : _lang === 'ar'
                     ? 'نصيحة: أضف هذه المنتجات: ' + req + ' لفتح هذه الهدية!'
                     : 'Tip: Add these products: ' + req + ' to unlock this gift!';
-                return `<div style="margin-top:6px;background:#d1fae5;border:1px solid #a7f3d0;color:#047857;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;line-height:1.4;">${tipText}</div>`;
+                const _tipIcon = '<svg class="gift-tip-icon" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>';
+                return '<div class="gift-tip-chip">' + _tipIcon + '<span>' + tipText + '</span></div>';
               })()}
               <div class="checkout-item-price" style="margin-top: 4px;">
                 ${item.originalPrice ? `<del style="color:#9ca3af; margin-right:8px; font-weight:normal; font-size: 13px;">${item.originalPrice.toLocaleString('fr-DZ')} DA</del>` : ''}

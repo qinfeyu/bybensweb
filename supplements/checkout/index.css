@@ -2211,17 +2211,68 @@
   display: none;
 }
 .gift-progress-bar {
-  background: var(--red);
+  background: var(--gray-100);
+  border-radius: 99px;
   height: 8px;
-  width: 0%;
+  overflow: hidden;
+  position: relative;
+}
+.gift-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: var(--gift-bar-pct, 0%);
+  background: linear-gradient(90deg, #10b981, #34d399);
   border-radius: 99px;
   transition: width 0.4s ease;
 }
 .gift-progress-text {
   font-size: 13px;
-  color: var(--gray-500);
-  margin-top: 8px;
+  font-weight: 600;
+  color: #047857;
+  margin-top: 10px;
   text-align: center;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.5;
+  animation: giftTipPulse 2s ease-in-out infinite;
+}
+.gift-progress-text .gift-tip-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+@keyframes giftTipPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.15); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+.gift-tip-chip {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #047857;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.5;
+  animation: giftTipPulse 2s ease-in-out infinite;
+}
+.gift-tip-chip .gift-tip-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
 }
 .gift-product-info {
   display: flex;
