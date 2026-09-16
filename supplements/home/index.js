@@ -658,11 +658,11 @@ function renderProducts(lang) {
   const bestSellers = getDynamicBestSellers(products, _rawOrders);
   renderProductListToContainer("bestSellersGrid", bestSellers, lang);
 
-  // 2. New Arrivals: sort in-stock products desc by createdAt, up to 8 items
+  // 2. New Arrivals: sort in-stock products desc by createdAt, up to 12 items
   const newArrivals = [...inStockProducts]
     .filter((p) => !isBundleProduct(p))
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-    .slice(0, 8);
+    .slice(0, 12);
   renderProductListToContainer("newArrivalsGrid", newArrivals, lang);
 
   // 3. Bundles & Packs: all active bundle items (including out-of-stock bundles)

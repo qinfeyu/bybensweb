@@ -476,7 +476,7 @@
         priceMin: "",
         priceMax: "",
         availability: "",
-        sort: "default",
+        sort: "newest",
         view: "grid",
         page: 1,
         perPage: 12,
