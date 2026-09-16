@@ -41,6 +41,13 @@
 
     const conditionType = gc.conditionType || 'amount';
     const reqProducts = Array.isArray(gc.requiredProducts) ? gc.requiredProducts : [];
+    const reqNames = reqProducts
+      .map(id => {
+        const p = _allProducts.find(x => String(x.id) === String(id));
+        return p ? p.name : '';
+      })
+      .filter(Boolean)
+      .join(', ');
     
     const hasAmount = subtotal >= gc.threshold;
     const hasProducts = reqProducts.length > 0 && reqProducts.every(reqId => items.some(item => !item.isGift && String(item.productId || item.id) === String(reqId)));
@@ -63,22 +70,34 @@
     } else if (conditionType === 'products') {
       isUnlocked = hasProducts;
       if (!isUnlocked) {
-        progressTextObj = {
-          en: 'Add the required products to unlock your free gift!',
-          fr: 'Ajoutez les produits requis pour débloquer votre cadeau !',
-          ar: 'أضف المنتجات المطلوبة لفتح هديتك!'
-        };
+        progressTextObj = reqNames
+          ? {
+              en: 'Tip: Add these products: ' + reqNames + ' to unlock this gift!',
+              fr: 'Astuce : ajoutez ces produits : ' + reqNames + ' pour débloquer ce cadeau !',
+              ar: 'نصيحة: أضف هذه المنتجات: ' + reqNames + ' لفتح هذه الهدية!'
+            }
+          : {
+              en: 'Add the required products to unlock your free gift!',
+              fr: 'Ajoutez les produits requis pour débloquer votre cadeau !',
+              ar: 'أضف المنتجات المطلوبة لفتح هديتك!'
+            };
       }
     } else if (conditionType === 'both') {
       isUnlocked = hasAmount || hasProducts;
       if (!isUnlocked) {
         progressPct = Math.min(100, Math.max(0, (subtotal / gc.threshold) * 100));
         const rem = gc.threshold - subtotal;
-        progressTextObj = {
-          en: 'Add ' + rem + ' DA or required products to unlock!',
-          fr: 'Ajoutez ' + rem + ' DA ou les produits requis pour débloquer !',
-          ar: 'أضف ' + rem + ' دج لفتح هديتك!'
-        };
+        progressTextObj = reqNames
+          ? {
+              en: 'Tip: Add ' + rem + ' DA or these products: ' + reqNames + ' to unlock this gift!',
+              fr: 'Astuce : ajoutez ' + rem + ' DA ou ces produits : ' + reqNames + ' pour débloquer ce cadeau !',
+              ar: 'نصيحة: أضف ' + rem + ' دج أو هذه المنتجات: ' + reqNames + ' لفتح هذه الهدية!'
+            }
+          : {
+              en: 'Add ' + rem + ' DA or required products to unlock!',
+              fr: 'Ajoutez ' + rem + ' DA ou les produits requis pour débloquer !',
+              ar: 'أضف ' + rem + ' دج لفتح هديتك!'
+            };
       }
     }
 

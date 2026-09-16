@@ -2340,8 +2340,7 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
   }
 
   /* Display exactly 4 products in total (2 rows of 2) on mobile */
-  #best-sellers-section .product-card:nth-child(n+5),
-  #new-arrivals-section .product-card:nth-child(n+5) {
+  #best-sellers-section .product-card:nth-child(n+5) {
     display: none !important;
   }
 
