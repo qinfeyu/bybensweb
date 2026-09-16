@@ -1,11 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Gift, Save, Check } from 'lucide-react';
+import { Gift, Save, Check, Power, Tag, Package, MessageCircle, Search } from 'lucide-react';
 import { Product } from '../types';
 
 interface GiftPageProps {
   products: Product[];
   giftConfig: any | null;
   onSaveGiftConfig: (config: any) => Promise<void>;
+}
+
+const inputCls =
+  'w-full p-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-colors';
+const selectCls = inputCls + ' cursor-pointer';
+
+function SectionCard({ icon: Icon, title, desc, children }: { icon: any; title: string; desc: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5">
+      <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+        <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+          <Icon className="w-4 h-4" />
+        </span>
+        <div>
+          <h2 className="font-bold text-gray-800 leading-tight">{title}</h2>
+          <p className="text-xs text-gray-500 leading-tight mt-0.5">{desc}</p>
+        </div>
+      </div>
+      {children}
+    </div>
+  );
 }
 
 export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: GiftPageProps) {
@@ -22,6 +43,7 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
     message_ar: 'تم فتح الهدية المجانية!',
   });
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -45,6 +67,8 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
     setSaving(true);
     await onSaveGiftConfig(config);
     setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const selectedProduct = products.find(p => p.id === config.product_id);
@@ -57,116 +81,161 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
       const isSelected = c.required_products.includes(productId);
       return {
         ...c,
-        required_products: isSelected 
+        required_products: isSelected
           ? c.required_products.filter(id => id !== productId)
           : [...c.required_products, productId]
       };
     });
   };
 
+  const conditionOptions = [
+    { value: 'amount', title: 'Amount Threshold', desc: 'Gift unlocks when the cart subtotal reaches the threshold.' },
+    { value: 'products', title: 'Specific Products', desc: 'Gift unlocks when ALL selected products are in the cart.' },
+    { value: 'both', title: 'Amount OR Products', desc: 'Gift unlocks when either the threshold or all selected products are satisfied.' },
+  ];
+
+  const filteredProducts = products.filter(p => (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Gift className="w-6 h-6 text-emerald-500" />
-          Free Gift Configuration
-        </h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/20">
+              <Gift className="w-5 h-5" />
+            </span>
+            Free Gift Configuration
+          </h1>
+          <p className="text-sm text-gray-500 mt-1 ml-11">Give customers a free product when they unlock a promotion.</p>
+        </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-emerald-500/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {saving ? <Check className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Saving...' : 'Save Configuration'}
+          {saved ? <Check className="w-4 h-4" /> : saving ? <Check className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
+          {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Configuration'}
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border p-6 space-y-6">
-        <div className="flex items-center justify-between border-b pb-6">
+      <SectionCard icon={Power} title="Enable Free Gift" desc="Turn the free gift promotion on or off for the storefront.">
+        <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50/60 p-4">
           <div>
-            <h2 className="text-lg font-bold">Enable Free Gift</h2>
-            <p className="text-gray-500 text-sm">Turn the free gift promotion on or off for the storefront.</p>
+            <p className={`font-semibold text-sm ${config.enabled ? 'text-emerald-700' : 'text-gray-600'}`}>
+              {config.enabled ? 'Promotion is Active' : 'Promotion is Disabled'}
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">Storefront visitors will{config.enabled ? '' : ' not'} see the free-gift promotion.</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
+            <input
+              type="checkbox"
               className="sr-only peer"
               checked={config.enabled}
               onChange={e => setConfig(c => ({ ...c, enabled: e.target.checked }))}
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            <div className={`relative w-12 h-6 rounded-full transition-colors peer-checked:bg-emerald-500 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-200 ${config.enabled ? 'bg-emerald-500' : ''}`}>
+              <span className={`absolute top-[2px] left-[2px] w-5 h-5 rounded-full bg-white shadow transition-transform ${config.enabled ? 'translate-x-6' : ''}`}></span>
+            </div>
           </label>
         </div>
+      </SectionCard>
 
-        <div className="border-b pb-6 space-y-4">
-          <h3 className="font-bold">Unlock Conditions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-semibold mb-1">Condition Type</label>
-              <select
-                value={config.condition_type}
-                onChange={e => setConfig(c => ({ ...c, condition_type: e.target.value as any }))}
-                className="w-full p-2 border rounded-xl"
+      <SectionCard icon={Tag} title="Unlock Conditions" desc="Choose how customers unlock the free gift.">
+        <div className="grid grid-cols-1 gap-3">
+          {conditionOptions.map(opt => {
+            const active = config.condition_type === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setConfig(c => ({ ...c, condition_type: opt.value as any }))}
+                className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${active ? 'border-emerald-500 bg-emerald-50/60 shadow-sm' : 'border-gray-200 bg-white hover:border-emerald-200'}`}
               >
-                <option value="amount">Amount Threshold Only</option>
-                <option value="products">Specific Products Only (Requires ALL selected)</option>
-                <option value="both">Amount Threshold OR Specific Products</option>
-              </select>
-            </div>
-            
-            {(config.condition_type === 'amount' || config.condition_type === 'both') && (
-              <div>
-                <label className="block text-sm font-semibold mb-1">Unlock Threshold (DA)</label>
-                <input
-                  type="number"
-                  value={config.threshold}
-                  onChange={e => setConfig(c => ({ ...c, threshold: Number(e.target.value) }))}
-                  className="w-full p-2 border rounded-xl"
-                />
-              </div>
-            )}
-          </div>
-          
-          {(config.condition_type === 'products' || config.condition_type === 'both') && (
-            <div className="mt-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-2">
-                <label className="block text-sm font-semibold">Required Products (Must buy ALL selected)</label>
-                <input 
-                  type="text" 
-                  placeholder="Search products..." 
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="p-1 border rounded text-sm w-full md:w-64"
-                />
-              </div>
-              <div className="max-h-48 overflow-y-auto border rounded-xl p-3 space-y-2 bg-gray-50">
-                {products.length === 0 ? (
-                  <p className="text-sm text-gray-500">No products available.</p>
-                ) : (
-                  products.filter(p => (p.name || "").toLowerCase().includes(searchQuery.toLowerCase())).map(p => (
-                    <label key={p.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
-                      <input 
-                        type="checkbox" 
-                        checked={config.required_products.includes(String(p.id))}
-                        onChange={() => handleRequiredProductToggle(String(p.id))}
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <span className="text-sm">{p.name}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+                <div className="flex items-center gap-3">
+                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${active ? 'border-emerald-500' : 'border-gray-300'}`}>
+                    {active && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+                  </span>
+                  <span>
+                    <span className={`block text-sm font-semibold ${active ? 'text-emerald-800' : 'text-gray-700'}`}>{opt.title}</span>
+                    <span className="block text-xs text-gray-500 mt-0.5">{opt.desc}</span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
+        {(config.condition_type === 'amount' || config.condition_type === 'both') && (
+          <div className="pt-2">
+            <label className="block text-sm font-semibold mb-1.5 text-gray-700">Unlock Threshold (DA)</label>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                value={config.threshold}
+                onChange={e => setConfig(c => ({ ...c, threshold: Number(e.target.value) }))}
+                className={inputCls + ' pr-12'}
+              />
+              <span className="absolute inset-y-0 right-3 flex items-center text-sm font-semibold text-gray-400">DA</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Cart subtotal (excluding gifts) must reach this amount.</p>
+          </div>
+        )}
+
+        {(config.condition_type === 'products' || config.condition_type === 'both') && (
+          <div className="pt-2">
+            <div className="flex items-center justify-between mb-2.5">
+              <label className="block text-sm font-semibold text-gray-700">Required Products</label>
+              <span className="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-0.5">
+                {config.required_products.length} selected
+              </span>
+            </div>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className={inputCls + ' pl-9'}
+              />
+            </div>
+            <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100 bg-white">
+              {products.length === 0 ? (
+                <p className="text-sm text-gray-500 p-3">No products available.</p>
+              ) : filteredProducts.length === 0 ? (
+                <p className="text-sm text-gray-500 p-3">No products match your search.</p>
+              ) : (
+                filteredProducts.map(p => {
+                  const checked = config.required_products.includes(String(p.id));
+                  return (
+                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${checked ? 'bg-emerald-50/70' : 'hover:bg-gray-50'}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleRequiredProductToggle(String(p.id))}
+                        className="w-4 h-4 rounded border-gray-300 text-emerald-600 accent-emerald-600"
+                      />
+                      <span className={`text-sm flex-1 truncate ${checked ? 'font-medium text-emerald-900' : 'text-gray-700'}`}>{p.name}</span>
+                      {checked && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">Customers must buy all the selected products to unlock the gift.</p>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard icon={Package} title="Gift Product" desc="The free product customers receive when unlocked.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-semibold mb-1">Select Gift Product</label>
+            <label className="block text-sm font-semibold mb-1.5 text-gray-700">Select Gift Product</label>
             <select
               value={config.product_id}
               onChange={e => setConfig(c => ({ ...c, product_id: e.target.value, variant_index: 0, flavor: '' }))}
-              className="w-full p-2 border rounded-xl"
+              className={selectCls}
             >
               <option value="">-- Choose a product --</option>
               {products.map(p => (
@@ -175,28 +244,28 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
             </select>
           </div>
 
-          {variants.length > 0 && (
+          {variants.length > 0 ? (
             <div>
-              <label className="block text-sm font-semibold mb-1">Select Variant</label>
+              <label className="block text-sm font-semibold mb-1.5 text-gray-700">Select Variant</label>
               <select
                 value={config.variant_index}
                 onChange={e => setConfig(c => ({ ...c, variant_index: Number(e.target.value), flavor: '' }))}
-                className="w-full p-2 border rounded-xl"
+                className={selectCls}
               >
                 {variants.map((v: any, i: number) => (
                   <option key={i} value={i}>{v.weight}{v.unit} - {v.price} DA</option>
                 ))}
               </select>
             </div>
-          )}
+          ) : null}
 
           {flavors.length > 0 && (
             <div>
-              <label className="block text-sm font-semibold mb-1">Select Flavor</label>
+              <label className="block text-sm font-semibold mb-1.5 text-gray-700">Select Flavor</label>
               <select
                 value={config.flavor}
                 onChange={e => setConfig(c => ({ ...c, flavor: e.target.value }))}
-                className="w-full p-2 border rounded-xl"
+                className={selectCls}
               >
                 <option value="">-- Choose a flavor --</option>
                 {flavors.map((f: string) => (
@@ -206,23 +275,24 @@ export default function GiftPage({ products, giftConfig, onSaveGiftConfig }: Gif
             </div>
           )}
         </div>
+      </SectionCard>
 
-        <div className="space-y-4 pt-4 border-t">
-          <h3 className="font-bold">Unlock Messages</h3>
+      <SectionCard icon={MessageCircle} title="Unlock Messages" desc="The message shown to customers once they unlock the gift.">
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold mb-1">English Message</label>
-            <input type="text" value={config.message_en} onChange={e => setConfig(c => ({ ...c, message_en: e.target.value }))} className="w-full p-2 border rounded-xl" />
+            <label className="block text-sm font-semibold mb-1.5 text-gray-700">English Message</label>
+            <input type="text" value={config.message_en} onChange={e => setConfig(c => ({ ...c, message_en: e.target.value }))} className={inputCls} placeholder="Free gift unlocked!" />
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-1">French Message</label>
-            <input type="text" value={config.message_fr} onChange={e => setConfig(c => ({ ...c, message_fr: e.target.value }))} className="w-full p-2 border rounded-xl" />
+            <label className="block text-sm font-semibold mb-1.5 text-gray-700">French Message</label>
+            <input type="text" value={config.message_fr} onChange={e => setConfig(c => ({ ...c, message_fr: e.target.value }))} className={inputCls} placeholder="Cadeau gratuit débloqué!" />
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-1 text-right" dir="rtl">Arabic Message</label>
-            <input type="text" value={config.message_ar} dir="rtl" onChange={e => setConfig(c => ({ ...c, message_ar: e.target.value }))} className="w-full p-2 border rounded-xl text-right" />
+            <label className="block text-sm font-semibold mb-1.5 text-gray-700 text-right" dir="rtl">Arabic Message</label>
+            <input type="text" value={config.message_ar} dir="rtl" onChange={e => setConfig(c => ({ ...c, message_ar: e.target.value }))} className={inputCls + ' text-right'} placeholder="تم فتح الهدية المجانية!" />
           </div>
         </div>
-      </div>
+      </SectionCard>
     </div>
   );
 }

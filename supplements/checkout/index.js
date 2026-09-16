@@ -90,6 +90,7 @@
     const msg = gc['message' + lang.charAt(0).toUpperCase() + lang.slice(1)] || gc.messageEn || 'Free gift unlocked!';
     
     if (isUnlocked) {
+      sec.style.display = 'none';
       sec.classList.add('unlocked');
       if (st) st.textContent = msg;
     } else {

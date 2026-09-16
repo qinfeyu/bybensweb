@@ -1,58 +1,5 @@
 
-// --- FREE GIFT TEASER LOGIC ---
-  function updateGiftTeaser() {
-    const banner = document.getElementById('giftTeaserBanner');
-    if (!banner) return;
-    if (!giftConfig || !giftConfig.enabled) {
-      banner.style.display = 'none';
-      return;
-    }
-    const gc = giftConfig;
-    const prod = allProducts.find(p => String(p.id) === String(gc.productId));
-    if (!prod || Number(prod.stock) <= 0) {
-      banner.style.display = 'none';
-      return;
-    }
-    
-    banner.style.display = 'flex';
-    
-    const lang = localStorage.getItem('bybens_lang') || 'en';
-    const titleEl = document.getElementById('teaserTitle');
-    const textEl = document.getElementById('teaserText');
-    
-    if (titleEl) titleEl.textContent = lang === 'fr' ? 'Offre Spéciale !' : lang === 'ar' ? 'عرض خاص!' : 'Special Offer!';
-
-    const type = gc.conditionType || 'amount';
-    const req = Array.isArray(gc.requiredProducts) ? gc.requiredProducts : [];
-    const reqNames = req.map(id => {
-      const p = allProducts.find(x => String(x.id) === String(id));
-      return p ? p.name : id;
-    }).join(', ');
-
-    let text = '';
-    if (type === 'products') {
-      text = lang === 'fr'
-        ? `Achetez ${reqNames ? reqNames : 'les produits requis'} pour débloquer un ${prod.name} gratuit à la caisse.`
-        : lang === 'ar'
-          ? `اشترِ ${reqNames ? reqNames : 'المنتجات المطلوبة'} لفتح ${prod.name} مجاني عند الدفع.`
-          : `Buy ${reqNames ? reqNames : 'the required products'} to unlock a free ${prod.name} at checkout.`;
-    } else if (type === 'both') {
-      text = lang === 'fr'
-        ? `Dépensez ${gc.threshold} DA ou achetez ${reqNames ? reqNames : 'les produits requis'} pour débloquer un ${prod.name} gratuit à la caisse.`
-        : lang === 'ar'
-          ? `أنفق ${gc.threshold} دج أو اشترِ ${reqNames ? reqNames : 'المنتجات المطلوبة'} لفتح ${prod.name} مجاني عند الدفع.`
-          : `Spend ${gc.threshold} DA or buy ${reqNames ? reqNames : 'the required products'} to unlock a free ${prod.name} at checkout.`;
-    } else {
-      text = lang === 'fr'
-        ? `Dépensez ${gc.threshold} DA pour débloquer un ${prod.name} gratuit à la caisse.`
-        : lang === 'ar'
-          ? `أنفق ${gc.threshold} دج لفتح ${prod.name} مجاني عند الدفع.`
-          : `Spend ${gc.threshold} DA to unlock a free ${prod.name} at checkout.`;
-    }
-    if (textEl) textEl.textContent = text;
-  }
-
-      /* ══════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════
    TRANSLATIONS — same keys as index.html where applicable,
    plus products-page-specific keys
 ══════════════════════════════════════════════════════════════ */
@@ -270,9 +217,8 @@
           btn.classList.toggle("active", btn.dataset.lang === lang);
         });
 
-        // Re-render product buttons in new language
+// Re-render product buttons in new language
         renderProducts();
-          if (typeof updateGiftTeaser === "function") updateGiftTeaser();
       }
 
       /* ══════════════════════════════════════════════════════════════
@@ -513,8 +459,7 @@
               .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${cat.name}</a></li>`)
               .join("");
           }
-          updateGiftTeaser();
-        } catch (err) {
+          } catch (err) {
           console.error("Failed to load data:", err);
         }
         hideLoader();
