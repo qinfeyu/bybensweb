@@ -2206,19 +2206,15 @@
 }
 .gift-progress-wrap {
   margin-bottom: 12px;
-  background: var(--gray-100);
-  border-radius: 99px;
-  height: 8px;
-  position: relative;
-  overflow: hidden;
 }
 .checkout-gift-card.unlocked .gift-progress-wrap {
   display: none;
 }
 .gift-progress-bar {
   background: var(--red);
-  height: 100%;
+  height: 8px;
   width: 0%;
+  border-radius: 99px;
   transition: width 0.4s ease;
 }
 .gift-progress-text {
