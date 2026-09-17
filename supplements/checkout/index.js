@@ -109,11 +109,29 @@
     const msg = gc['message' + lang.charAt(0).toUpperCase() + lang.slice(1)] || gc.messageEn || 'Free gift unlocked!';
     
     if (isUnlocked) {
-      sec.style.display = 'none';
       sec.classList.add('unlocked');
       if (st) st.textContent = msg;
+      const _giftClaimed = items.some(i => i && i.isGift);
+      if (_giftClaimed) {
+        // Already claimed — hide the card, the item row speaks for itself
+        sec.style.display = 'none';
+        sec.classList.remove('unlocked');
+      } else {
+        // Unlocked but not claimed — show product info + Claim button
+        sec.style.display = 'block';
+        const cw = document.getElementById('giftClaimWrap');
+        if (cw) cw.classList.remove('hidden');
+        const cl = document.getElementById('giftClaimLabel');
+        if (cl) {
+          if (lang === 'fr') cl.textContent = 'Réclamer mon cadeau';
+          else if (lang === 'ar') cl.textContent = 'اطلب هديتك';
+          else cl.textContent = 'Claim Free Gift';
+        }
+      }
     } else {
       sec.classList.remove('unlocked');
+      const cw = document.getElementById('giftClaimWrap');
+      if (cw) cw.classList.add('hidden');
       if (pb) pb.style.setProperty('--gift-bar-pct', progressPct + '%');
       if (pt) {
         const _tipIcon = '<svg class="gift-tip-icon" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>';
@@ -127,6 +145,51 @@
     }
     
     return isUnlocked ? { prod, gc, variantStr, flavorStr, originalPrice } : false;
+  }
+
+  function claimGift() {
+    const items = cartGet();
+    if (!Array.isArray(items) || items.some(i => i && i.isGift)) return;
+    const subtotal = items.filter(i => !i.isGift).reduce((s, i) => s + i.unitPrice * i.qty, 0);
+    const giftInfo = typeof updateGiftUI === 'function' ? updateGiftUI(subtotal, items) : null;
+    if (!giftInfo) return;
+    const { prod, variantStr, flavorStr, originalPrice } = giftInfo;
+    items.push({
+      productId: prod.id,
+      name: prod.name,
+      flavor: flavorStr,
+      variant: variantStr,
+      qty: 1,
+      unitPrice: 0,
+      originalPrice: originalPrice,
+      imageUrl: prod.imageUrl,
+      isGift: true
+    });
+    cartSave(items);
+    if (typeof cartUpdateBadge === 'function') cartUpdateBadge();
+    renderCheckoutItems();
+    const lang = localStorage.getItem('bybens_lang') || 'en';
+    const sec = document.getElementById('checkoutGiftSection');
+    const cw = document.getElementById('giftClaimWrap');
+    if (sec && cw) {
+      sec.style.display = 'block';
+      sec.classList.add('unlocked');
+      const cb = document.getElementById('giftClaimBtn');
+      const cm = document.getElementById('giftClaimedMsg');
+      const cl = document.getElementById('giftClaimedLabel');
+      if (cb) cb.classList.add('hidden');
+      if (cm) cm.classList.remove('hidden');
+      if (cl) cl.textContent = msgByLang(lang, 'Gift claimed!', 'Cadeau réclamé !', 'تم الحصول على الهدية!');
+      setTimeout(() => {
+        const it2 = cartGet();
+        const sub2 = it2.filter(i => !i.isGift).reduce((s, i) => s + i.unitPrice * i.qty, 0);
+        updateGiftUI(sub2, it2);
+      }, 1600);
+    }
+  }
+
+  function msgByLang(lang, en, fr, ar) {
+    return lang === 'fr' ? fr : lang === 'ar' ? ar : en;
   }
 
       /* ══════════════════════════════════════════════════════
@@ -276,35 +339,8 @@
         
         const giftInfo = typeof updateGiftUI === 'function' ? updateGiftUI(subtotal, items) : null;
         if (giftInfo) {
-          const { prod, gc, variantStr, flavorStr, originalPrice } = giftInfo;
-          const giftItem = {
-            productId: prod.id,
-            name: prod.name,
-            flavor: flavorStr,
-            variant: variantStr,
-            qty: 1,
-            unitPrice: 0,
-            originalPrice: originalPrice,
-            imageUrl: prod.imageUrl,
-            isGift: true
-          };
-          if (!items.find(i => i.isGift)) {
-             items.push(giftItem);
-             cartSave(items);
-             renderCheckoutItems();
-             return; // renderCheckoutItems calls updateOrderSummary again
-          } else {
-            // Gift already in cart — keep qty locked at 1 (self-heal legacy inflated carts)
-            const giftIdx = items.findIndex(i => i.isGift);
-            if (items[giftIdx].qty !== 1) {
-              items[giftIdx].qty = 1;
-              items[giftIdx].name = prod.name;
-              items[giftIdx].variant = variantStr;
-              items[giftIdx].flavor = flavorStr;
-              items[giftIdx].imageUrl = prod.imageUrl;
-              cartSave(items);
-            }
-          }
+          // Gift qualifies but is NOT auto-added — the gift card shows a Claim
+          // button (hidden automatically once the gift is claimed & in cart).
         } else {
           const giftIdx = items.findIndex(i => i.isGift);
           if (giftIdx !== -1) {

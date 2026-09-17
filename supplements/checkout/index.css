@@ -2342,4 +2342,53 @@
 .checkout-gift-card.unlocked .gift-status-text {
   color: #10b981;
 }
+.hidden {
+  display: none !important;
+}
+.gift-claim-wrap {
+  margin-top: 14px;
+}
+.gift-claim-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #fff;
+  background: linear-gradient(135deg, #059669 0%, #10b981 55%, #34d399 100%);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.gift-claim-btn:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+}
+.gift-claim-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+.gift-claim-icon {
+  flex-shrink: 0;
+}
+.gift-claimed-msg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #047857;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
+}
 
