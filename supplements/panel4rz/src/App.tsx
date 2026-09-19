@@ -1254,7 +1254,7 @@ setGiftConfig(config);
   // ── STOCK ADJUSTMENT HELPER FOR ORDERS ──
   const adjustInventoryAndProductStock = async (items: any[], direction: number) => {
     // direction: -1 = deduct stock (order placed/active), +1 = restore stock (order canceled/deleted)
-    if (!items || items.length === 0) return;
+    if (!items || items.length === 0) return true;
 
     let updatedInventory = [...inventoryItems];
     let updatedProducts = [...products];
@@ -1395,6 +1395,8 @@ setGiftConfig(config);
           const invIdx = updatedInventory.findIndex(i => 
             String(i.id || '').trim().toLowerCase() === targetSku ||
             String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === targetSku ||
+            (rawProdId && String(i.id || '').trim().toLowerCase() === rawProdId.toLowerCase()) ||
+            (rawProdId && String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === rawProdId.toLowerCase()) ||
             (rawItemName.length > 2 && String(i.name || '').trim().toLowerCase() === rawItemName)
           );
           if (invIdx >= 0) {
@@ -1518,21 +1520,31 @@ setGiftConfig(config);
     // Always run automatic catalog product sync to ensure all variant & flavor stocks stay 100% refreshed
     syncProductsWithInventory(updatedProducts, updatedInventory);
 
-    try {
-      for (const u of invUpdates) {
+    // Persist stock changes; each write is individually guarded so one failure
+    // doesn't abort the rest. Returns false if ANY stock write failed.
+    let allSynced = true;
+    for (const u of invUpdates) {
+      try {
         if ((u as any).fullItem) {
           const { stock_eu, _lastUpdated, ...cleanObj } = (u as any).fullItem;
           await supabase.from('inventory_items').upsert(cleanObj, { onConflict: 'id' });
         } else {
           await supabase.from('inventory_items').update({ stock: u.stock }).eq('id', u.id);
         }
+      } catch (e) {
+        console.warn("Inventory stock write failed:", u.id, e);
+        allSynced = false;
       }
-      for (const u of prodUpdates) {
-        await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
-      }
-    } catch (e) {
-      console.warn("Stock sync notice:", e);
     }
+    for (const u of prodUpdates) {
+      try {
+        await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
+      } catch (e) {
+        console.warn("Product stock write failed:", u.id, e);
+        allSynced = false;
+      }
+    }
+    return allSynced;
   };
 
   // ── BUDGET ADJUSTMENT HELPER (DZD & EUR) ──
@@ -1646,7 +1658,7 @@ setGiftConfig(config);
     };
 
     // Deduct stock for POS order (runs for both paid and unpaid credit sales)
-    await adjustInventoryAndProductStock(newOrder.items || [], -1);
+    const stockSynced = await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
     // Add paid order subtotal (products only) to DZD Budget
     const newOrderSubtotal = getOrderSubtotal(newOrder);
@@ -1673,6 +1685,18 @@ setGiftConfig(config);
         created_at: newOrder.date
       });
     } catch(e) {}
+
+    // Best-effort: persist payment metadata (requires orders.payment_status / is_unpaid columns)
+    try {
+      await supabase.from('orders').update({
+        payment_status: isUnpaid ? 'unpaid' : 'paid',
+        is_unpaid: isUnpaid,
+      }).eq('id', newOrder.id);
+    } catch(e) {}
+
+    if (!stockSynced) {
+      showToast("⚠️ Sale recorded, but stock could NOT be deducted — verify inventory!", 'error');
+    }
 
     setOrders(prev => [newOrder, ...prev]);
     if (isUnpaid) {
