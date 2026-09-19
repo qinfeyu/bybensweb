@@ -35,8 +35,15 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    // Incremental mode: when called with ?since=, only rows created after that ISO timestamp
+    // are returned, so steady-state polling transfers ~0 rows instead of the full table.
+    const since = req.query && typeof req.query.since === "string" ? req.query.since.trim() : "";
+    const ordersPath = since
+      ? `orders?select=*&order=created_at.desc&limit=2000&created_at=gt.${encodeURIComponent(since)}`
+      : "orders?select=*&order=created_at.desc&limit=2000";
+
     const [orders, settings] = await Promise.all([
-      sf("orders?select=*&order=created_at.desc&limit=2000"),
+      sf(ordersPath),
       sf("settings?select=*"),
     ]);
 

@@ -184,6 +184,12 @@ export default function App() {
   });
 
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const latestOrdersRef = useRef<Order[]>([]);
+
+  // keep a live mirror so the incremental sync can compute its watermark without re-subscribing
+  useEffect(() => {
+    latestOrdersRef.current = orders;
+  }, [orders]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncAt, setLastSyncAt] = useState<number>(Date.now());
@@ -700,7 +706,18 @@ export default function App() {
 
   const syncNewOrders = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin-orders-sync');
+      // Incremental sync: only fetch orders newer than what we already have,
+      // so DB/bandwidth usage is ~0 when nothing new arrived.
+      const current = latestOrdersRef.current;
+      let sinceMs = 0;
+      for (let i = 0; i < current.length; i++) {
+        const ms = new Date((current[i] as any).created_at || 0).getTime();
+        if (ms > sinceMs) sinceMs = ms;
+      }
+      const url = sinceMs
+        ? `/api/admin-orders-sync?since=${encodeURIComponent(new Date(sinceMs).toISOString())}`
+        : '/api/admin-orders-sync';
+      const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
 
@@ -717,7 +734,7 @@ export default function App() {
         }));
       }
 
-      // 2. Keep orders in sync continuously
+      // 2. Merge new/recent orders into state (never nukes the full list)
       const orders = data && Array.isArray(data.orders) ? data.orders : [];
       if (orders.length > 0) {
         let hasNew = false;
@@ -733,14 +750,22 @@ export default function App() {
           }
         });
 
-        // Always update orders state so newly placed orders and status updates appear immediately
-        setOrders(orders);
+        setOrders(prev => {
+          const map = new Map<string, Order>();
+          prev.forEach(o => map.set(o.id, o));
+          orders.forEach((o: any) => map.set(o.id, o));
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => new Date((b as any).created_at || 0).getTime() - new Date((a as any).created_at || 0).getTime());
+          return merged;
+        });
         setLastSyncAt(Date.now());
 
         if (hasNew) {
           playNewOrderSound();
           showToast(`🔔 New Order Received from ${newestOrderName}!`);
         }
+      } else {
+        setLastSyncAt(Date.now());
       }
     } catch(e) {}
   }, [playNewOrderSound]);
@@ -752,9 +777,6 @@ export default function App() {
 
     // 1. Polling timer every 30 seconds for fallback order sync (Real-time subscription handles 0ms instant alerts)
     const interval = setInterval(syncNewOrders, 30000);
-
-    // 1b. Quiet background refresh (every 5 min) keeps dashboard KPIs current without the loading banner
-    const dashInterval = setInterval(() => refreshAllData({ silent: true }), 5 * 60 * 1000);
 
     // 2. Real-time Supabase Subscription for instant order updates
     const channel = supabase
@@ -773,7 +795,6 @@ export default function App() {
 
     return () => {
       clearInterval(interval);
-      clearInterval(dashInterval);
       supabase.removeChannel(channel);
     };
   }, [isAuthenticated, syncNewOrders, playNewOrderSound]);
