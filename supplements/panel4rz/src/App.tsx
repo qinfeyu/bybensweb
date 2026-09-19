@@ -1269,6 +1269,25 @@ setGiftConfig(config);
       const itemFlavor = String(item.flavor || '').trim().toLowerCase();
       const cleanVar = itemVariantLabel.split('/')[0].replace(/\s+/g, '');
 
+      // 0. DIRECT INVENTORY SKU SALE: if the sold id is itself an inventory SKU,
+      // deduct/restore EXACTLY that record. This prevents the catalog variant
+      // flavorSkus mapping from redirecting the write to a different SKU
+      // (e.g. creatine size ladder), and product stocks re-derive from
+      // inventory via syncProductsWithInventory below.
+      if (rawProdId) {
+        const directInvIdx = updatedInventory.findIndex(i =>
+          String(i.id || '').trim().toLowerCase() === rawProdId.toLowerCase()
+        );
+        if (directInvIdx >= 0) {
+          const invItem = { ...updatedInventory[directInvIdx] };
+          const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
+          invItem.stock = newInvStock;
+          updatedInventory[directInvIdx] = invItem;
+          invUpdates.push({ id: invItem.id, stock: newInvStock });
+          continue;
+        }
+      }
+
       // 1. Try finding matching product in Catalog Products
       let prod = updatedProducts.find(p => {
         if (rawProdId && p.id === rawProdId) return true;
