@@ -1652,6 +1652,95 @@ setGiftConfig(config);
     showToast("✓ Order deleted, stock restored & DZD budget adjusted!");
   };
 
+  const handleEditOrderItems = async (orderId: string, newItems: any[]): Promise<{ subtotal: number; total: number }> => {
+    const existing = orders.find(o => o.id === orderId);
+    const newItemsArr = Array.isArray(newItems) ? newItems : [];
+
+    const oldItems = Array.isArray(existing?.items) ? existing.items : [];
+    if (!existing) return { subtotal: 0, total: 0 };
+
+    const newSubtotal = newItemsArr.reduce((s, it) => {
+      const lt = Number(it.lineTotal || it.line_total);
+      if (lt > 0) return s + lt;
+      const qty = Number(it.qty) || 1;
+      const up = Number(it.unitPrice || it.unit_price || it.price) || 0;
+      return s + qty * up;
+    }, 0);
+    const oldSubtotal = oldItems.reduce((s, it) => {
+      const lt = Number(it.lineTotal || it.line_total);
+      if (lt > 0) return s + lt;
+      const qty = Number(it.qty) || 1;
+      const up = Number(it.unitPrice || it.unit_price || it.price) || 0;
+      return s + qty * up;
+    }, 0);
+
+    // Match lines by (productId | variant | flavor) and compute per-SKU qty deltas
+    const keyOf = (it: any) =>
+      `${String(it.productId || it.product_id || it.name || '').trim()}|${String(it.variant || it.variant_spec || '').trim()}|${String(it.flavor || '').trim()}`;
+    const qtyByKey = (list: any[]) => {
+      const m = new Map<string, number>();
+      list.forEach(it => {
+        const k = keyOf(it);
+        m.set(k, (m.get(k) || 0) + (Number(it.qty) || 1));
+      });
+      return m;
+    };
+    const oldMap = qtyByKey(oldItems);
+    const newMap = qtyByKey(newItemsArr);
+
+    const restore: any[] = [];
+    const deduct: any[] = [];
+    new Set([...oldMap.keys(), ...newMap.keys()]).forEach(k => {
+      const oldQ = oldMap.get(k) || 0;
+      const newQ = newMap.get(k) || 0;
+      if (newQ < oldQ) {
+        const ref: any = oldItems.find(it => keyOf(it) === k) || {};
+        restore.push({ productId: ref.productId || ref.product_id, name: ref.name || ref.product_name, variant: ref.variant, flavor: ref.flavor, qty: oldQ - newQ });
+      } else if (newQ > oldQ) {
+        const ref = newItemsArr.find(it => keyOf(it) === k) || {};
+        deduct.push({ productId: ref.productId || ref.product_id, name: ref.name || ref.product_name, variant: ref.variant, flavor: ref.flavor, qty: newQ - oldQ });
+      }
+    });
+
+    // Stock: canceled orders already released stock; edits only matter for active ones
+    let stockSynced = true;
+    if (existing.status !== 'canceled') {
+      if (restore.length > 0) stockSynced = (await adjustInventoryAndProductStock(restore, +1)) && stockSynced;
+      if (deduct.length > 0) stockSynced = (await adjustInventoryAndProductStock(deduct, -1)) && stockSynced;
+    }
+
+    // Recompute totals: keep delivery fee, POS discount and storefront promo as recorded
+    const delCost = Number(existing.delivery_cost || existing.deliveryCost || 0);
+    const promo = Number(existing.promoDiscount || (existing as any).promo_discount || 0);
+    const posDiscount = Math.max(0, (Number(existing.subtotal) || 0) - (Number(existing.total) || 0));
+    const src = String(existing.source || '').toLowerCase();
+    let newTotal: number;
+    if (src.includes('pos')) {
+      newTotal = Math.max(0, newSubtotal - posDiscount);
+    } else {
+      newTotal = Math.max(0, newSubtotal + delCost - promo);
+    }
+
+    // DZD budget tracks delivered revenue
+    if (existing.status === 'delivered' && newSubtotal !== oldSubtotal) {
+      await adjustDzdBudget(newSubtotal - oldSubtotal);
+    }
+
+    try {
+      await supabase.from('orders').update({ items: newItemsArr, subtotal: newSubtotal, total: newTotal }).eq('id', orderId);
+    } catch(e) {}
+
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items: newItemsArr, subtotal: newSubtotal, total: newTotal } : o));
+
+    if (!stockSynced) {
+      showToast("⚠️ Order items saved, but some stock changes could NOT be applied — verify inventory!", 'error');
+    } else {
+      showToast(`✓ Order #${orderId.slice(-6)} items updated & stock adjusted!`);
+    }
+
+    return { subtotal: newSubtotal, total: newTotal };
+  };
+
   const handleAddPosOrder = async (orderData: { items: any[]; subtotal: number; total: number; firstName: string; phone: string; paymentStatus?: 'paid' | 'unpaid' }) => {
     const id = `POS-${Date.now()}`;
     const isUnpaid = orderData.paymentStatus === 'unpaid';
@@ -2483,6 +2572,8 @@ setGiftConfig(config);
                 products={products}
                 onUpdateStatus={handleUpdateOrderStatus}
                 onDeleteOrder={handleDeleteOrder}
+                onEditOrderItems={handleEditOrderItems}
+                showToast={showToast}
                 defaultEurRate={eurRate}
               />
             )}

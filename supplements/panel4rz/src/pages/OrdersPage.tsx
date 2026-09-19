@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Order, InventoryItem, Product } from '../types';
 import { calculateOrderProfit } from '../lib/calculations';
-import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter, Printer, MapPin, User, Calendar, Copy, Check, MessageCircle } from 'lucide-react';
+import { ShoppingBag, Search, Eye, Trash2, CheckCircle2, Clock, Truck, XCircle, X, Filter, Printer, MapPin, User, Calendar, Copy, Check, MessageCircle, Edit3 } from 'lucide-react';
 import { PhoneContactAction } from '../components/PhoneContactAction';
 import { WhatsAppTemplates, getWhatsAppUrl } from '../lib/whatsapp';
 
@@ -49,6 +49,8 @@ interface OrdersPageProps {
   products: Product[];
   onUpdateStatus: (orderId: string, status: Order['status']) => Promise<void>;
   onDeleteOrder: (orderId: string) => Promise<void>;
+  onEditOrderItems: (orderId: string, newItems: any[]) => Promise<{ subtotal: number; total: number }>;
+  showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   defaultEurRate: number;
 }
 
@@ -126,6 +128,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   products,
   onUpdateStatus,
   onDeleteOrder,
+  onEditOrderItems,
+  showToast,
   defaultEurRate
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,6 +138,119 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+
+  // ── EDIT ITEMS MODE ──
+  const [editingItems, setEditingItems] = useState(false);
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [addQuery, setAddQuery] = useState('');
+  const [isSavingItems, setIsSavingItems] = useState(false);
+
+  const lineUnitPrice = (it: any): number => {
+    let u = Number(it.unitPrice || it.unit_price || it.price || 0);
+    if (u < 0) {
+      const prod = products.find(p => p.id === (it.productId || it.product_id) || p.name === (it.name || it.product_name));
+      if (prod) {
+        const base = Number(prod.price) || (prod.variants?.[0]?.price ? Number(prod.variants[0].price) : 0);
+        const disc = Number(prod.discount) || 0;
+        u = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
+      } else {
+        u = Math.abs(u);
+      }
+    }
+    return u;
+  };
+
+  const computeTotals = (items: any[]) => {
+    const subtotal = items.reduce((s, it) => s + (lineUnitPrice(it) * (Number(it.qty) || 1)), 0);
+    const delCost = Number(selectedOrder?.delivery_cost || selectedOrder?.deliveryCost || 0);
+    const promo = Number(selectedOrder?.promoDiscount || (selectedOrder as any)?.promo_discount || 0);
+    const posDiscount = Math.max(0, (Number(selectedOrder?.subtotal) || 0) - (Number(selectedOrder?.total) || 0));
+    const isPos = (selectedOrder?.source || '').toLowerCase().includes('pos');
+    const total = isPos ? Math.max(0, subtotal - posDiscount) : Math.max(0, subtotal + delCost - promo);
+    return { subtotal, total };
+  };
+
+  const startEditingItems = () => {
+    if (!selectedOrder) return;
+    setEditItems((selectedOrder.items || []).map(it => ({ ...it, qty: Number(it.qty) || 1 })));
+    setAddQuery('');
+    setEditingItems(true);
+  };
+
+  const cancelEditingItems = () => {
+    setEditingItems(false);
+    setEditItems([]);
+    setAddQuery('');
+  };
+
+  const saveEditingItems = async () => {
+    if (!selectedOrder || isSavingItems) return;
+    setIsSavingItems(true);
+    try {
+      const normalized = editItems.map(it => {
+        const up = lineUnitPrice(it);
+        return { ...it, qty: Math.max(1, Number(it.qty) || 1), unitPrice: up, lineTotal: up * Math.max(1, Number(it.qty) || 1) };
+      });
+      const res = await onEditOrderItems(selectedOrder.id, normalized);
+      setSelectedOrder(prev => prev ? { ...prev, items: normalized, subtotal: res.subtotal, total: res.total } : prev);
+      cancelEditingItems();
+    } catch(e) {
+      showToast?.("Error saving order items", "error");
+    } finally {
+      setIsSavingItems(false);
+    }
+  };
+
+  const editItemQty = (idx: number, delta: number) => {
+    setEditItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const next = Math.max(1, (Number(it.qty) || 1) + delta);
+      return { ...it, qty: next };
+    }));
+  };
+
+  const removeEditItem = (idx: number) => setEditItems(prev => prev.filter((_, i) => i !== idx));
+
+  const addPickResult = (line: any) => {
+    setEditItems(prev => [...prev, { ...line, qty: 1 }]);
+    setAddQuery('');
+  };
+
+  const editAddResults = (() => {
+    const q = addQuery.trim().toLowerCase();
+    if (!q) return [];
+    const inv = inventoryItems.filter(i => i.id.toLowerCase().includes(q) || i.name.toLowerCase().includes(q) || (i.brand || '').toLowerCase().includes(q))
+      .map(i => ({
+        productId: i.id,
+        name: `${i.brand ? i.brand + ' - ' : ''}${i.name}`,
+        variant: i.variant_spec || i.size || 'Standard',
+        flavor: '',
+        price: Number(i.retail_dzd) || 0
+      }));
+    const cats = products.filter(p => p.status === 'active' && (p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q)))
+      .slice(0, 8)
+      .map(p => {
+        const v = Array.isArray(p.variants) && p.variants.length > 0 ? p.variants[0] : (p as any).variants || {};
+        const vLabel = typeof v === 'string' ? v : (v.label || (v.weight ? `${v.weight}${v.unit || ''}` : v.name || v.sku || 'Standard'));
+        const firstFlavor = Array.isArray(p.flavors) && p.flavors.length > 0
+          ? (typeof p.flavors[0] === 'object' ? String(p.flavors[0].name || '') : String(p.flavors[0]))
+          : '';
+        return {
+          productId: p.id,
+          name: `${p.brand ? p.brand + ' - ' : ''}${p.name}`,
+          variant: String(vLabel || ''),
+          flavor: firstFlavor,
+          price: Number(v.price) || Number(p.variants?.[0]?.price) || Number((p as any).price) || 0
+        };
+      });
+    return [...inv, ...cats].slice(0, 12);
+  })();
+
+  const editTotals = editingItems && selectedOrder ? computeTotals(editItems) : null;
+  const editChanged = editingItems && selectedOrder ?
+    JSON.stringify(editItems.map(it => ({ k: String(it.productId || it.product_id || it.name), q: Number(it.qty) || 1 }))) !==
+    JSON.stringify((selectedOrder.items || []).map(it => ({ k: String(it.productId || it.product_id || it.name), q: Number(it.qty) || 1 })))
+    : false;
 
   const handlePrintInvoice = (o: Order) => {
     const printWindow = window.open('', '_blank', 'width=800,height=700');
@@ -547,7 +664,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => setSelectedOrder(o)}
+                        onClick={() => { setSelectedOrder(o); cancelEditingItems(); }}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl flex items-center gap-1 transition-colors"
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -697,7 +814,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                           </a>
                         )}
                         <button
-                          onClick={() => setSelectedOrder(o)}
+                          onClick={() => { setSelectedOrder(o); cancelEditingItems(); }}
                           className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
                           title="View Full Order Details"
                         >
@@ -772,7 +889,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 shrink-0 bg-white z-10">
               <h3 className="font-bold text-slate-900 text-base">Order Details — {selectedOrder.id}</h3>
-              <button onClick={() => setSelectedOrder(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+              <button onClick={() => { setSelectedOrder(null); cancelEditingItems(); }} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -864,48 +981,155 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
               {/* Items */}
               <div>
-                <h4 className="font-bold text-slate-900 mb-2">Ordered Items</h4>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-100 font-bold text-slate-600">
-                      <tr>
-                        <th className="p-2.5">Product</th>
-                        <th className="p-2.5">Flavor</th>
-                        <th className="p-2.5">Variant</th>
-                        <th className="p-2.5 text-center">Qty</th>
-                        <th className="p-2.5 text-right">Unit Price</th>
-                        <th className="p-2.5 text-right">Line Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {(selectedOrder.items || []).map((it, idx) => {
-                        const rawU = Number(it.unitPrice || it.unit_price || it.price || 0);
-                        let uPrice = rawU;
-                        if (uPrice < 0) {
-                          const prod = products.find(p => p.id === (it.productId || it.product_id) || p.name === (it.name || it.product_name));
-                          if (prod) {
-                            const base = Number(prod.price) || (prod.variants?.[0]?.price ? Number(prod.variants[0].price) : 0);
-                            const disc = Number(prod.discount) || 0;
-                            uPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
-                          } else {
-                            uPrice = Math.abs(rawU);
-                          }
-                        }
-                        const lTotal = (Number(it.lineTotal || it.line_total) && Number(it.lineTotal || it.line_total) > 0) ? Number(it.lineTotal || it.line_total) : ((it.qty || 1) * uPrice);
-                        return (
-                          <tr key={idx}>
-                            <td className="p-2.5 font-bold">{it.name || it.product_name || '—'}</td>
-                            <td className="p-2.5">{it.flavor || '—'}</td>
-                            <td className="p-2.5">{it.variant || '—'}</td>
-                            <td className="p-2.5 text-center font-bold">{it.qty || 1}</td>
-                            <td className="p-2.5 text-right">{uPrice.toLocaleString()} DA</td>
-                            <td className="p-2.5 text-right font-bold">{lTotal.toLocaleString()} DA</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-bold text-slate-900">Ordered Items</h4>
+                  {!editingItems && (
+                    <button
+                      onClick={startEditingItems}
+                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs transition-colors flex items-center gap-1.5"
+                      title="Add, remove or change quantities in this order"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Items</span>
+                    </button>
+                  )}
                 </div>
+
+                {editingItems ? (
+                  <div className="space-y-2">
+                    <div className="border border-emerald-200 rounded-xl overflow-hidden bg-emerald-50/30">
+                      {editItems.length === 0 ? (
+                        <div className="p-4 text-center text-slate-400 text-xs">No items — add a product below.</div>
+                      ) : (
+                        editItems.map((it, idx) => {
+                          const up = lineUnitPrice(it);
+                          const lTotal = up * (Number(it.qty) || 1);
+                          return (
+                            <div key={idx} className="flex items-center gap-2 p-2.5 border-b border-emerald-100 last:border-0 bg-white/70">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-slate-900 text-xs truncate">{it.name || it.product_name || '—'}</div>
+                                <div className="text-[10px] text-slate-500">
+                                  {[it.variant, it.flavor].filter(Boolean).join(' | ') || '—'} · {up.toLocaleString()} DA / unit
+                                </div>
+                              </div>
+                              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shrink-0">
+                                <button onClick={() => editItemQty(idx, -1)} className="px-2 py-1 hover:bg-slate-100 font-bold text-slate-600">−</button>
+                                <span className="px-2 font-bold text-xs text-slate-900">{Number(it.qty) || 1}</span>
+                                <button onClick={() => editItemQty(idx, 1)} className="px-2 py-1 hover:bg-slate-100 font-bold text-slate-600">+</button>
+                              </div>
+                              <span className="font-bold text-slate-900 text-xs w-20 text-right shrink-0">{lTotal.toLocaleString()} DA</span>
+                              <button onClick={() => removeEditItem(idx)} className="text-rose-600 hover:text-rose-800 p-1 shrink-0" title="Remove item">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Add product / SKU picker */}
+                    <div className="relative">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={addQuery}
+                          onChange={(e) => setAddQuery(e.target.value)}
+                          placeholder="Search inventory SKU or catalog product to add..."
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                        {addQuery && (
+                          <button onClick={() => setAddQuery('')} className="text-slate-400 hover:text-slate-600 p-2">
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {addQuery && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40 max-h-52 overflow-y-auto divide-y divide-slate-100">
+                          {editAddResults.length === 0 ? (
+                            <div className="p-3 text-center text-slate-400 text-[11px]">No matches for "{addQuery}"</div>
+                          ) : (
+                            editAddResults.map((res, i) => (
+                              <button
+                                key={`${res.productId}-${i}`}
+                                onClick={() => addPickResult(res)}
+                                className="w-full text-left p-2.5 hover:bg-emerald-50 flex items-center justify-between gap-2"
+                              >
+                                <div className="min-w-0">
+                                  <div className="font-bold text-slate-900 text-xs truncate">{res.name}</div>
+                                  <div className="text-[10px] text-slate-500">{res.productId}</div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[10px] font-bold text-slate-600">{res.variant}</span>
+                                  <span className="text-[11px] font-bold text-slate-900">{res.price.toLocaleString()} DA</span>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Save / Cancel */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={saveEditingItems}
+                        disabled={!editChanged || isSavingItems}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>{isSavingItems ? 'Saving...' : 'Save Changes'}</span>
+                      </button>
+                      <button
+                        onClick={cancelEditingItems}
+                        className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-100 font-bold text-slate-600">
+                        <tr>
+                          <th className="p-2.5">Product</th>
+                          <th className="p-2.5">Flavor</th>
+                          <th className="p-2.5">Variant</th>
+                          <th className="p-2.5 text-center">Qty</th>
+                          <th className="p-2.5 text-right">Unit Price</th>
+                          <th className="p-2.5 text-right">Line Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(selectedOrder.items || []).map((it, idx) => {
+                          const rawU = Number(it.unitPrice || it.unit_price || it.price || 0);
+                          let uPrice = rawU;
+                          if (uPrice < 0) {
+                            const prod = products.find(p => p.id === (it.productId || it.product_id) || p.name === (it.name || it.product_name));
+                            if (prod) {
+                              const base = Number(prod.price) || (prod.variants?.[0]?.price ? Number(prod.variants[0].price) : 0);
+                              const disc = Number(prod.discount) || 0;
+                              uPrice = disc > 0 ? (disc <= 100 ? Math.max(0, Math.round(base * (1 - disc / 100))) : Math.max(0, Math.round(base - disc))) : base;
+                            } else {
+                              uPrice = Math.abs(rawU);
+                            }
+                          }
+                          const lTotal = (Number(it.lineTotal || it.line_total) && Number(it.lineTotal || it.line_total) > 0) ? Number(it.lineTotal || it.line_total) : ((it.qty || 1) * uPrice);
+                          return (
+                            <tr key={idx}>
+                              <td className="p-2.5 font-bold">{it.name || it.product_name || '—'}</td>
+                              <td className="p-2.5">{it.flavor || '—'}</td>
+                              <td className="p-2.5">{it.variant || '—'}</td>
+                              <td className="p-2.5 text-center font-bold">{it.qty || 1}</td>
+                              <td className="p-2.5 text-right">{uPrice.toLocaleString()} DA</td>
+                              <td className="p-2.5 text-right font-bold">{lTotal.toLocaleString()} DA</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* Summary */}
@@ -914,7 +1138,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   <>
                     <div className="flex justify-between text-slate-600">
                       <span>Subtotal (Items + Delivery)</span>
-                      <span className="font-bold">{Number(selectedOrder.total || selectedOrder.subtotal || 0).toLocaleString()} DA</span>
+                      <span className="font-bold">{Number(editTotals ? editTotals.total : (selectedOrder.total || selectedOrder.subtotal || 0)).toLocaleString()} DA</span>
                     </div>
                     {Number(selectedOrder.delivery_cost || selectedOrder.deliveryCost || 0) > 0 && (
                       <div className="flex justify-between text-slate-400 text-[11px]">
@@ -927,7 +1151,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   <>
                     <div className="flex justify-between text-slate-600">
                       <span>Subtotal</span>
-                      <span className="font-bold">{Number(selectedOrder.subtotal || 0).toLocaleString()} DA</span>
+                      <span className="font-bold">{Number(editTotals ? editTotals.subtotal : (selectedOrder.subtotal || 0)).toLocaleString()} DA</span>
                     </div>
                     {Number(selectedOrder.delivery_cost || selectedOrder.deliveryCost || 0) > 0 && (
                       <div className="flex justify-between text-slate-600">
@@ -946,8 +1170,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 )}
 
                 <div className="flex justify-between text-slate-900 font-black text-sm pt-2 border-t border-slate-200">
-                  <span>Total</span>
-                  <span>{Number(selectedOrder.total || 0).toLocaleString()} DA</span>
+                  <span>{editingItems ? 'Total (Preview)' : 'Total'}</span>
+                  <span>{Number(editTotals ? editTotals.total : (selectedOrder.total || 0)).toLocaleString()} DA</span>
                 </div>
 
                 <div className="flex justify-between items-center pt-2 border-t border-dashed border-slate-300 font-bold text-xs">
@@ -997,6 +1221,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     if (confirm(`Are you sure you want to delete order #${selectedOrder.id}?`)) {
                       onDeleteOrder(selectedOrder.id);
                       setSelectedOrder(null);
+                      cancelEditingItems();
                     }
                   }}
                   className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center gap-1.5 text-xs transition-colors border border-rose-200"
