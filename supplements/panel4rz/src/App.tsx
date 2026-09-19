@@ -2283,7 +2283,7 @@ setGiftConfig(config);
     );
   }
 
-  const handleSaveCustomer = async (cust: Customer) => {
+  const handleSaveCustomer = async (cust: Customer, prevPhone?: string) => {
     setCustomers(prev => {
       const next = [...prev];
       const idx = next.findIndex(c => c.phone === cust.phone || (c.id && c.id === cust.id));
@@ -2293,11 +2293,21 @@ setGiftConfig(config);
       return next;
     });
 
+    if (prevPhone && prevPhone !== (cust.phone || '')) {
+      try {
+        await supabase.from('orders').update({ phone: cust.phone }).eq('phone', prevPhone);
+      } catch(e) {}
+      setOrders(prev => prev.map(o => (o.phone === prevPhone ? { ...o, phone: cust.phone } : o)));
+    }
+
     try {
       await supabase.from('customers').upsert({
         id: cust.id,
         name: cust.name,
+        first_name: cust.first_name,
+        last_name: cust.last_name,
         phone: cust.phone,
+        address: cust.address,
         group_type: cust.group
       }, { onConflict: 'id' });
     } catch(e) {}

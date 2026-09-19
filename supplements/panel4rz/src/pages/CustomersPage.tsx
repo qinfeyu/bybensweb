@@ -15,13 +15,14 @@ import {
   Check, 
   History, 
   ArrowRightLeft,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 
 interface CustomersPageProps {
   customers: Customer[];
   orders: Order[];
-  onSaveCustomer?: (cust: Customer) => Promise<void>;
+  onSaveCustomer?: (cust: Customer, prevPhone?: string) => Promise<void>;
   onDeleteCustomer?: (id: string) => Promise<void>;
 }
 
@@ -36,6 +37,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingCust, setEditingCust] = useState<Customer | null>(null);
   const [historyModalCust, setHistoryModalCust] = useState<Customer | null>(null);
 
   // New Customer Form State
@@ -43,6 +45,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [newCustPhone, setNewCustPhone] = useState('');
   const [newCustWilaya, setNewCustWilaya] = useState('');
   const [newCustCommune, setNewCustCommune] = useState('');
+  const [newCustAddress, setNewCustAddress] = useState('');
   const [newCustGroup, setNewCustGroup] = useState<'public' | 'private'>('public');
 
   // Local managed customers state fallback
@@ -179,17 +182,60 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const publicCount = localCustomers.filter(c => (c.group || 'public').toLowerCase() === 'public').length;
   const privateCount = localCustomers.filter(c => (c.group || 'public').toLowerCase() === 'private').length;
 
+  // Split a full name into first_name / last_name + name
+  const splitName = (full: string) => {
+    const name = full.trim();
+    const spaceIdx = name.indexOf(' ');
+    if (spaceIdx === -1) return { name, first_name: name, last_name: '' };
+    return {
+      name,
+      first_name: name.slice(0, spaceIdx).trim(),
+      last_name: name.slice(spaceIdx + 1).trim()
+    };
+  };
+
+  const openAddModal = () => {
+    setEditingCust(null);
+    setNewCustName('');
+    setNewCustPhone('');
+    setNewCustWilaya('');
+    setNewCustCommune('');
+    setNewCustAddress('');
+    setNewCustGroup('public');
+    setIsAddModalOpen(true);
+  };
+
+  const openEditModal = (cust: Customer) => {
+    setEditingCust(cust);
+    setNewCustName(`${cust.first_name || ''} ${cust.last_name || ''}`.trim() || cust.name || '');
+    setNewCustPhone(cust.phone || '');
+    setNewCustWilaya(cust.wilaya || '');
+    setNewCustCommune(cust.commune || '');
+    setNewCustAddress(cust.address || '');
+    setNewCustGroup((cust.group || 'public').toLowerCase() === 'private' ? 'private' : 'public');
+    setIsAddModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsAddModalOpen(false);
+    setEditingCust(null);
+  };
+
   // Add Customer Handler
   const handleCreateCustomer = async () => {
     if (!newCustPhone.trim()) return;
 
     const existingCust = localCustomers.find(c => c.phone === newCustPhone.trim());
+    const { name, first_name, last_name } = splitName(newCustName);
     const newCust: Customer = {
       id: existingCust?.id || `cust_${Date.now()}`,
-      name: newCustName.trim() || 'Customer',
+      name: name || 'Customer',
+      first_name,
+      last_name,
       phone: newCustPhone.trim(),
       wilaya: newCustWilaya.trim(),
       commune: newCustCommune.trim(),
+      address: newCustAddress.trim(),
       group: newCustGroup
     };
 
@@ -200,11 +246,43 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       await onSaveCustomer(newCust);
     }
 
-    setIsAddModalOpen(false);
-    setNewCustName('');
-    setNewCustPhone('');
-    setNewCustWilaya('');
-    setNewCustCommune('');
+    closeModal();
+  };
+
+  // Update Customer Handler
+  const handleUpdateCustomer = async () => {
+    if (!editingCust) return;
+    if (!newCustPhone.trim()) return;
+
+    const prevPhone = editingCust.phone;
+    if (prevPhone && newCustPhone.trim() !== prevPhone && localCustomers.some(c => c.id !== editingCust.id && c.phone === newCustPhone.trim())) {
+      alert(`Another customer already uses the phone ${newCustPhone.trim()}.`);
+      return;
+    }
+
+    const { name, first_name, last_name } = splitName(newCustName);
+    const updated: Customer = {
+      ...editingCust,
+      name: name || editingCust.name || 'Customer',
+      first_name,
+      last_name,
+      phone: newCustPhone.trim(),
+      wilaya: newCustWilaya.trim(),
+      commune: newCustCommune.trim(),
+      address: newCustAddress.trim(),
+      group: newCustGroup
+    };
+
+    const nextCusts = localCustomers
+      .filter(c => c.id !== editingCust.id && c.phone !== newCustPhone.trim())
+      .concat([updated]);
+    saveLocalCustomers(nextCusts);
+
+    if (onSaveCustomer) {
+      await onSaveCustomer(updated, prevPhone !== newCustPhone.trim() ? prevPhone : undefined);
+    }
+
+    closeModal();
   };
 
   // Toggle Group Handler (Public <-> Private)
@@ -242,7 +320,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         </div>
 
         <button
-          onClick={() => setIsAddModalOpen(true)}
+          onClick={openAddModal}
           className="flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition-all"
         >
           <Plus className="w-4 h-4" />
@@ -363,13 +441,22 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <span>Purchase Logs</span>
                 </button>
 
-                <button
-                  onClick={() => handleDeleteCustomer(cust)}
-                  className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                  title="Delete Customer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEditModal(cust)}
+                    className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl transition-all"
+                    title="Edit Customer"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCustomer(cust)}
+                    className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                    title="Delete Customer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -380,7 +467,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             <Users className="w-8 h-8 mx-auto opacity-40" />
             <div className="text-sm font-medium">No customers found in {activeGroupTab} group.</div>
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={openAddModal}
               className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl"
             >
               + Add New Customer Profile
@@ -389,13 +476,13 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         )}
       </div>
 
-      {/* ── NEW CUSTOMER MODAL ── */}
+      {/* ── NEW / EDIT CUSTOMER MODAL ── */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-base">Add New Customer Profile</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+              <h3 className="font-bold text-slate-900 text-base">{editingCust ? 'Edit Customer Profile' : 'Add New Customer Profile'}</h3>
+              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -477,21 +564,32 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Address</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cité 20 Août, Rue B"
+                  value={newCustAddress}
+                  onChange={(e) => setNewCustAddress(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                />
+              </div>
             </div>
 
             <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <button
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={closeModal}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl"
               >
                 Cancel
               </button>
               <button
-                onClick={handleCreateCustomer}
+                onClick={editingCust ? handleUpdateCustomer : handleCreateCustomer}
                 className="px-6 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
-                <span>Save Customer</span>
+                <span>{editingCust ? 'Save Changes' : 'Save Customer'}</span>
               </button>
             </div>
           </div>
