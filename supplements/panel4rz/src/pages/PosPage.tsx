@@ -338,7 +338,7 @@ export const PosPage: React.FC<PosPageProps> = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh-140px)] min-h-[500px]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh-140px)] lg:min-h-[500px]">
         {/* Left: Product Selector (2 cols) */}
         <div className={`lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex-col space-y-4 overflow-hidden ${
           mobilePosView === 'catalog' ? 'flex' : 'hidden lg:flex'
@@ -483,12 +483,12 @@ export const PosPage: React.FC<PosPageProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
-                      <button onClick={() => updateCartQty(idx, -1)} className="p-1 hover:bg-slate-200"><Minus className="w-3 h-3 text-slate-600" /></button>
+                      <button onClick={() => updateCartQty(idx, -1)} className="p-2.5 hover:bg-slate-200" aria-label="Decrease quantity"><Minus className="w-4 h-4 text-slate-600" /></button>
                       <span className="px-2 font-bold text-slate-900 text-xs">{item.qty}</span>
-                      <button onClick={() => updateCartQty(idx, 1)} className="p-1 hover:bg-slate-200"><Plus className="w-3 h-3 text-slate-600" /></button>
+                      <button onClick={() => updateCartQty(idx, 1)} className="p-2.5 hover:bg-slate-200" aria-label="Increase quantity"><Plus className="w-4 h-4 text-slate-600" /></button>
                     </div>
-                    <button onClick={() => setCart(cart.filter((_, i) => i !== idx))} className="text-rose-600 hover:text-rose-800 p-1">
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <button onClick={() => setCart(cart.filter((_, i) => i !== idx))} className="text-rose-600 hover:text-rose-800 p-2" aria-label="Remove from cart">
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -609,7 +609,7 @@ export const PosPage: React.FC<PosPageProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="font-semibold text-slate-600">Customer Name</label>
               <input
@@ -718,7 +718,7 @@ export const PosPage: React.FC<PosPageProps> = ({
 
         return (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6 space-y-4 animate-in fade-in zoom-in-95">
               <div className="flex items-center gap-3">
                 {displayImg && (
                   <div className="w-14 h-14 bg-slate-100 rounded-xl border border-slate-200 overflow-hidden shrink-0 shadow-2xs">

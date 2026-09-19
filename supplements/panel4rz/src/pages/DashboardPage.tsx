@@ -29,6 +29,7 @@ type Period = 'week' | 'month' | 'all';
 // Helpers
 // ─────────────────────────────────────────────
 function fmtNum(n: number) { return Math.round(n).toLocaleString('fr-DZ'); }
+function fmtShort(n: number) { return n >= 1000000 ? `${(n / 1000000).toFixed(1).replace(/\.0$/, '')}M` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(Math.round(n)); }
 function fmtPct(n: number) { return n.toFixed(1) + '%'; }
 
 function getDateMs(o: Order | PreOrder | any): number {
@@ -872,12 +873,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
           <h3 className="font-bold text-slate-900 text-sm mb-3 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-red-600" /> Revenue — Last 7 Days</h3>
-          <div className="flex items-end gap-1.5 h-24">
+          <div className="flex items-end gap-1 h-24">
             {sevenDayRevenue.map((d, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                <div className="w-full text-center text-[9px] font-bold text-slate-500 leading-none mb-0.5">{d.rev > 0 ? fmtShort(d.rev) : ''}</div>
                 <div className="w-full rounded-t-md bg-gradient-to-t from-red-500 to-red-400 transition-all duration-700" style={{ height: `${Math.max((d.rev / max7dRev) * 100, 4)}%` }} />
-                <div className="text-[8px] text-slate-400 font-bold">{d.label}</div>
-                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-xl pointer-events-none whitespace-nowrap">
+                <div className="text-[8px] sm:text-[9px] text-slate-400 font-bold">{d.label}</div>
+                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] rounded-lg px-2 py-1 opacity-0 md:group-hover:opacity-100 transition-opacity z-20 shadow-xl pointer-events-none whitespace-nowrap">
                   {fmtNum(d.rev)} DA
                 </div>
               </div>
@@ -887,7 +889,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2"><ListOrdered className="w-4 h-4 text-red-600" /> Order Pipeline</h3>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="bg-amber-50 p-3 rounded-xl text-center">
               <div className="text-lg font-black text-amber-700">{waitingPipeline.count}</div>
               <div className="text-[10px] text-amber-600 font-semibold mt-0.5">Waiting</div>
@@ -970,8 +972,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         <button onClick={() => handleQuickConfirm(o.id)}
                           disabled={isConfirming}
                           title="Quick confirm"
-                          className="shrink-0 p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50">
-                          {isConfirming ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                          className="shrink-0 p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50">
+                          {isConfirming ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                         </button>
                       )}
                     </div>

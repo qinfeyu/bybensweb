@@ -999,7 +999,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
       {/* Floating Bulk Action Bar for Products */}
       {selectedProductIds.length > 0 && (
-        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-lg w-[92vw] animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-lg w-[92vw] animate-in slide-in-from-bottom-4">
           <span className="text-xs font-black bg-red-600 px-2.5 py-1 rounded-lg shrink-0">
             {selectedProductIds.length} Selected
           </span>
@@ -1279,7 +1279,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                             <Star className="w-3 h-3 fill-current" /> Primary
                           </span>
                         )}
-                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           {idx !== 0 && (
                             <button
                               onClick={() => handleSetPrimaryImage(idx)}

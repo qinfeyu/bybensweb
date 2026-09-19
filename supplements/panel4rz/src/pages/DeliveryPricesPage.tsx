@@ -585,7 +585,7 @@ export const DeliveryPricesPage: React.FC<DeliveryPricesPageProps> = ({
 
       {/* Floating Bulk Action Bar */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-xl w-[94vw] animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-xl w-[94vw] animate-in slide-in-from-bottom-4">
           <span className="text-xs font-black bg-emerald-600 px-2.5 py-1 rounded-lg shrink-0">
             {selectedIds.length} Selected
           </span>

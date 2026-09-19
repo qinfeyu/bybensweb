@@ -1120,7 +1120,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleToggleArchiveItem(item)}
-                          className={`p-1 rounded transition-colors ${
+                          className={`p-2 rounded transition-colors ${
                             item.is_archived
                               ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
                               : 'bg-amber-50 hover:bg-amber-100 text-amber-700'
@@ -1131,14 +1131,14 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                         </button>
                         <button
                           onClick={() => handleDuplicateItem(item)}
-                          className="p-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded transition-colors"
+                          className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded transition-colors"
                           title="Duplicate / Clone SKU"
                         >
-                          <Copy className="w-3.5 h-3.5" />
+                          <Copy className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleOpenEditModal(item)}
-                          className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
+                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
                           title="Edit SKU"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -1147,7 +1147,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                           onClick={() => {
                             if (confirm(`Delete SKU [${item.id}]?`)) onDeleteItem(item.id);
                           }}
-                          className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded transition-colors"
+                          className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded transition-colors"
                           title="Delete SKU"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1184,7 +1184,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* Sticky Floating Bulk Action Bar for Inventory */}
       {selectedSkuIds.length > 0 && (
-        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-2xl w-[94vw] animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 max-w-2xl w-[94vw] animate-in slide-in-from-bottom-4">
           <span className="text-xs font-black bg-red-600 px-2.5 py-1 rounded-lg shrink-0">
             {selectedSkuIds.length} SKUs Selected
           </span>
@@ -1269,7 +1269,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* Sticky Floating Save Bar for Excel Edit Mode */}
       {isSpreadsheetMode && Object.keys(pendingSpreadsheetEdits).length > 0 && (
-        <div className="fixed bottom-16 md:bottom-6 left-3 right-3 md:left-auto md:right-6 z-40 bg-slate-900 text-white p-3.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-24 md:bottom-6 left-3 right-3 md:left-auto md:right-6 z-40 bg-slate-900 text-white p-3.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-5">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-xs font-bold">{Object.keys(pendingSpreadsheetEdits).length} inventory item(s) modified</span>
@@ -1384,8 +1384,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 </button>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                <table className="w-full text-xs text-left min-w-[560px]">
                   <thead className="bg-slate-100 font-bold text-slate-600">
                     <tr>
                       <th className="p-2.5">SKU</th>
@@ -1578,7 +1578,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="font-bold text-slate-700">Price (€)</label>
                   <input
@@ -1609,7 +1609,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="font-bold text-slate-700">Retail Price (DA)</label>
                   <input
