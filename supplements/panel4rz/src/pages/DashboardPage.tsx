@@ -4,7 +4,7 @@ import {
   TrendingUp, ShoppingCart, DollarSign, Warehouse,
   AlertTriangle, CheckCircle, ChevronDown, BarChart2,
   ListOrdered, Users, Package, Zap, ArrowUp, ArrowDown,
-  MapPin, RefreshCw, FileText, Check, Printer, Activity
+  MapPin, RefreshCw, FileText, Check, Printer, Activity, Clock
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────
@@ -19,6 +19,7 @@ interface DashboardPageProps {
   expenses: Expense[];
   eurRate: number;
   customers?: Customer[];
+  lastSyncAt?: number;
   onUpdateOrderStatus?: (orderId: string, status: Order['status']) => void;
 }
 
@@ -32,6 +33,35 @@ function fmtPct(n: number) { return n.toFixed(1) + '%'; }
 
 function getDateMs(o: Order | PreOrder | any): number {
   try { return new Date((o as any).created_at || (o as any).date || 0).getTime(); } catch { return 0; }
+}
+
+function isPosOrder(o: any): boolean {
+  return o.source === 'POS' || o.source === 'POS Checkout' || String(o.id || '').startsWith('POS-');
+}
+
+/** Map an order line (productId/variant/flavor) down to an inventory_item + SKU when possible. */
+function resolveLineInventory(it: any, products: Product[], inventoryItems: InventoryItem[]) {
+  const pid = it.productId || it.product_id || '';
+  if (pid) {
+    const direct = inventoryItems.find(i => String(i.id).trim().toLowerCase() === String(pid).trim().toLowerCase());
+    if (direct) return { inv: direct, sku: String(direct.id), product: null, variant: null };
+  }
+  const prod = products.find(p => p.id === pid || p.name === (it.name || it.product_name));
+  if (prod) {
+    const variants: any[] = prod.variants || [];
+    const v = variants.find((vv: any) => vv.label === it.variant || vv.weight === it.variant || !it.variant);
+    let sku = (v && v.sku) || prod.sku;
+    if (v && it.flavor && v.flavorSkus && v.flavorSkus[it.flavor]) sku = v.flavorSkus[it.flavor];
+    if (sku) {
+      const inv = inventoryItems.find(i =>
+        String(i.id).trim().toLowerCase() === String(sku).trim().toLowerCase() ||
+        (i.sku && String(i.sku).trim().toLowerCase() === String(sku).trim().toLowerCase())
+      );
+      if (inv) return { inv, sku: String(inv.id), product: prod, variant: v };
+    }
+    return { inv: null, sku: sku || null, product: prod, variant: v };
+  }
+  return { inv: null, sku: null, product: null, variant: null };
 }
 
 function isToday(ms: number): boolean {
@@ -50,14 +80,6 @@ function isInPrevPeriod(ms: number, period: Period): boolean {
   const days = period === 'week' ? 7 : 30;
   const now = Date.now();
   return ms >= now - 2 * days * 86400000 && ms < now - days * 86400000;
-}
-
-function getLandedCost(sku: string | undefined, inventoryItems: InventoryItem[], eurRate: number): number {
-  if (!sku) return 0;
-  const inv = inventoryItems.find(i => String(i.id).trim().toLowerCase() === String(sku).trim().toLowerCase());
-  if (!inv) return 0;
-  const rate = Number(inv.rate) || eurRate || 280;
-  return (Number(inv.price_eur) || 0) * rate + (Number(inv.delivery_dzd) || 0);
 }
 
 /** Simple linear regression forecast: given data points, predict next point */
@@ -188,7 +210,7 @@ function RevenueBarChart({ orders, preorders, posOrders }: { orders: Order[]; pr
 // ─────────────────────────────────────────────
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   orders, preorders, preorderItems, inventoryItems, products, expenses, eurRate,
-  customers = [], onUpdateOrderStatus,
+  customers = [], lastSyncAt, onUpdateOrderStatus,
 }) => {
   const [period, setPeriod] = useState<Period>('month');
   const [dashTab, setDashTab] = useState<'orders' | 'financial'>('orders');
@@ -207,13 +229,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const paidOrders = useMemo(() => {
     return orders.filter(o => 
       o.status === 'delivered' || 
-      ((o.source === 'POS' || o.source === 'POS Checkout' || String(o.id || '').startsWith('POS-')) && o.status !== 'unpaid' && o.status !== 'waiting')
+      (isPosOrder(o) && o.status !== 'canceled' && o.status !== 'unpaid' && o.status !== 'waiting')
     );
   }, [orders]);
   
   const allOrders = useMemo(() => [...paidOrders].sort((a, b) => getDateMs(b) - getDateMs(a)), [paidOrders]);
-  const posOrders = useMemo(() => allOrders.filter(o => o.source === 'POS' || o.source === 'POS Checkout' || String(o.id || '').startsWith('POS-')), [allOrders]);
-  const onlineOrders = useMemo(() => allOrders.filter(o => !posOrders.includes(o)), [allOrders, posOrders]);
+  const posOrders = useMemo(() => allOrders.filter(isPosOrder), [allOrders]);
+  const onlineOrders = useMemo(() => allOrders.filter(o => !isPosOrder(o)), [allOrders, posOrders]);
 
   // ── Today ──
   const todayOrders = rawAllOrders.filter(o => isToday(getDateMs(o)));
@@ -237,11 +259,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     confirmed: rawAllOrders.filter(o => o.status === 'confirmed').length,
     delivered: rawAllOrders.filter(o => o.status === 'delivered').length,
     canceled: rawAllOrders.filter(o => o.status === 'canceled').length,
+    shipping: rawAllOrders.filter(o => o.status === 'shipping').length,
+    unpaid: rawAllOrders.filter(o => o.status === 'unpaid').length,
   }), [rawAllOrders]);
-  const totalForBar = allOrders.length || 1;
+  const totalForBar = rawAllOrders.length || 1;
 
-  const deliveryRate = allOrders.length > 0 ? (statusCounts.delivered / allOrders.length) * 100 : 0;
-  const cancelRate = allOrders.length > 0 ? (statusCounts.canceled / allOrders.length) * 100 : 0;
+  // ── Delivery / cancel funnel (online orders only, terminal statuses) ──
+  const funnelOrders = rawAllOrders.filter(o => !isPosOrder(o) && (o.status === 'delivered' || o.status === 'canceled'));
+  const funnelDelivered = funnelOrders.filter(o => o.status === 'delivered').length;
+  const funnelCanceled = funnelOrders.filter(o => o.status === 'canceled').length;
+  const funnelTotal = funnelDelivered + funnelCanceled;
+  const deliveryRate = funnelTotal > 0 ? (funnelDelivered / funnelTotal) * 100 : 0;
+  const cancelRate = funnelTotal > 0 ? (funnelCanceled / funnelTotal) * 100 : 0;
   const avgOrderValue = allOrders.filter(o => o.status !== 'canceled').length > 0
     ? allOrders.filter(o => o.status !== 'canceled').reduce((s, o) => s + (Number(o.total) || 0), 0) / allOrders.filter(o => o.status !== 'canceled').length : 0;
 
@@ -300,64 +329,89 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     return { online: onlineRev, pos: posRev, preorder: preRev, total };
   }, [allOrders, onlineOrders, posOrders, preorders, period]);
 
-  // ── Financials (period-filtered) with accurate COGS ──
-  const { grossRevenue, totalCOGS, profitabilityRows } = useMemo(() => {
-    let rev = 0, cogs = 0;
+  // ── Financials (period-filtered) with accurate COGS + reconciling revenue split ──
+  const { grossRevenue, totalCOGS, profitabilityRows, revenueSplit } = useMemo(() => {
+    let rev = 0, cogs = 0, deliveryFees = 0, promoDiscounts = 0;
     const map: Record<string, { name: string; qty: number; revenue: number; cogs: number }> = {};
     const track = (name: string, qty: number, r: number, c: number) => {
       if (!map[name]) map[name] = { name, qty: 0, revenue: 0, cogs: 0 };
       map[name].qty += qty; map[name].revenue += r; map[name].cogs += c;
     };
-    const getItemCOGS = (it: any, fallback: number) => {
-      const pid = it.productId || it.product_id;
-      const prod = products.find(p => p.id === pid || p.name === (it.name || it.product_name));
-      if (prod) {
-        const v = (prod.variants || []).find((v: any) => v.label === it.variant || v.weight === it.variant || !it.variant);
-        if (v?.sku) { const lc = getLandedCost(v.sku, inventoryItems, eurRate); if (lc > 0) return lc * (Number(it.qty) || 1); }
-        if (v?.cost) return v.cost * (Number(it.qty) || 1);
+    const getItemCOGS = (it: any) => {
+      const resolved = resolveLineInventory(it, products, inventoryItems);
+      if (resolved.inv) {
+        const rate = Number(resolved.inv.rate) || eurRate || 280;
+        const lc = ((Number(resolved.inv.price_eur) || 0) * rate + (Number(resolved.inv.delivery_dzd) || 0)) * (Number(it.qty) || 1);
+        if (lc > 0) return lc;
       }
-      return fallback * 0.65;
+      if (resolved.product) {
+        const v = resolved.variant;
+        if (v && Number(v.cost) > 0) return Number(v.cost) * (Number(it.qty) || 1);
+        if (v && v.cost_eur !== undefined && v.cost_eur !== null) return Number(v.cost_eur) * (eurRate || 280) * (Number(it.qty) || 1);
+        if (Number(resolved.product.cost) > 0) return Number(resolved.product.cost) * (Number(it.qty) || 1);
+      }
+      return 0; // unknown -> caller applies estimate
+    };
+    const costFor = (it: any, lineRevenue: number) => {
+      const c = getItemCOGS(it);
+      return c > 0 ? c : lineRevenue * 0.65;
     };
 
     [...posOrders, ...onlineOrders].forEach(o => {
       if (!isInPeriod(getDateMs(o), period)) return;
       if (o.status === 'canceled') return;
       const r = Number(o.total) || 0; rev += r;
+      deliveryFees += Number(o.delivery_cost || o.deliveryCost || 0) || 0;
+      promoDiscounts += Number(o.promoDiscount || 0) || 0;
       const items = o.items || [];
       if (items.length > 0) {
-        items.forEach(it => {
-          const ir = (Number(it.price) || 0) * (Number(it.qty) || 1) || r / items.length;
-          const ic = getItemCOGS(it, ir);
+        const irs = items.map(it => { const p = Number(it.price) || Number(it.unitPrice) || Number(it.unit_price) || 0; return p > 0 ? p * (Number(it.qty) || 1) : 0; });
+        const grossIr = irs.reduce((s, x) => s + x, 0);
+        items.forEach((it, i) => {
+          const alloc = grossIr > 0 ? irs[i] * (r / grossIr) : r / items.length;
+          const ic = costFor(it, alloc);
           cogs += ic;
-          track(it.name || it.product_name || 'Item', Number(it.qty) || 1, ir, ic);
+          track(it.name || it.product_name || 'Item', Number(it.qty) || 1, alloc, ic);
         });
-      } else { const c = r * 0.65; cogs += c; track(posOrders.includes(o) ? 'POS Sale' : 'Online Order', 1, r, c); }
+      } else { const c = r * 0.65; cogs += c; track(isPosOrder(o) ? 'POS Sale' : 'Online Order', 1, r, c); }
     });
 
     preorders.filter(p => p.status === 'fulfilled' && isInPeriod(getDateMs(p), period)).forEach(p => {
       const r = Number(p.total_amount) || 0; rev += r;
       const items = preorderItems.filter(x => x.pre_order_id === p.id);
       if (items.length > 0) {
-        items.forEach((it: any) => { const ir = r / items.length; const ic = getItemCOGS(it, ir); cogs += ic; track(it.product_name || 'Pre-Order Item', Number(it.qty) || 1, ir, ic); });
+        items.forEach((it: any) => { const ir = r / items.length; const ic = costFor(it, ir); cogs += ic; track(it.product_name || 'Pre-Order Item', Number(it.qty) || 1, ir, ic); });
       } else { const c = r * 0.65; cogs += c; track('Pre-Order', 1, r, c); }
     });
 
-    return { grossRevenue: rev, totalCOGS: cogs, profitabilityRows: Object.values(map).sort((a, b) => (b.revenue - b.cogs) - (a.revenue - a.cogs)).slice(0, 10) };
-  }, [allOrders, posOrders, onlineOrders, preorders, preorderItems, products, inventoryItems, eurRate, period]);
+    return {
+      grossRevenue: rev,
+      totalCOGS: cogs,
+      profitabilityRows: Object.values(map).sort((a, b) => (b.revenue - b.cogs) - (a.revenue - a.cogs)).slice(0, 10),
+      revenueSplit: { product: rev - deliveryFees + promoDiscounts, delivery: deliveryFees, promo: promoDiscounts }
+    };
+  }, [posOrders, onlineOrders, preorders, preorderItems, products, inventoryItems, eurRate, period]);
 
   const grossProfit = grossRevenue - totalCOGS;
   const grossMarginPct = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
-  const totalOpexDzd = useMemo(() => expenses.reduce((s, e) => s + (Number(e.amount) || 0) * (e.currency === 'EUR' ? eurRate : 1), 0), [expenses, eurRate]);
-  const netProfit = grossProfit - totalOpexDzd;
+  const opexPeriodDzd = useMemo(() => expenses
+    .filter(e => isInPeriod(getDateMs(e), period))
+    .reduce((s, e) => s + (Number(e.amount) || 0) * (e.currency === 'EUR' ? eurRate : 1), 0), [expenses, eurRate, period]);
+  const allTimeOpexDzd = useMemo(() => expenses.reduce((s, e) => s + (Number(e.amount) || 0) * (e.currency === 'EUR' ? eurRate : 1), 0), [expenses, eurRate]);
+  const netProfit = grossProfit - opexPeriodDzd;
   const netMarginPct = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
 
   // ── Previous period revenue (for comparison) ──
   const prevPeriodRevenue = useMemo(() => {
     if (period === 'all') return 0;
-    return [...posOrders, ...onlineOrders]
+    const ordRev = [...posOrders, ...onlineOrders]
       .filter(o => isInPrevPeriod(getDateMs(o), period) && o.status !== 'canceled')
       .reduce((s, o) => s + (Number(o.total) || 0), 0);
-  }, [posOrders, onlineOrders, period]);
+    const preRev = preorders
+      .filter(p => p.status === 'fulfilled' && isInPrevPeriod(getDateMs(p), period))
+      .reduce((s, p) => s + (Number(p.total_amount) || 0), 0);
+    return ordRev + preRev;
+  }, [posOrders, onlineOrders, preorders, period]);
 
   const prevPeriodOrders = useMemo(() => {
     if (period === 'all') return 0;
@@ -367,12 +421,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   // ── Revenue Forecast (6 months → predict next) ──
   const monthlyRevenues = useMemo(() => {
     const now = new Date();
+    const curYr = now.getFullYear(), curMo = now.getMonth();
+    const daysInCurrentMonth = new Date(curYr, curMo + 1, 0).getDate();
     return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const d = new Date(curYr, curMo - (5 - i), 1);
       const yr = d.getFullYear(), mo = d.getMonth();
-      return allOrders
+      let val = allOrders
         .filter(o => { const dd = new Date(getDateMs(o)); return dd.getFullYear() === yr && dd.getMonth() === mo && o.status !== 'canceled'; })
         .reduce((s, o) => s + (Number(o.total) || 0), 0);
+      // Pro-rate the partial current month so the trend isn't biased downward
+      if (yr === curYr && mo === curMo && val > 0) {
+        val = val * (daysInCurrentMonth / Math.max(now.getDate(), 1));
+      }
+      return val;
     });
   }, [allOrders]);
   const forecastNextMonth = linearForecast(monthlyRevenues);
@@ -389,25 +450,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     allOrders.forEach(o => {
       if (getDateMs(o) < cutoff) return;
       (o.items || []).forEach(it => {
+        const q = Number(it.qty) || 1;
+        const resolved = resolveLineInventory(it, products, inventoryItems);
+        const skuKey = resolved && resolved.sku ? String(resolved.sku).toLowerCase() : '';
+        if (skuKey) velocityMap[skuKey] = (velocityMap[skuKey] || 0) + q;
         const n = (it.name || it.product_name || '').split(' (')[0].trim().toLowerCase();
-        if (n) velocityMap[n] = (velocityMap[n] || 0) + (Number(it.qty) || 1);
+        if (n) velocityMap[n] = (velocityMap[n] || 0) + q;
         const pid = it.productId || it.product_id || '';
-        if (pid) velocityMap[pid] = (velocityMap[pid] || 0) + (Number(it.qty) || 1);
+        if (pid) velocityMap[pid.toLowerCase()] = (velocityMap[pid.toLowerCase()] || 0) + q;
       });
     });
     // Convert to daily rate
     return Object.fromEntries(Object.entries(velocityMap).map(([k, v]) => [k, v / 30]));
-  }, [allOrders]);
+  }, [allOrders, products, inventoryItems]);
 
-  // ── Low stock alerts (with velocity/days to stockout) ──
+  // ── Low stock alerts (with velocity/days to stockout & reorder suggestion) ──
   const lowStockAlerts = useMemo(() => {
     const threshold = 2;
-    const alerts: { name: string; sku: string; stock: number; daysLeft: number | null }[] = [];
+    const alerts: { name: string; sku: string; stock: number; daysLeft: number | null; suggested: number | null }[] = [];
     const seen = new Set<string>();
 
+    const getVelocity = (name: string, sku: string): number =>
+      (sku && salesVelocity[String(sku).toLowerCase()]) || salesVelocity[name?.toLowerCase()] || 0;
     const getDays = (name: string, sku: string, stock: number): number | null => {
-      const dailyRate = salesVelocity[sku?.toLowerCase()] || salesVelocity[name?.toLowerCase()] || 0;
+      const dailyRate = getVelocity(name, sku);
       return dailyRate > 0 ? Math.floor(stock / dailyRate) : null;
+    };
+    const getSuggestion = (name: string, sku: string): number | null => {
+      const dailyRate = getVelocity(name, sku);
+      return dailyRate > 0 ? Math.max(1, Math.ceil(dailyRate * 14)) : null;
     };
 
     inventoryItems.forEach(inv => {
@@ -416,7 +487,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       if (stock <= threshold && !seen.has(inv.id)) {
         seen.add(inv.id);
         const label = `${inv.brand ? inv.brand + ' – ' : ''}${inv.name}${inv.variant_spec ? ' (' + inv.variant_spec + ')' : ''}`;
-        alerts.push({ name: label, sku: inv.id, stock, daysLeft: getDays(inv.name, inv.id, stock) });
+        alerts.push({ name: label, sku: inv.id, stock, daysLeft: getDays(inv.name, inv.id, stock), suggested: getSuggestion(inv.name, inv.id) });
       }
     });
 
@@ -430,14 +501,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             const s = stock as number;
             if (s <= threshold) {
               const key = `${p.id}-${vi}-${flavor}`;
-              if (!seen.has(key)) { seen.add(key); alerts.push({ name: `${baseName} (${vLabel} – ${flavor})`, sku: v.sku || p.id, stock: s, daysLeft: getDays(p.name, v.sku || p.id, s) }); }
+              if (!seen.has(key)) { seen.add(key); alerts.push({ name: `${baseName} (${vLabel} – ${flavor})`, sku: v.sku || p.id, stock: s, daysLeft: getDays(p.name, v.sku || p.id, s), suggested: getSuggestion(p.name, v.sku || p.id) }); }
             }
           });
         } else {
           const s = Number(v.stock) || 0;
           if (s <= threshold) {
             const key = v.sku || `${p.id}-${vi}`;
-            if (!seen.has(key)) { seen.add(key); alerts.push({ name: `${baseName} (${vLabel})`, sku: v.sku || p.id, stock: s, daysLeft: getDays(p.name, v.sku || p.id, s) }); }
+            if (!seen.has(key)) { seen.add(key); alerts.push({ name: `${baseName} (${vLabel})`, sku: v.sku || p.id, stock: s, daysLeft: getDays(p.name, v.sku || p.id, s), suggested: getSuggestion(p.name, v.sku || p.id) }); }
           }
         }
       });
@@ -451,6 +522,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     });
   }, [inventoryItems, products, salesVelocity]);
 
+  // ── Pipeline & velocity (7-day revenue + waiting backlog) ──
+  const sevenDayRevenue = useMemo(() => {
+    const days: { label: string; rev: number }[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const end = start + 86400000;
+      const rev = allOrders.filter(o => { const ms = getDateMs(o); return ms >= start && ms < end; }).reduce((s, o) => s + (Number(o.total) || 0), 0);
+      days.push({ label: d.toLocaleDateString('en', { weekday: 'short' }), rev });
+    }
+    return days;
+  }, [allOrders]);
+
+  const waitingPipeline = useMemo(() => {
+    const ws = rawAllOrders.filter(o => o.status === 'waiting');
+    const sorted = [...ws].sort((a, b) => getDateMs(a) - getDateMs(b));
+    const oldest = sorted[0] || null;
+    const over48 = ws.filter(o => (Date.now() - getDateMs(o)) > 48 * 3600000).length;
+    return { count: ws.length, over48, oldest };
+  }, [rawAllOrders]);
+
+  const max7dRev = Math.max(...sevenDayRevenue.map(d => d.rev), 1);
+
   // ── Quick confirm order ──
   const handleQuickConfirm = useCallback(async (orderId: string) => {
     if (!onUpdateOrderStatus) return;
@@ -463,8 +558,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const handlePrint = () => { window.print(); };
 
   const periodLabel = period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : 'All Time';
-  const statusColor: Record<string, string> = { waiting: '#f59e0b', confirmed: '#10b981', delivered: '#3b82f6', canceled: '#ef4444' };
-  const statusBadge: Record<string, string> = { delivered: 'bg-blue-100 text-blue-700', confirmed: 'bg-emerald-100 text-emerald-700', canceled: 'bg-red-100 text-red-700', waiting: 'bg-amber-100 text-amber-700' };
+  const statusColor: Record<string, string> = { waiting: '#f59e0b', confirmed: '#10b981', delivered: '#3b82f6', canceled: '#ef4444', shipping: '#a855f7', unpaid: '#f43f5e' };
+  const statusBadge: Record<string, string> = { delivered: 'bg-blue-100 text-blue-700', confirmed: 'bg-emerald-100 text-emerald-700', canceled: 'bg-red-100 text-red-700', waiting: 'bg-amber-100 text-amber-700', shipping: 'bg-violet-100 text-violet-700', unpaid: 'bg-rose-100 text-rose-700' };
 
   // ── Skeleton ──
   if (!loaded) {
@@ -488,6 +583,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">Live analytics · inventory · financial intelligence</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          {lastSyncAt && (
+            <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1 bg-white border border-slate-200 px-2 py-1.5 rounded-xl">
+              <RefreshCw className="w-3 h-3" /> Updated {new Date(lastSyncAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
           {/* Period filter */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
             {(['week', 'month', 'all'] as Period[]).map(p => (
@@ -566,7 +666,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       {/* ── Order KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Total Orders', value: allOrders.length, prevValue: prevPeriodOrders, sub: `${weekOrders.length} this week`, gradient: 'from-blue-600 to-blue-700 shadow-blue-200', icon: <ShoppingCart className="w-4 h-4" /> },
+          { label: 'Revenue Orders', value: allOrders.length, prevValue: prevPeriodOrders, sub: `${weekOrders.length} this week (all statuses)`, gradient: 'from-blue-600 to-blue-700 shadow-blue-200', icon: <ShoppingCart className="w-4 h-4" /> },
           { label: 'Avg. Order Value', value: avgOrderValue, prevValue: 0, sub: 'per order (excl. canceled)', gradient: 'from-emerald-500 to-emerald-600 shadow-emerald-200', icon: <TrendingUp className="w-4 h-4" />, suffix: ' DA' },
           { label: 'Delivery Rate', value: deliveryRate, prevValue: 0, sub: `${statusCounts.delivered} delivered`, gradient: 'from-violet-600 to-violet-700 shadow-violet-200', icon: <CheckCircle className="w-4 h-4" />, decimals: 1, suffix: '%' },
           { label: 'This Week', value: weekOrders.length, prevValue: prevWeekOrders.length, sub: weekTrend !== 0 ? `${weekTrend > 0 ? '↑' : '↓'} ${Math.abs(weekTrend)} vs prev week` : '= same as prev week', gradient: weekTrend >= 0 ? 'from-amber-500 to-orange-500 shadow-amber-200' : 'from-rose-500 to-red-600 shadow-rose-200', icon: weekTrend >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" /> },
@@ -611,8 +711,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">OPEX</div>
-          <div className="text-xl font-black text-rose-600">-<AnimatedCounter value={totalOpexDzd} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
-          <div className="text-[10px] text-slate-500 mt-1">All recorded expenses</div>
+          <div className="text-xl font-black text-rose-600">-<AnimatedCounter value={opexPeriodDzd} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
+          <div className="text-[10px] text-slate-500 mt-1">{periodLabel} · all-time: {fmtNum(allTimeOpexDzd)} DA</div>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
@@ -768,6 +868,53 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
+      {/* ── Pipeline & Velocity (7-day revenue + waiting backlog) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <h3 className="font-bold text-slate-900 text-sm mb-3 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-red-600" /> Revenue — Last 7 Days</h3>
+          <div className="flex items-end gap-1.5 h-24">
+            {sevenDayRevenue.map((d, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                <div className="w-full rounded-t-md bg-gradient-to-t from-red-500 to-red-400 transition-all duration-700" style={{ height: `${Math.max((d.rev / max7dRev) * 100, 4)}%` }} />
+                <div className="text-[8px] text-slate-400 font-bold">{d.label}</div>
+                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-xl pointer-events-none whitespace-nowrap">
+                  {fmtNum(d.rev)} DA
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2"><ListOrdered className="w-4 h-4 text-red-600" /> Order Pipeline</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-amber-50 p-3 rounded-xl text-center">
+              <div className="text-lg font-black text-amber-700">{waitingPipeline.count}</div>
+              <div className="text-[10px] text-amber-600 font-semibold mt-0.5">Waiting</div>
+            </div>
+            <div className="bg-rose-50 p-3 rounded-xl text-center">
+              <div className="text-lg font-black text-rose-700">{waitingPipeline.over48}</div>
+              <div className="text-[10px] text-rose-600 font-semibold mt-0.5">Waiting &gt;48h</div>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-xl text-center">
+              <div className="text-lg font-black text-slate-800">{statusCounts.confirmed + statusCounts.shipping}</div>
+              <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Confirmed/Shipping</div>
+            </div>
+          </div>
+          {waitingPipeline.oldest ? (
+            <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-500" />
+              Oldest waiting: <strong className="text-slate-800">#{waitingPipeline.oldest.id}</strong>
+              <span className="font-bold text-amber-600">({Math.max(0, Math.floor((Date.now() - getDateMs(waitingPipeline.oldest)) / 3600000))}h ago)</span>
+            </div>
+          ) : (
+            <div className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1.5">
+              <CheckCircle className="w-3.5 h-3.5" /> No orders currently waiting.
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── Dashboard Tabs ── */}
       <div className="flex gap-2 bg-slate-100 p-1 rounded-xl w-fit print:hidden">
         <button onClick={() => setDashTab('orders')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${dashTab === 'orders' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-500'}`}>📦 Orders</button>
@@ -868,9 +1015,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <div className="space-y-1.5">
                 {[
                   { label: 'Gross Revenue', value: grossRevenue, color: 'text-slate-900', prefix: '' },
+                  { label: 'Product Sales', value: revenueSplit.product, color: 'text-slate-700', prefix: '' },
+                  { label: 'Delivery Fees', value: revenueSplit.delivery, color: 'text-slate-700', prefix: '' },
+                  { label: 'Promo Discounts', value: revenueSplit.promo, color: 'text-rose-600', prefix: '–' },
                   { label: 'COGS (actual/est.)', value: totalCOGS, color: 'text-rose-600', prefix: '–', note: 'SKU-linked where available' },
                   { label: 'Gross Profit', value: grossProfit, color: grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600', prefix: grossProfit >= 0 ? '+' : '–', bold: true },
-                  { label: 'Operating Expenses', value: totalOpexDzd, color: 'text-rose-600', prefix: '–' },
+                  { label: 'Operating Expenses', value: opexPeriodDzd, color: 'text-rose-600', prefix: '–', note: `${periodLabel.toLowerCase()} only` },
                 ].map(({ label, value, color, prefix, bold, note }: any) => (
                   <div key={label} className={`flex justify-between items-start py-2 border-b border-slate-50 ${bold ? 'font-bold border-t border-slate-200 pt-3 mt-1' : ''}`}>
                     <div>
@@ -965,6 +1115,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </span>
                     )}
                     {a.daysLeft === null && <span className="text-slate-400">· velocity unknown</span>}
+                    {a.suggested !== null && <span className="font-bold text-emerald-600">· restock ≈{a.suggested}u (14d)</span>}
                   </div>
                 </div>
                 <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${a.stock === 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>

@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const [orders, settings] = await Promise.all([
-      sf("orders?select=*&order=created_at.desc&limit=100"),
+      sf("orders?select=*&order=created_at.desc&limit=2000"),
       sf("settings?select=*"),
     ]);
 

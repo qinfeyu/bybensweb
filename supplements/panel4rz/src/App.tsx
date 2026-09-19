@@ -186,6 +186,7 @@ export default function App() {
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
 
   const [isLoading, setIsLoading] = useState(true);
+  const [lastSyncAt, setLastSyncAt] = useState<number>(Date.now());
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
 
   const eurRate = parseFloat(settings.budget_rate) || 280;
@@ -220,8 +221,8 @@ export default function App() {
   });
 
   // ── LOAD ALL DATA ──
-  const refreshAllData = async () => {
-    setIsLoading(true);
+  const refreshAllData = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setIsLoading(true);
     try {
       await ensureSupabaseKey();
 
@@ -673,10 +674,11 @@ export default function App() {
         if (rawGiftConfig) {
           setGiftConfig(rawGiftConfig);
         }
-      } catch (e: any) {
+} catch (e: any) {
       console.warn("Data refresh notice:", e);
     }
-    setIsLoading(false);
+    if (!opts?.silent) setIsLoading(false);
+    setLastSyncAt(Date.now());
   };
 
   const playNewOrderSound = useCallback(() => {
@@ -733,6 +735,7 @@ export default function App() {
 
         // Always update orders state so newly placed orders and status updates appear immediately
         setOrders(orders);
+        setLastSyncAt(Date.now());
 
         if (hasNew) {
           playNewOrderSound();
@@ -749,6 +752,9 @@ export default function App() {
 
     // 1. Polling timer every 30 seconds for fallback order sync (Real-time subscription handles 0ms instant alerts)
     const interval = setInterval(syncNewOrders, 30000);
+
+    // 1b. Quiet background refresh (every 5 min) keeps dashboard KPIs current without the loading banner
+    const dashInterval = setInterval(() => refreshAllData({ silent: true }), 5 * 60 * 1000);
 
     // 2. Real-time Supabase Subscription for instant order updates
     const channel = supabase
@@ -767,6 +773,7 @@ export default function App() {
 
     return () => {
       clearInterval(interval);
+      clearInterval(dashInterval);
       supabase.removeChannel(channel);
     };
   }, [isAuthenticated, syncNewOrders, playNewOrderSound]);
@@ -2501,6 +2508,7 @@ setGiftConfig(config);
                 expenses={expenses}
                 eurRate={eurRate}
                 customers={customers}
+                lastSyncAt={lastSyncAt}
                 onUpdateOrderStatus={handleUpdateOrderStatus}
               />
             )}
