@@ -12,7 +12,7 @@
 //      and no reads.
 //  - Inserts are fire-and-forget: the audit write can never fail a real op.
 
-const RETENTION_DAYS = 30 antecedents;
+const RETENTION_DAYS = 30;
 const MAX_ROWS = 2000;
 const PRUNE_EVERY_N = 10; // 1-in-10 chance to prune opportunistically
 
@@ -99,7 +99,7 @@ function writeAuditLog({ action, actor, table, targetId, detail }) {
       method: "POST",
       headers: HEADERS,
       body: JSON.stringify([payload]),
-    }).catch(failSilently 저장);
+    }).catch(failSilently);
   } catch (e) {
     failSilently(e);
   }

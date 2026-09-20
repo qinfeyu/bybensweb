@@ -117,10 +117,11 @@ export async function adminMutate(
   match?: Record<string, any>
 ) {
   try {
+    const actorEmail = typeof window !== 'undefined' ? localStorage.getItem('bb_admin_name') || undefined : undefined;
     const res = await fetch('/api/admin-mutate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, table, data, match }),
+      body: JSON.stringify({ action, table, data, match, actor_email: actorEmail }),
     });
     return await res.json();
   } catch (e: any) {

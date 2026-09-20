@@ -1,5 +1,9 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+let auditLog = () => {};
+try {
+  ({ writeAuditLog: auditLog } = require("./_lib/audit-log"));
+} catch (_) {}
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
