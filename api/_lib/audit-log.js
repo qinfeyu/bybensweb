@@ -77,7 +77,10 @@ async function pruneAuditLogs() {
 }
 
 /**
- * Append one admin action to the audit log (fire-and-forget).
+ * Append one admin action to the audit log.
+ * Returns the (already error-swallowed) fetch promise so callers can await it.
+ * NOTE: On serverless runtimes (Vercel) an un-awaited fetch can be killed when
+ * the handler returns, so callers MUST await the returned promise.
  * @param {object} opts
  * @param {string} opts.action    e.g. "order.delete", "product.upsert", "auth.login"
  * @param {string} [opts.actor]   admin email resolved from auth (may be empty)
@@ -86,7 +89,7 @@ async function pruneAuditLogs() {
  * @param {string} [opts.detail]  compact one-line human description
  */
 function writeAuditLog({ action, actor, table, targetId, detail }) {
-  if (!action) return;
+  if (!action) return Promise.resolve();
   const payload = {
     action,
     actor_email: actor || null,
@@ -95,13 +98,14 @@ function writeAuditLog({ action, actor, table, targetId, detail }) {
     detail: detail || "",
   };
   try {
-    fetch(`${SUPABASE_URL}/rest/v1/audit_logs`, {
+    return fetch(`${SUPABASE_URL}/rest/v1/audit_logs`, {
       method: "POST",
       headers: HEADERS,
       body: JSON.stringify([payload]),
     }).catch(failSilently);
   } catch (e) {
     failSilently(e);
+    return Promise.resolve();
   }
 }
 
