@@ -55,7 +55,8 @@ import { PosPage } from './pages/PosPage';
 import { UnpaidOrdersPage } from './pages/UnpaidOrdersPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { CustomersPage } from './pages/CustomersPage';
-import { SettingsPage } from './pages/SettingsPage';
+    import { SettingsPage } from './pages/SettingsPage';
+    import LogsPage from './pages/LogsPage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -2694,6 +2695,10 @@ setGiftConfig(config);
                 onSaveSettings={handleSaveSettings}
                 showToast={showToast}
               />
+            )}
+
+            {activeTab === 'logs' && (
+              <LogsPage showToast={showToast} />
             )}
           </div>
           </div>

@@ -31,11 +31,13 @@ module.exports = async function handler(req, res) {
 
     const data = await response.json();
     if (!response.ok) {
+      await auditLog({ action: "auth.login_failed", actor: email, detail: `login failed for ${email}` });
       return res.status(response.status || 401).json({
         error: data.error_description || data.msg || data.message || "Invalid credentials"
       });
     }
 
+    await auditLog({ action: "auth.login", actor: (data.user || {}).email || email, detail: `admin signed in` });
     return res.status(200).json({
       success: true,
       user: data.user,
