@@ -441,7 +441,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const forecastLabel = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleString('en', { month: 'long' });
 
   // ── Stock valuation ──
-  const stockRetailDzd = inventoryItems.reduce((s, i) => s + ((Number(i.stock) || 0) + (Number(i.stock_eu) || 0)) * (Number(i.retail_dzd) || 0), 0);
+  const stockRetailDzd = inventoryItems.filter(i => i.type !== 'wholesale').reduce((s, i) => s + ((Number(i.stock) || 0) + (Number(i.stock_eu) || 0)) * (Number(i.retail_dzd) || 0), 0);
   const stockCostEur = inventoryItems.reduce((s, i) => s + ((Number(i.stock) || 0) + (Number(i.stock_eu) || 0)) * (Number(i.price_eur) || 0), 0);
 
   // ── Sales velocity (units/day for last 30d, keyed by product name) ──
@@ -483,7 +483,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     };
 
     inventoryItems.forEach(inv => {
-      if (inv.type === 'snack') return;
+      if (inv.type === 'snack' || inv.type === 'wholesale') return;
       const stock = Number(inv.stock) || 0;
       if (stock <= threshold && !seen.has(inv.id)) {
         seen.add(inv.id);

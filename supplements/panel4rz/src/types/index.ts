@@ -23,7 +23,7 @@ export interface DeliveryPrice {
 export interface InventoryItem {
   id: string; // SKU ID (e.g. SUP-8801)
   sku?: string;
-  type: 'supplement' | 'snack';
+  type: 'supplement' | 'snack' | 'wholesale';
   brand: string;
   name: string;
   variant_spec?: string | null;

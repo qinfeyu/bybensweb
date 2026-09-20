@@ -65,7 +65,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   defaultEurRate,
   showToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'supplement' | 'snack'>('supplement');
+  const [activeTab, setActiveTab] = useState<'supplement' | 'snack' | 'wholesale'>('supplement');
   const [showArchived, setShowArchived] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
@@ -221,7 +221,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     }
   };
 
-  const handleBulkTypeChange = async (newType: 'supplement' | 'snack') => {
+  const handleBulkTypeChange = async (newType: 'supplement' | 'snack' | 'wholesale') => {
     if (selectedSkuIds.length === 0) return;
     try {
       let count = 0;
@@ -587,7 +587,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           retail_dzd: parseFloat(cols[retailIdx]) || 0,
           stock_eu: parseInt(cols[stockEuIdx]) || 0,
           stock: parseInt(cols[stockDzIdx]) || 0,
-          type: (cols[typeIdx] || activeTab) as 'supplement' | 'snack',
+          type: (cols[typeIdx] || activeTab) as 'supplement' | 'snack' | 'wholesale',
           _lastUpdated: new Date().toISOString()
         };
 
@@ -780,6 +780,17 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               }`}
             >
               Snacks & Bars ({inventoryItems.filter(i => i.type === 'snack' && (!showArchived ? !i.is_archived : Boolean(i.is_archived))).length})
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('wholesale');
+                setSelectedBrand('all');
+              }}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'wholesale' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Wholesale ({inventoryItems.filter(i => (i.type || '') === 'wholesale' && (!showArchived ? !i.is_archived : Boolean(i.is_archived))).length})
             </button>
           </div>
 
@@ -1237,7 +1248,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
             <select
               onChange={(e) => {
                 if (e.target.value) {
-                  handleBulkTypeChange(e.target.value as 'supplement' | 'snack');
+                  handleBulkTypeChange(e.target.value as 'supplement' | 'snack' | 'wholesale');
                   e.target.value = '';
                 }
               }}
@@ -1246,6 +1257,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               <option value="">Set Type...</option>
               <option value="supplement">💊 Supplement</option>
               <option value="snack">🍫 Snack & Bar</option>
+              <option value="wholesale">📦 Wholesale</option>
             </select>
 
             <button

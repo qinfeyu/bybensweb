@@ -2481,7 +2481,7 @@ setGiftConfig(config);
                           </div>
                         </div>
                       ))}
-                      {inventoryItems.filter(i => i.type !== 'snack' && (Number(i.stock) || 0) <= 2).slice(0, 5).map(i => (
+                      {inventoryItems.filter(i => i.type !== 'snack' && i.type !== 'wholesale' && (Number(i.stock) || 0) <= 2).slice(0, 5).map(i => (
                         <div key={`stock-${i.id}`} onClick={() => { setActiveTab('inventory'); setNotifOpen(false); }} className="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center shrink-0"><span className="text-sm">⚠️</span></div>
