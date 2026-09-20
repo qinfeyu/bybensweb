@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { Order, InventoryItem, Product } from '../types';
 import { PhoneContactAction } from '../components/PhoneContactAction';
 import { WhatsAppTemplates } from '../lib/whatsapp';
@@ -113,7 +113,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
         </div>
 
         <div class="debt-box">
-          ⚠️ PAYMENT STATUS: UNPAID / DEBT<br/>
+          âš ï¸ PAYMENT STATUS: UNPAID / DEBT<br/>
           BUY NOW, PAY LATER
         </div>
 
@@ -246,8 +246,102 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
         </div>
       </div>
 
+      {/* Unpaid Orders Mobile Cards (shown on screens < md) */}
+      <div className="md:hidden space-y-3 p-2">
+        {filteredOrders.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-8 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <CreditCard className="w-7 h-7 text-slate-300" />
+              <p className="font-bold text-slate-500 text-xs">No unpaid credit orders found.</p>
+              <p className="text-[11px] text-slate-400">All customer accounts are settled!</p>
+            </div>
+          </div>
+        ) : (
+          filteredOrders.map(order => {
+            const custName = `${order.first_name || order.firstName || ''} ${order.last_name || order.lastName || ''}`.trim() || 'Walk-in Customer';
+            return (
+              <div key={order.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                {/* Card Header: Ticket # + Amount */}
+                <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-black text-slate-900 text-sm truncate">#{order.id}</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">{order.source || 'POS'}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-black text-amber-600 text-sm">{Number(order.total || 0).toLocaleString()} <span className="text-[10px] font-bold">DA</span></div>
+                  </div>
+                </div>
+
+                {/* Customer & Items */}
+                <div className="px-4 py-3 space-y-2 text-xs">
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-900 truncate">{custName}</div>
+            <PhoneContactAction
+              phone={order.phone || ''}
+              customerName={custName}
+                      message={WhatsAppTemplates.unpaidReminder(custName, Number(order.total || 0))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                    <span className="text-slate-500 font-bold">{new Date(order.date || order.created_at || '').toLocaleString('fr-DZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">Items</div>
+                      <div className="text-[11px] text-slate-700 line-clamp-2 break-words">
+                        {(order.items || []).map((it: any) => `${it.name || it.product_name}${it.flavor ? ' (' + it.flavor + ')' : ''} x${it.qty}`).join(', ')}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-bold mt-0.5">
+                        {(order.items || []).reduce((sum: number, it: any) => sum + (Number(it.qty) || 1), 0)} item(s)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status + Actions */}
+                <div className="px-4 py-3 bg-slate-50/50 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-300 font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      <Clock className="w-3 h-3" />
+                      <span>Unpaid (Credit)</span>
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handlePrintDebtReceipt(order)}
+                        className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition-colors"
+                        title="Print Debt Ticket"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Cancel/Delete unpaid order #${order.id}? This will restore product stock.`)) {
+                            onDeleteOrder(order.id);
+                          }
+                        }}
+                        className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors"
+                        title="Delete Order & Restore Stock"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setConfirmPaidId(order.id)}
+                    className="w-full flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-2.5 rounded-xl shadow-xs transition-all"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Mark as Paid</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
       {/* Unpaid Orders Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden hidden md:block">
         <div className="overflow-x-auto border border-slate-200/80 rounded-2xl bg-white shadow-xs">
           <table className="w-full text-xs text-left text-slate-700 min-w-[700px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
@@ -278,7 +372,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
                   const phone = order.phone || 'No Phone';
                   const dateStr = order.date || order.created_at ? new Date(order.date || order.created_at || '').toLocaleString('fr-DZ', {
                     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                  }) : '—';
+                  }) : 'â€”';
                   const itemsCount = (order.items || []).reduce((sum, it: any) => sum + (Number(it.qty) || 1), 0);
 
                   return (
@@ -410,7 +504,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
               </div>
 
               <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-[11px] text-emerald-800 font-medium">
-                💡 Marking this order as paid will move it to regular <b>Orders</b> and add <b>{orderToPay.total.toLocaleString()} DA</b> to your Dashboard Total Sales!
+                ðŸ’¡ Marking this order as paid will move it to regular <b>Orders</b> and add <b>{orderToPay.total.toLocaleString()} DA</b> to your Dashboard Total Sales!
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
