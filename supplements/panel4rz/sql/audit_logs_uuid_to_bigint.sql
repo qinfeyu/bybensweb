@@ -24,13 +24,14 @@ create table public.audit_logs_new (
 );
 
 -- Copy any existing rows, mapping legacy column names to canonical ones.
+-- Legacy columns may be jsonb (user_email/details) so cast them to text.
 insert into public.audit_logs_new (created_at, actor_email, target_table, target_id, detail, action)
 select
   coalesce(created_at, now()),
-  coalesce(actor_email, user_email),
+  coalesce(actor_email, user_email::text),
   target_table,
   target_id,
-  coalesce(detail, details),
+  coalesce(detail, details::text),
   action
 from public.audit_logs
 order by (created_at is null), created_at asc, id::text asc;
