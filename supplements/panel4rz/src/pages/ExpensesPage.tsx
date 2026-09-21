@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Expense } from '../types';
 import { Receipt, Plus, Trash2, Search, X } from 'lucide-react';
 
+const fmtEur = (n: number) => n.toLocaleString('fr-DZ', { maximumFractionDigits: 2 });
+
 interface ExpensesPageProps {
   expenses: Expense[];
   onAddExpense: (exp: Partial<Expense>) => Promise<void>;
@@ -21,17 +23,21 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState<number>(0);
   const [currency, setCurrency] = useState<'DZD' | 'EUR'>('DZD');
+  const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'DZD' | 'EUR'>('ALL');
+
+  const showDzdTotal = currencyFilter !== 'EUR';
+  const showEurTotal = currencyFilter !== 'DZD';
 
   const filteredExpenses = expenses.filter(e => {
+    if (currencyFilter !== 'ALL' && (e.currency || 'DZD') !== currencyFilter) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (e.description || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q);
   });
 
-  const totalDzd = expenses.reduce((sum, e) => {
-    const amt = Number(e.amount) || 0;
-    return sum + (e.currency === 'EUR' ? amt * eurRate : amt);
-  }, 0);
+  // Native totals — DZD expenses summed in DZD, EUR expenses summed in EUR (no conversion).
+  const totalDzd = filteredExpenses.reduce((sum, e) => sum + ((e.currency || 'DZD') === 'EUR' ? 0 : Number(e.amount) || 0), 0);
+  const totalEur = filteredExpenses.reduce((sum, e) => sum + ((e.currency || 'DZD') === 'EUR' ? Number(e.amount) || 0 : 0), 0);
 
   const handleSave = async () => {
     if (amount <= 0) return;
@@ -67,20 +73,36 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       </div>
 
       {/* Metric & Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-semibold text-slate-500">Total Expenses (DZD)</div>
-            <div className="text-2xl font-black text-rose-600 mt-1">
-              {Math.round(totalDzd).toLocaleString()} DA
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {showDzdTotal && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold text-slate-500">Total Expenses (DZD)</div>
+              <div className="text-2xl font-black text-rose-600 mt-1">
+                {Math.round(totalDzd).toLocaleString()} DA
+              </div>
+            </div>
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+              <Receipt className="w-6 h-6" />
             </div>
           </div>
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
-            <Receipt className="w-6 h-6" />
-          </div>
-        </div>
+        )}
 
-        <div className="md:col-span-2 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center">
+        {showEurTotal && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold text-slate-500">Total Expenses (EUR)</div>
+              <div className="text-2xl font-black text-rose-600 mt-1">
+                € {fmtEur(totalEur)}
+              </div>
+            </div>
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+              <Receipt className="w-6 h-6" />
+            </div>
+          </div>
+        )}
+
+        <div className={`bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-3 ${showDzdTotal && showEurTotal ? 'md:col-span-2' : 'md:col-span-3'}`}>
           <div className="relative w-full">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
@@ -90,6 +112,21 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600/20"
             />
+          </div>
+          <div className="flex items-center gap-1.5">
+            {(['ALL', 'DZD', 'EUR'] as const).map(c => (
+              <button
+                key={c}
+                onClick={() => setCurrencyFilter(c)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                  currencyFilter === c
+                    ? 'bg-red-700 text-white border-red-700'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {c === 'ALL' ? 'All currencies' : c}
+              </button>
+            ))}
           </div>
         </div>
       </div>

@@ -29,6 +29,7 @@ type Period = 'week' | 'month' | 'all';
 // Helpers
 // ─────────────────────────────────────────────
 function fmtNum(n: number) { return Math.round(n).toLocaleString('fr-DZ'); }
+function fmtEur(n: number) { return n.toLocaleString('fr-DZ', { maximumFractionDigits: 2 }); }
 function fmtShort(n: number) { return n >= 1000000 ? `${(n / 1000000).toFixed(1).replace(/\.0$/, '')}M` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(Math.round(n)); }
 function fmtPct(n: number) { return n.toFixed(1) + '%'; }
 
@@ -395,10 +396,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const grossProfit = grossRevenue - totalCOGS;
   const grossMarginPct = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
-  const opexPeriodDzd = useMemo(() => expenses
-    .filter(e => isInPeriod(getDateMs(e), period))
-    .reduce((s, e) => s + (Number(e.amount) || 0) * (e.currency === 'EUR' ? eurRate : 1), 0), [expenses, eurRate, period]);
-  const allTimeOpexDzd = useMemo(() => expenses.reduce((s, e) => s + (Number(e.amount) || 0) * (e.currency === 'EUR' ? eurRate : 1), 0), [expenses, eurRate]);
+  const opexPeriod = useMemo(() => expenses.filter(e => isInPeriod(getDateMs(e), period)), [expenses, period]);
+  const opexPeriodDzdNative = opexPeriod.reduce((s, e) => s + ((e.currency || 'DZD') === 'EUR' ? 0 : Number(e.amount) || 0), 0);
+  const opexPeriodEurNative = opexPeriod.reduce((s, e) => s + ((e.currency || 'DZD') === 'EUR' ? Number(e.amount) || 0 : 0), 0);
+  const allTimeOpexDzdNative = expenses.reduce((s, e) => s + ((e.currency || 'DZD') === 'EUR' ? 0 : Number(e.amount) || 0), 0);
+  const allTimeOpexEurNative = expenses.reduce((s, e) => s + ((e.currency || 'DZD') === 'EUR' ? Number(e.amount) || 0 : 0), 0);
+  // Combined DZD-equivalent (EUR converted at current rate) — used only for the P&L math below.
+  const opexPeriodDzd = opexPeriodDzdNative + opexPeriodEurNative * eurRate;
   const netProfit = grossProfit - opexPeriodDzd;
   const netMarginPct = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
 
@@ -712,8 +716,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">OPEX</div>
-          <div className="text-xl font-black text-rose-600">-<AnimatedCounter value={opexPeriodDzd} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
-          <div className="text-[10px] text-slate-500 mt-1">{periodLabel} · all-time: {fmtNum(allTimeOpexDzd)} DA</div>
+          <div className="flex items-baseline gap-x-3 flex-wrap">
+            <span className="text-xl font-black text-rose-600">-<AnimatedCounter value={opexPeriodDzdNative} /> <span className="text-xs font-semibold text-slate-400">DA</span></span>
+            <span className="text-xl font-black text-rose-500">-€ <AnimatedCounter value={opexPeriodEurNative} /></span>
+          </div>
+          <div className="text-[10px] text-slate-500 mt-1">{periodLabel} · all-time: {fmtNum(allTimeOpexDzdNative)} DA + € {fmtEur(allTimeOpexEurNative)}</div>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
@@ -1022,14 +1029,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   { label: 'Promo Discounts', value: revenueSplit.promo, color: 'text-rose-600', prefix: '–' },
                   { label: 'COGS (actual/est.)', value: totalCOGS, color: 'text-rose-600', prefix: '–', note: 'SKU-linked where available' },
                   { label: 'Gross Profit', value: grossProfit, color: grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600', prefix: grossProfit >= 0 ? '+' : '–', bold: true },
-                  { label: 'Operating Expenses', value: opexPeriodDzd, color: 'text-rose-600', prefix: '–', note: `${periodLabel.toLowerCase()} only` },
-                ].map(({ label, value, color, prefix, bold, note }: any) => (
+                  { label: 'Operating Expenses (DZD)', value: opexPeriodDzdNative, color: 'text-rose-600', prefix: '–', unit: 'DA', note: `${periodLabel.toLowerCase()} only` },
+                  { label: 'Operating Expenses (EUR)', value: opexPeriodEurNative, color: 'text-rose-600', prefix: '–', unit: '€', note: `converted at ${fmtNum(eurRate)} DA/€ for Net Profit` },
+                ].map(({ label, value, color, prefix, bold, note, unit }: any) => (
                   <div key={label} className={`flex justify-between items-start py-2 border-b border-slate-50 ${bold ? 'font-bold border-t border-slate-200 pt-3 mt-1' : ''}`}>
                     <div>
                       <div className={`text-xs ${bold ? 'text-slate-900' : 'text-slate-500'}`}>{label}</div>
                       {note && <div className="text-[9px] text-slate-400">{note}</div>}
                     </div>
-                    <span className={`text-xs font-bold ${color} ml-4`}>{prefix}{fmtNum(Math.abs(value))} DA</span>
+                    <span className={`text-xs font-bold ${color} ml-4`}>{prefix}{(unit === '€' ? fmtEur : fmtNum)(Math.abs(value))} {unit || 'DA'}</span>
                   </div>
                 ))}
                 <div className="flex justify-between items-center pt-3 font-bold">
