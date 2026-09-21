@@ -639,8 +639,8 @@ export const DeliveryPricesPage: React.FC<DeliveryPricesPageProps> = ({
       {/* ── ADD / EDIT WILAYA MODAL ── */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <h3 className="font-bold text-slate-900 text-base">
                 {editingItem?.id && deliveryPrices.some(d => d.id === editingItem.id) ? `Edit Wilaya — ${editingItem.wilaya}` : 'Add New Wilaya'}
               </h3>
@@ -649,7 +649,7 @@ export const DeliveryPricesPage: React.FC<DeliveryPricesPageProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Wilaya Name & Number *</label>
                 <input
@@ -722,8 +722,8 @@ export const DeliveryPricesPage: React.FC<DeliveryPricesPageProps> = ({
       {/* ── BULK RATE ADJUSTMENT MODAL ── */}
       {isBulkAdjustModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
                 <span>Bulk Rate Adjuster</span>
@@ -733,7 +733,7 @@ export const DeliveryPricesPage: React.FC<DeliveryPricesPageProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <p className="text-slate-500 font-medium">
                 Adjust Home and Office delivery rates for {selectedIds.length > 0 ? `${selectedIds.length} selected Wilaya(s)` : 'ALL Wilayas'}.
                 Enter positive numbers to increase or negative numbers to decrease (e.g. 50 or -50).

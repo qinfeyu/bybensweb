@@ -372,8 +372,8 @@ export const PromoCodesPage: React.FC<PromoCodesPageProps> = ({
       {/* ── CREATE / EDIT PROMO MODAL ── */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 shrink-0">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <Tag className="w-4 h-4 text-red-600" />
                 <span>{editingPromo ? 'Edit Promo Code' : 'Create New Promo Code'}</span>
@@ -383,7 +383,7 @@ export const PromoCodesPage: React.FC<PromoCodesPageProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               {/* Code Name */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Coupon Code *</label>

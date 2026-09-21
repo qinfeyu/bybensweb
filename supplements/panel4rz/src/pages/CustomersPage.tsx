@@ -479,15 +479,15 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       {/* ── NEW / EDIT CUSTOMER MODAL ── */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
               <h3 className="font-bold text-slate-900 text-base">{editingCust ? 'Edit Customer Profile' : 'Add New Customer Profile'}</h3>
               <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Customer Group *</label>
                 <div className="grid grid-cols-2 gap-2">

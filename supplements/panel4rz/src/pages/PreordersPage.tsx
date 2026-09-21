@@ -1113,8 +1113,8 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
       {/* â”€â”€ PREORDER ITEMS MODAL â”€â”€ */}
       {selectedPreorder && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 shrink-0">
               <h3 className="font-bold text-slate-900 text-base">
                 Pre-Order Items â€” {selectedPreorder.customer_name}
               </h3>
@@ -1123,7 +1123,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-600">
                 Customer Phone: <strong className="text-slate-900">{selectedPreorder.customer_phone}</strong> | Total: <strong className="text-slate-900">{selectedPreorder.total_amount.toLocaleString()} DA</strong>
               </div>

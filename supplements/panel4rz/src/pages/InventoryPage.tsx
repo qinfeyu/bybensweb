@@ -1466,9 +1466,9 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       {/* ── ADD / EDIT ITEM MODAL ── */}
       {isAddEditModalOpen && editingItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">
                   {editingItem.id ? `Edit SKU — ${editingItem.id}` : 'Add Inventory SKU'}
@@ -1498,7 +1498,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               </div>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700">SKU Code (Base ID) *</label>

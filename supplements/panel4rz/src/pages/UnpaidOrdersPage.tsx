@@ -477,7 +477,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
 
         return (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 animate-in fade-in zoom-in-95">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-emerald-100 text-emerald-700 rounded-2xl shrink-0">
                   <CheckCircle2 className="w-6 h-6" />
