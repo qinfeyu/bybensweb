@@ -227,6 +227,21 @@ export default function App() {
     is_archived: Boolean(item.is_archived)
   });
 
+  // Upsert inventory rows, tolerating environments where the optional
+  // `is_archived` column has not been migrated yet. Without this fallback the
+  // whole upsert (single AND bulk) 400s and no inventory change ever persists.
+  const upsertInventoryRows = async (rows: any | any[]) => {
+    const res: any = await supabase.from('inventory_items').upsert(rows, { onConflict: 'id' });
+    const msg = res?.error?.message;
+    if (msg && /is_archived/i.test(msg)) {
+      const strip = (r: any) => { const copy = { ...r }; delete copy.is_archived; return copy; };
+      return await supabase
+        .from('inventory_items')
+        .upsert(Array.isArray(rows) ? rows.map(strip) : strip(rows), { onConflict: 'id' });
+    }
+    return res;
+  };
+
   // ── LOAD ALL DATA ──
   const refreshAllData = async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setIsLoading(true);
@@ -945,7 +960,7 @@ export default function App() {
     syncProductsWithInventory(productsRef.current, nextInv);
 
     try {
-      const { error } = await supabase.from('inventory_items').upsert(dbPayload, { onConflict: 'id' });
+      const { error } = await upsertInventoryRows(dbPayload);
       if (error) console.warn("Supabase inventory upsert notice:", error.message);
     } catch(e) {}
   };
@@ -977,7 +992,7 @@ export default function App() {
     syncProductsWithInventory(productsRef.current, nextInv);
 
     try {
-      const { error } = await supabase.from('inventory_items').upsert(dbPayloads, { onConflict: 'id' });
+      const { error } = await upsertInventoryRows(dbPayloads);
       if (error) console.warn("Supabase bulk inventory upsert notice:", error.message);
     } catch(e) {}
   };
