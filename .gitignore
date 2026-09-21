@@ -9,3 +9,6 @@
 node_modules/
 dist/
 .vercel/
+
+# Supabase CLI local state
+.temp/
