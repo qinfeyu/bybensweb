@@ -27,6 +27,7 @@ interface InventoryPageProps {
   onSaveItem: (item: InventoryItem) => Promise<void>;
   onSaveBulkItems: (items: InventoryItem[]) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
+  onDeleteBulkItems?: (ids: string[]) => Promise<void>;
   defaultEurRate: number;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -62,6 +63,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   onSaveItem,
   onSaveBulkItems,
   onDeleteItem,
+  onDeleteBulkItems,
   defaultEurRate,
   showToast
 }) => {
@@ -191,6 +193,16 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     if (selectedSkuIds.length === 0) return;
     const count = selectedSkuIds.length;
     if (!confirm(`Are you sure you want to delete ${count} selected SKUs?`)) return;
+    if (onDeleteBulkItems) {
+      try {
+        await onDeleteBulkItems(selectedSkuIds);
+        setSelectedSkuIds([]);
+        showToast(`✓ Deleted ${count} SKUs`);
+      } catch (e) {
+        showToast("Error deleting selected SKUs", "error");
+      }
+      return;
+    }
     try {
       for (const id of selectedSkuIds) {
         await onDeleteItem(id);
@@ -205,17 +217,16 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const handleBulkStockAdjust = async (amount: number) => {
     if (selectedSkuIds.length === 0) return;
     try {
-      let count = 0;
+      const updatedItems: InventoryItem[] = [];
       for (const id of selectedSkuIds) {
         const item = inventoryItems.find(i => i.id === id);
         if (item) {
-          const newStock = Math.max(0, (Number(item.stock) || 0) + amount);
-          await onSaveItem({ ...item, stock: newStock });
-          count++;
+          updatedItems.push({ ...item, stock: Math.max(0, (Number(item.stock) || 0) + amount) });
         }
       }
+      if (updatedItems.length > 0) await onSaveBulkItems(updatedItems);
       setSelectedSkuIds([]);
-      showToast(`✓ Updated stock by ${amount > 0 ? '+' : ''}${amount} for ${count} SKUs`);
+      showToast(`✓ Updated stock by ${amount > 0 ? '+' : ''}${amount} for ${updatedItems.length} SKUs`);
     } catch (e) {
       showToast("Error updating stock", "error");
     }
@@ -224,16 +235,16 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const handleBulkTypeChange = async (newType: 'supplement' | 'snack' | 'wholesale') => {
     if (selectedSkuIds.length === 0) return;
     try {
-      let count = 0;
+      const updatedItems: InventoryItem[] = [];
       for (const id of selectedSkuIds) {
         const item = inventoryItems.find(i => i.id === id);
         if (item) {
-          await onSaveItem({ ...item, type: newType });
-          count++;
+          updatedItems.push({ ...item, type: newType });
         }
       }
+      if (updatedItems.length > 0) await onSaveBulkItems(updatedItems);
       setSelectedSkuIds([]);
-      showToast(`✓ Changed type to ${newType} for ${count} SKUs`);
+      showToast(`✓ Changed type to ${newType} for ${updatedItems.length} SKUs`);
     } catch (e) {
       showToast("Error updating type", "error");
     }
@@ -254,16 +265,16 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
     const actionLabel = targetArchivedState ? 'archive' : 'restore';
     if (!confirm(`Are you sure you want to ${actionLabel} ${selectedSkuIds.length} selected SKUs?`)) return;
     try {
-      let count = 0;
+      const updatedItems: InventoryItem[] = [];
       for (const id of selectedSkuIds) {
         const item = inventoryItems.find(i => i.id === id);
         if (item) {
-          await onSaveItem({ ...item, is_archived: targetArchivedState });
-          count++;
+          updatedItems.push({ ...item, is_archived: targetArchivedState });
         }
       }
+      if (updatedItems.length > 0) await onSaveBulkItems(updatedItems);
       setSelectedSkuIds([]);
-      showToast(`✓ ${targetArchivedState ? 'Archived' : 'Restored'} ${count} SKUs`);
+      showToast(`✓ ${targetArchivedState ? 'Archived' : 'Restored'} ${updatedItems.length} SKUs`);
     } catch (e) {
       showToast("Error updating archive status", "error");
     }

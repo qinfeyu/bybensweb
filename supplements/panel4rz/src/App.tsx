@@ -1184,6 +1184,29 @@ setGiftConfig(config);
     showToast("✓ Inventory item deleted!");
   };
 
+  const handleDeleteBulkInventoryItems = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+
+    try {
+      for (const id of ids) {
+        await supabase.from('inventory_items').delete().eq('id', id);
+      }
+    } catch(e) {}
+
+    try {
+      const euMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');
+      ids.forEach(id => { delete euMap[id]; });
+      safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(euMap));
+    } catch(e) {}
+
+    // Build nextInv in one pass so no deletion is lost to a stale state snapshot
+    const nextInv = inventoryItems.filter(x => !idSet.has(x.id));
+    setInventoryItems(nextInv);
+    safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
+    showToast(`✓ ${ids.length} inventory items deleted!`);
+  };
+
   // ── CATEGORIES MUTATIONS ──
   const handleSaveCategory = async (cat: Category, subNames: string[]) => {
     const dbCat = { id: cat.id, name: cat.name };
@@ -2541,6 +2564,7 @@ setGiftConfig(config);
                 onSaveItem={handleSaveInventoryItem}
                 onSaveBulkItems={handleSaveBulkInventoryItems}
                 onDeleteItem={handleDeleteInventoryItem}
+                onDeleteBulkItems={handleDeleteBulkInventoryItems}
                 defaultEurRate={eurRate}
                 showToast={showToast}
               />
