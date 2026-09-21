@@ -36,6 +36,7 @@ interface PreorderItemSearchInputProps {
   onChangeText: (val: string) => void;
   products: Product[];
   inventoryItems: InventoryItem[];
+  typeFilter?: 'supplement' | 'snack' | 'wholesale';
 }
 
 const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
@@ -43,7 +44,8 @@ const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
   onSelect,
   onChangeText,
   products = [],
-  inventoryItems = []
+  inventoryItems = [],
+  typeFilter
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -63,6 +65,7 @@ const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
     const seenKeys = new Set<string>();
 
     inventoryItems.forEach(inv => {
+      if (typeFilter && (inv.type || 'supplement') !== typeFilter) return;
       const vSpec = inv.variant_spec || inv.size || '';
       const fullName = `${inv.brand ? inv.brand + ' - ' : ''}${inv.name}`;
       const key = `${inv.sku || inv.id}-${fullName}-${vSpec}`.toLowerCase();
@@ -90,7 +93,7 @@ const PreorderItemSearchInput: React.FC<PreorderItemSearchInputProps> = ({
     });
 
     return list;
-  }, [inventoryItems, products]);
+  }, [inventoryItems, products, typeFilter]);
 
   const filteredCandidates = useMemo(() => {
     if (!value.trim()) return candidates.slice(0, 8);
@@ -229,6 +232,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
   const [itemRows, setItemRows] = useState<PreorderItemRow[]>([
     { product_id: '', product_name: '', variant: '', flavor: '', qty: 1, unit_price: 0 }
   ]);
+  const [itemTypeFilter, setItemTypeFilter] = useState<'supplement' | 'snack' | 'wholesale'>('supplement');
 
   const filteredPreorders = preorders.filter(p => {
     // Exclude fulfilled pre-orders so they disappear from Pre-Orders manager and exist under Orders manager
@@ -247,6 +251,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
     setCustStatus('pending');
     setCustSearchQuery('');
     setIsCustDropdownOpen(false);
+    setItemTypeFilter('supplement');
     setItemRows([{ product_id: '', product_name: '', variant: '', flavor: '', qty: 1, unit_price: 0 }]);
     setIsAddEditModalOpen(true);
   };
@@ -260,6 +265,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
     setCustStatus(p.status || 'pending');
     setCustSearchQuery(p.customer_name || '');
     setIsCustDropdownOpen(false);
+    setItemTypeFilter('supplement');
 
     const existingItems = preorderItems.filter(x => x.pre_order_id === p.id);
     if (existingItems.length > 0) {
@@ -962,7 +968,9 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
               {/* Items List Builder */}
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Order Items List</h4>
+                  <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span>Order Items List</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setItemRows([...itemRows, { product_id: '', product_name: '', variant: '', flavor: '', qty: 1, unit_price: 0 }])}
@@ -970,6 +978,25 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                   >
                     + Add Item Row
                   </button>
+                </div>
+
+                {/* Inventory Type Filter (matches Inventory tabs) */}
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <div className="flex p-1 bg-slate-100 rounded-xl gap-1">
+                    {(['supplement', 'snack', 'wholesale'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setItemTypeFilter(t)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                          itemTypeFilter === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {t === 'supplement' ? '💊 Supplements' : t === 'snack' ? '🍫 Snacks & Bars' : '📦 Wholesale'}
+                        ({inventoryItems.filter(i => (i.type || 'supplement') === t).length})
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -994,6 +1021,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                           }}
                           products={products}
                           inventoryItems={inventoryItems}
+                          typeFilter={itemTypeFilter}
                         />
                       </div>
 
