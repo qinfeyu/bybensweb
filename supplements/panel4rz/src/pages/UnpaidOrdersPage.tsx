@@ -113,7 +113,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
         </div>
 
         <div class="debt-box">
-          âš ï¸ PAYMENT STATUS: UNPAID / DEBT<br/>
+          ⚠️ PAYMENT STATUS: UNPAID / DEBT<br/>
           BUY NOW, PAY LATER
         </div>
 
@@ -372,7 +372,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
                   const phone = order.phone || 'No Phone';
                   const dateStr = order.date || order.created_at ? new Date(order.date || order.created_at || '').toLocaleString('fr-DZ', {
                     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                  }) : 'â€”';
+                  }) : '—';
                   const itemsCount = (order.items || []).reduce((sum, it: any) => sum + (Number(it.qty) || 1), 0);
 
                   return (
@@ -504,7 +504,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
               </div>
 
               <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-[11px] text-emerald-800 font-medium">
-                ðŸ’¡ Marking this order as paid will move it to regular <b>Orders</b> and add <b>{orderToPay.total.toLocaleString()} DA</b> to your Dashboard Total Sales!
+                💡 Marking this order as paid will move it to regular <b>Orders</b> and add <b>{orderToPay.total.toLocaleString()} DA</b> to your Dashboard Total Sales!
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">

@@ -433,8 +433,8 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
           <div>
             <div class="logo">ByBens <span>Supplements</span></div>
             <div style="font-size:12px; color:#475569; margin-top:4px; font-weight:500; line-height:1.4;">
-              ðŸ“ž +213 662 269 449 &nbsp;|&nbsp; âœ‰ï¸ contact@bybens.com<br>
-              ðŸ“¸ Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; ðŸŒ www.bybens.com
+              📞 +213 662 269 449 &nbsp;|&nbsp; ✉️ contact@bybens.com<br>
+              📸 Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; 🌐 www.bybens.com
             </div>
           </div>
           <div class="title">Customer Invoice<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
@@ -443,7 +443,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
           <div class="info-block">
             <h3>Billed To</h3>
             <p style="font-size: 17px; font-weight: 700; color:#0f172a; margin-bottom:4px;">${p.customer_name}</p>
-            <p style="font-weight: 500; color: #475569;">ðŸ“ž ${p.customer_phone}</p>
+            <p style="font-weight: 500; color: #475569;">📞 ${p.customer_phone}</p>
           </div>
           <div class="info-block" style="text-align: right;">
             <h3>Invoice Date</h3>
@@ -472,7 +472,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
         </table>
         <div class="footer">
           Thank you for shopping with ByBens!<br>
-          <span style="font-weight:600; color:#475569;">ðŸ“ž +213 662 269 449 &nbsp;â€¢&nbsp; âœ‰ï¸ contact@bybens.com &nbsp;â€¢&nbsp; ðŸ“¸ @BENS.SUPPLEMENTS &nbsp;â€¢&nbsp; ðŸŒ www.bybens.com</span>
+          <span style="font-weight:600; color:#475569;">📞 +213 662 269 449 &nbsp;•&nbsp; ✉️ contact@bybens.com &nbsp;•&nbsp; 📸 @BENS.SUPPLEMENTS &nbsp;•&nbsp; 🌐 www.bybens.com</span>
         </div>
       </body>
       </html>
@@ -544,8 +544,8 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
           <div>
             <div class="logo">ByBens <span>Supplements</span></div>
             <div style="font-size:12px; color:#475569; margin-top:4px; font-weight:500; line-height:1.4;">
-              ðŸ“ž +213 662 269 449 &nbsp;|&nbsp; âœ‰ï¸ contact@bybens.com<br>
-              ðŸ“¸ Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; ðŸŒ www.bybens.com
+              📞 +213 662 269 449 &nbsp;|&nbsp; ✉️ contact@bybens.com<br>
+              📸 Instagram: @BENS.SUPPLEMENTS &nbsp;|&nbsp; 🌐 www.bybens.com
             </div>
           </div>
           <div class="title">Courier Delivery Slip<br><span style="font-size:11.5px;font-weight:500;text-transform:none;color:#94a3b8;">Pre-order ID: ${p.id}</span></div>
@@ -577,7 +577,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
           <span class="val">${deliveryFeeToCollect.toLocaleString()} DA</span>
         </div>
         <div class="footer" style="margin-top: 40px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 15px; font-weight: 500;">
-          ByBens Supplements &nbsp;â€¢&nbsp; ðŸ“ž +213 662 269 449 &nbsp;â€¢&nbsp; âœ‰ï¸ contact@bybens.com &nbsp;â€¢&nbsp; ðŸ“¸ @BENS.SUPPLEMENTS &nbsp;â€¢&nbsp; ðŸŒ www.bybens.com
+          ByBens Supplements &nbsp;•&nbsp; 📞 +213 662 269 449 &nbsp;•&nbsp; ✉️ contact@bybens.com &nbsp;•&nbsp; 📸 @BENS.SUPPLEMENTS &nbsp;•&nbsp; 🌐 www.bybens.com
         </div>
       </body>
       </html>
@@ -662,7 +662,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                 <div className="px-4 py-2.5 space-y-1.5 text-xs">
                   <div className="min-w-0">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Items ({pItems.length})</div>
-                    <div className="text-[11px] text-slate-700 line-clamp-2 break-words">{itemsSummary || 'â€”'}</div>
+                    <div className="text-[11px] text-slate-700 line-clamp-2 break-words">{itemsSummary || '—'}</div>
                   </div>
                   <PhoneContactAction
                     phone={p.customer_phone}
@@ -691,8 +691,8 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                       </button>
                       {isDropdownOpen && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1 text-left text-xs font-bold animate-in fade-in zoom-in-95">
-                          <button onClick={() => { handlePrintCustomerInvoice(p); setOpenDropdownId(null); }} className="w-full text-left px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 rounded-lg">ðŸ–¨ï¸ Print Invoice</button>
-                          <button onClick={() => { handlePrintCourierSlip(p); setOpenDropdownId(null); }} className="w-full text-left px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 rounded-lg">ðŸ§¾ Print Slip</button>
+                          <button onClick={() => { handlePrintCustomerInvoice(p); setOpenDropdownId(null); }} className="w-full text-left px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 rounded-lg">🖨️ Print Invoice</button>
+                          <button onClick={() => { handlePrintCourierSlip(p); setOpenDropdownId(null); }} className="w-full text-left px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 rounded-lg">🧾 Print Slip</button>
                         </div>
                       )}
                     </div>
@@ -837,13 +837,13 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
         </div>
       </div>
 
-      {/* â”€â”€ NEW / EDIT PRE-ORDER MODAL â”€â”€ */}
+      {/* ── NEW / EDIT PRE-ORDER MODAL ── */}
       {isAddEditModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <h3 className="font-bold text-slate-900 text-base">
-                {editingPreorderId ? `Edit Pre-Order â€” ${editingPreorderId}` : 'New Pre-Order'}
+                {editingPreorderId ? `Edit Pre-Order — ${editingPreorderId}` : 'New Pre-Order'}
               </h3>
               <button onClick={() => setIsAddEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
@@ -855,7 +855,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
               <div className="relative">
                 <label className="font-bold text-slate-700 flex items-center justify-between mb-1">
                   <span>Select Existing Customer (Public & Private)</span>
-                  <span className="text-[10px] text-slate-400 font-bold">ðŸ‘¥ All Clients ({customers.length})</span>
+                  <span className="text-[10px] text-slate-400 font-bold">👥 All Clients ({customers.length})</span>
                 </label>
                 <div className="relative">
                   <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
@@ -919,7 +919,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                               </div>
                             </div>
                             <span className="font-bold text-red-700 text-[11px] bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
-                              ðŸ“ž {c.phone || 'No phone'}
+                              📞 {c.phone || 'No phone'}
                             </span>
                           </div>
                         );
@@ -1065,7 +1065,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                             onClick={() => setItemRows(itemRows.filter((_, i) => i !== idx))}
                             className="text-rose-600 hover:text-rose-800 p-1"
                           >
-                            Ã—
+                            ×
                           </button>
                         )}
                       </div>
@@ -1110,13 +1110,13 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
         </div>
       )}
 
-      {/* â”€â”€ PREORDER ITEMS MODAL â”€â”€ */}
+      {/* ── PREORDER ITEMS MODAL ── */}
       {selectedPreorder && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between p-5 border-b border-slate-100 shrink-0">
               <h3 className="font-bold text-slate-900 text-base">
-                Pre-Order Items â€” {selectedPreorder.customer_name}
+                Pre-Order Items — {selectedPreorder.customer_name}
               </h3>
               <button onClick={() => setSelectedPreorder(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
@@ -1149,11 +1149,11 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
 
                       return (
                         <tr key={idx}>
-                          <td className="p-2.5 font-bold">{itm.product_name || info.productName || 'â€”'}</td>
-                          <td className="p-2.5">{itm.variant || 'â€”'}</td>
+                          <td className="p-2.5 font-bold">{itm.product_name || info.productName || '—'}</td>
+                          <td className="p-2.5">{itm.variant || '—'}</td>
                           <td className="p-2.5 text-center font-bold">{qty}</td>
-                          <td className="p-2.5 text-right">{price ? price.toLocaleString() + ' DA' : 'â€”'}</td>
-                          <td className="p-2.5 text-right font-bold">{lineTotal ? lineTotal.toLocaleString() + ' DA' : 'â€”'}</td>
+                          <td className="p-2.5 text-right">{price ? price.toLocaleString() + ' DA' : '—'}</td>
+                          <td className="p-2.5 text-right font-bold">{lineTotal ? lineTotal.toLocaleString() + ' DA' : '—'}</td>
                         </tr>
                       );
                     })}
