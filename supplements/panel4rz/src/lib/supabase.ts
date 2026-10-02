@@ -184,6 +184,13 @@ export const supabase = {
               return { data: proxyRes.data, error: null };
             }
             return await Promise.resolve(origDelete.like(column, pattern)).catch((err: any) => ({ data: null, error: err }));
+          },
+          in: async (column: string, values: any[]) => {
+            const proxyRes = await adminMutate('delete', table, undefined, { [column]: `in:(${values.map(v => encodeURIComponent(v)).join(',')})` });
+            if (proxyRes && proxyRes.success) {
+              return { data: proxyRes.data, error: null };
+            }
+            return await Promise.resolve((origDelete as any).in(column, values)).catch((err: any) => ({ data: null, error: err }));
           }
         };
       }

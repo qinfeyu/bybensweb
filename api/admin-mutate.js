@@ -70,6 +70,10 @@ module.exports = async function handler(req, res) {
             if (typeof v === "string" && v.startsWith("like:")) {
               return `${k}=like.${encodeURIComponent(v.substring(5))}`;
             }
+            if (typeof v === "string" && v.startsWith("in:(") && v.endsWith(")")) {
+              // Supabase PostgREST in filter: col=in.(val1,val2,...)
+              return `${k}=in.(${v.slice(4, -1)})`;
+            }
             return `${k}=eq.${encodeURIComponent(v)}`;
           })
           .join("&");
@@ -90,7 +94,25 @@ module.exports = async function handler(req, res) {
       return res.status(response.status || 500).json({ error: result.message || result });
     }
 
-    await writeAuditLog({ action, actor: (req.body || {}).actor_email, table, detail: `${table} ${action}` });
+    // Build a useful audit detail string that includes the row identifier and
+    // key changed fields so log entries are forensically meaningful.
+    let auditDetail = `${table} ${action}`;
+    try {
+      const payload = data || match || {};
+      const rowId =
+        payload.id ||
+        (match && (match.id || Object.values(match)[0])) ||
+        undefined;
+      if (rowId) auditDetail += ` id=${rowId}`;
+      // For inventory/product upserts include the most useful numeric fields
+      const snapFields = ['stock', 'stock_eu', 'price_eur', 'name', 'action'];
+      snapFields.forEach(f => {
+        if (payload[f] !== undefined && payload[f] !== null) {
+          auditDetail += ` ${f}=${JSON.stringify(payload[f])}`;
+        }
+      });
+    } catch (_) {}
+    await writeAuditLog({ action, actor: (req.body || {}).actor_email, table, detail: auditDetail });
     return res.status(200).json({ success: true, data: result });
   } catch (e) {
     return res.status(500).json({ error: e.message });

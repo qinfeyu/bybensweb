@@ -923,11 +923,15 @@ export default function App() {
       // FIX: setProducts with a new array reference so React re-renders the Products page
       setProducts([...updatedProds]);
       safeSetLocalStorage('bb_products_cache', JSON.stringify(sanitizeProductsForCache(updatedProds)));
-      prodUpdates.forEach(async (u) => {
-        try {
-          await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
-        } catch(e) {}
-      });
+      // Use Promise.allSettled so all product writes are tracked together —
+      // unlike forEach(async), no write is silently abandoned.
+      // We intentionally do not await this so syncProductsWithInventory stays
+      // synchronous (callers depend on its return value).
+      void Promise.allSettled(
+        prodUpdates.map(u =>
+          supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id)
+        )
+      );
     }
 
     return updatedProds;
@@ -961,8 +965,18 @@ export default function App() {
 
     try {
       const { error } = await upsertInventoryRows(dbPayload);
-      if (error) console.warn("Supabase inventory upsert notice:", error.message);
-    } catch(e) {}
+      if (error) {
+        console.warn("Supabase inventory upsert failed, rolling back:", error.message);
+        setInventoryItems(prevInv);
+        safeSetLocalStorage('bb_inventory_items', JSON.stringify(prevInv));
+        showToast("Save failed — changes rolled back. Try again.", "error");
+      }
+    } catch(e) {
+      console.warn("Supabase inventory upsert exception, rolling back:", e);
+      setInventoryItems(prevInv);
+      safeSetLocalStorage('bb_inventory_items', JSON.stringify(prevInv));
+      showToast("Save failed — changes rolled back. Try again.", "error");
+    }
   };
 
   const handleSaveBulkInventoryItems = async (items: InventoryItem[]) => {
@@ -977,8 +991,11 @@ export default function App() {
       safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(euMap));
     } catch(e) {}
 
+    // Snapshot for rollback in case the DB write fails
+    const prevBulkInv = inventoryItems;
+
     // FIX: Build nextInv synchronously before setState (same race condition fix as above)
-    const nextInv = [...inventoryItems];
+    const nextInv = [...prevBulkInv];
     payloads.forEach(item => {
       const idx = nextInv.findIndex(x => x.id === item.id);
       if (idx >= 0) nextInv[idx] = { ...nextInv[idx], ...item };
@@ -993,8 +1010,18 @@ export default function App() {
 
     try {
       const { error } = await upsertInventoryRows(dbPayloads);
-      if (error) console.warn("Supabase bulk inventory upsert notice:", error.message);
-    } catch(e) {}
+      if (error) {
+        console.warn("Supabase bulk inventory upsert failed, rolling back:", error.message);
+        setInventoryItems(prevBulkInv);
+        safeSetLocalStorage('bb_inventory_items', JSON.stringify(prevBulkInv));
+        showToast("Bulk save failed — changes rolled back. Try again.", "error");
+      }
+    } catch(e) {
+      console.warn("Supabase bulk inventory upsert exception, rolling back:", e);
+      setInventoryItems(prevBulkInv);
+      safeSetLocalStorage('bb_inventory_items', JSON.stringify(prevBulkInv));
+      showToast("Bulk save failed — changes rolled back. Try again.", "error");
+    }
   };
 
   // ── DELIVERY PRICE MUTATIONS ──
@@ -1203,11 +1230,12 @@ setGiftConfig(config);
     if (!ids || ids.length === 0) return;
     const idSet = new Set(ids);
 
+    // Single batched DELETE instead of N serial calls
     try {
-      for (const id of ids) {
-        await supabase.from('inventory_items').delete().eq('id', id);
-      }
-    } catch(e) {}
+      await supabase.from('inventory_items').delete().in('id', ids);
+    } catch(e) {
+      console.warn("Bulk inventory delete error:", e);
+    }
 
     try {
       const euMap = JSON.parse(localStorage.getItem('bb_inventory_stock_eu_map') || '{}');

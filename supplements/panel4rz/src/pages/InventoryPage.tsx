@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { InventoryItem } from '../types';
-import { calculateLandedCost, calculateMargin, calculateMarginPct, calculateWeightedAverageEurPrice } from '../lib/calculations';
+import { calculateLandedCost, calculateMargin, calculateMarginPct } from '../lib/calculations';
 import { 
   Euro, 
   Upload, 
@@ -491,7 +491,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       "Retail DZD",
       "Stock EU",
       "Stock DZ",
-      "Type"
+      "Type",
+      "Is Archived"
     ];
 
     const rows = filteredItems.map(item => [
@@ -506,17 +507,20 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       item.retail_dzd,
       item.stock_eu || 0,
       item.stock || 0,
-      item.type || 'supplement'
+      item.type || 'supplement',
+      item.is_archived ? 'true' : 'false'
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `inventory_export_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     showToast("✓ CSV Export downloaded!");
   };
 
@@ -555,6 +559,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       const stockEuIdx = findIdx(["stock eu", "stock_eu", "eu"]);
       const stockDzIdx = findIdx(["stock dz", "stock_dz", "stock", "dz"]);
       const typeIdx = findIdx(["type"]);
+      const archivedIdx = findIdx(["is archived", "is_archived", "archived"]);
 
       if (skuIdx === -1 || nameIdx === -1) {
         showToast("CSV must contain SKU and Name columns", "error");
@@ -599,6 +604,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           stock_eu: parseInt(cols[stockEuIdx]) || 0,
           stock: parseInt(cols[stockDzIdx]) || 0,
           type: (cols[typeIdx] || activeTab) as 'supplement' | 'snack' | 'wholesale',
+          is_archived: archivedIdx !== -1 ? (cols[archivedIdx] || '').trim().toLowerCase() === 'true' : undefined,
           _lastUpdated: new Date().toISOString()
         };
 
@@ -619,6 +625,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           if (existing.retail_dzd !== itemPayload.retail_dzd) fieldChanges.push(`Retail: ${existing.retail_dzd} → ${itemPayload.retail_dzd} DA`);
           if (existing.stock_eu !== itemPayload.stock_eu) fieldChanges.push(`Stock EU: ${existing.stock_eu} → ${itemPayload.stock_eu}`);
           if (existing.stock !== itemPayload.stock) fieldChanges.push(`Stock DZ: ${existing.stock} → ${itemPayload.stock}`);
+          if (archivedIdx !== -1 && Boolean(existing.is_archived) !== Boolean(itemPayload.is_archived))
+            fieldChanges.push(`Archived: ${existing.is_archived ? 'yes' : 'no'} → ${itemPayload.is_archived ? 'yes' : 'no'}`);
 
           if (fieldChanges.length > 0) {
             diffs.push({
@@ -635,7 +643,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
         return;
       }
 
-      setPendingCsvItems(parsedItems);
+      // Only save rows that are new or have changed — not unchanged rows
+      setPendingCsvItems(diffs.map(d => d.item));
       setCsvDiffs(diffs);
       setIsCsvConfirmOpen(true);
     };
@@ -646,11 +655,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
   const handleConfirmSaveCsv = async () => {
     if (!pendingCsvItems.length) return;
+    const savedCount = pendingCsvItems.length;
     await onSaveBulkItems(pendingCsvItems);
     setIsCsvConfirmOpen(false);
     setPendingCsvItems([]);
     setCsvDiffs([]);
-    showToast(`✓ ${pendingCsvItems.length} CSV inventory items imported and saved!`);
+    showToast(`✓ ${savedCount} CSV inventory items imported and saved!`);
   };
 
   // Bulk Restock Execution
@@ -1379,7 +1389,11 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
             <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Bulk Restock Inventory</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Quickly add quantities to EU or DZ stock across multiple SKUs.</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {selectedSkuIds.length > 0
+                    ? `Showing ${selectedSkuIds.length} selected SKU${selectedSkuIds.length !== 1 ? 's' : ''}.`
+                    : 'Quickly add quantities to EU or DZ stock across multiple SKUs.'}
+                </p>
               </div>
               <button onClick={() => setIsBulkRestockOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
@@ -1418,7 +1432,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {tabItems.map(item => (
+                    {(selectedSkuIds.length > 0
+                      ? tabItems.filter(item => selectedSkuIds.includes(item.id))
+                      : tabItems
+                    ).map(item => (
                       <tr key={item.id}>
                         <td className="p-2.5 font-bold">{item.id}</td>
                         <td className="p-2.5">{item.brand ? item.brand + ' - ' : ''}{item.name}</td>
