@@ -51,6 +51,65 @@ async function sendTelegram(message) {
 async function adjustStock(items, direction) {
   if (!items || !Array.isArray(items) || items.length === 0) return;
 
+  // Pre-fetch all inventory items once so every per-item lookup is in-memory
+  let allInvItems = [];
+  try {
+    const invAllRes = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?select=*`, { headers: SB_HEADERS });
+    const invAllRows = await invAllRes.json().catch(() => ([]));
+    if (Array.isArray(invAllRows)) allInvItems = invAllRows;
+  } catch (_) {}
+
+  // Helper: deduct stock from a single inventory row by its canonical id
+  async function patchInvStock(invRow, qty) {
+    const curStock = Number(invRow.stock) || 0;
+    const newStock = Math.max(0, curStock + direction * qty);
+    await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRow.id)}`, {
+      method: "PATCH",
+      headers: SB_HEADERS,
+      body: JSON.stringify({ stock: newStock }),
+    });
+  }
+
+  // Helper: find an inventory row by explicit SKU id (case-insensitive)
+  function findInvBySku(sku) {
+    if (!sku) return null;
+    const s = String(sku).trim().toLowerCase();
+    return allInvItems.find(i => String(i.id || "").trim().toLowerCase() === s) || null;
+  }
+
+  // Helper: find an inventory row by product name + optional flavor/variant_spec
+  // Used as a fallback when no explicit SKU link exists on the product variant.
+  function findInvByName(itemName, flavor, variantSpec) {
+    if (!itemName) return null;
+    const nameLower = String(itemName).trim().toLowerCase();
+    const flavorLower = flavor ? String(flavor).trim().toLowerCase() : "";
+    const varLower = variantSpec ? String(variantSpec).trim().toLowerCase() : "";
+
+    // 1. Exact name + flavor match
+    if (flavorLower) {
+      const hit = allInvItems.find(i =>
+        String(i.name || "").trim().toLowerCase() === nameLower &&
+        String(i.variant_spec || "").trim().toLowerCase() === flavorLower
+      );
+      if (hit) return hit;
+    }
+
+    // 2. Exact name + variant_spec match
+    if (varLower) {
+      const hit = allInvItems.find(i =>
+        String(i.name || "").trim().toLowerCase() === nameLower &&
+        String(i.variant_spec || "").trim().toLowerCase() === varLower
+      );
+      if (hit) return hit;
+    }
+
+    // 3. Exact name only (works for single-SKU products)
+    const hit = allInvItems.find(i =>
+      String(i.name || "").trim().toLowerCase() === nameLower
+    );
+    return hit || null;
+  }
+
   for (const item of items) {
     const prodId = item.productId || item.product_id;
     if (!prodId) continue;
@@ -59,13 +118,13 @@ async function adjustStock(items, direction) {
     const rawFlavor = String(item.flavor || "").trim();
     const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
 
-    // Fetch product
+    // Fetch product by id
     const pRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(prodId)}&limit=1`, { headers: SB_HEADERS });
     const pRows = await pRes.json().catch(() => ([]));
     let prod = Array.isArray(pRows) && pRows.length > 0 ? pRows[0] : null;
 
     if (!prod) {
-      // Try finding product by matching SKU
+      // Try finding product by matching variant/flavor SKU value
       const allRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*`, { headers: SB_HEADERS });
       const allProds = await allRes.json().catch(() => ([]));
       if (Array.isArray(allProds)) {
@@ -83,21 +142,11 @@ async function adjustStock(items, direction) {
     }
 
     if (!prod) {
-      // Try inventory_items SKU
-      try {
-        const targetSku = String(prodId).trim();
-        const invRes = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=ilike.${encodeURIComponent(targetSku)}&limit=1`, { headers: SB_HEADERS });
-        const invRows = await invRes.json().catch(() => ([]));
-        if (Array.isArray(invRows) && invRows.length > 0) {
-          const curStock = Number(invRows[0].stock) || 0;
-          const newInvStock = Math.max(0, curStock + direction * qty);
-          await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRows[0].id)}`, {
-            method: "PATCH",
-            headers: SB_HEADERS,
-            body: JSON.stringify({ stock: newInvStock }),
-          });
-        }
-      } catch (_) {}
+      // prodId itself may be a direct inventory SKU (no catalog product)
+      const directInv = findInvBySku(prodId);
+      if (directInv) {
+        await patchInvStock(directInv, qty);
+      }
       continue;
     }
 
@@ -162,22 +211,28 @@ async function adjustStock(items, direction) {
       });
     }
 
-    // SKU Inventory deduction
-    if (linkedSku && linkedSku.trim()) {
-      try {
-        const targetSku = linkedSku.trim();
-        const invRes = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=ilike.${encodeURIComponent(targetSku)}&limit=1`, { headers: SB_HEADERS });
-        const invRows = await invRes.json().catch(() => ([]));
-        if (Array.isArray(invRows) && invRows.length > 0) {
-          const curStock = Number(invRows[0].stock) || 0;
-          const newInvStock = Math.max(0, curStock + direction * qty);
-          await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRows[0].id)}`, {
-            method: "PATCH",
-            headers: SB_HEADERS,
-            body: JSON.stringify({ stock: newInvStock }),
-          });
-        }
-      } catch (_) {}
+    // ── Inventory deduction ──────────────────────────────────────────────────
+    // Primary: explicit SKU link from v.flavorSkus or v.sku
+    const explicitInv = findInvBySku(linkedSku);
+    if (explicitInv) {
+      try { await patchInvStock(explicitInv, qty); } catch (_) {}
+    } else {
+      // Fallback: match inventory row by product name + flavor/variant_spec.
+      // This covers products where SKU links were never set in the product editor.
+      const fallbackInv = findInvByName(item.name, rawFlavor, rawVariant);
+      if (fallbackInv) {
+        console.warn(
+          `[adjustStock] No explicit SKU link for "${item.name}" (flavor="${rawFlavor}", variant="${rawVariant}"). ` +
+          `Used name-match fallback → inventory id="${fallbackInv.id}". ` +
+          `Link this product's variant to inventory SKU "${fallbackInv.id}" in the admin panel to silence this warning.`
+        );
+        try { await patchInvStock(fallbackInv, qty); } catch (_) {}
+      } else {
+        console.warn(
+          `[adjustStock] No inventory row found for "${item.name}" (flavor="${rawFlavor}", variant="${rawVariant}", prodId="${prodId}"). ` +
+          `Inventory stock was NOT decremented. Link this product variant to an inventory SKU in the admin panel.`
+        );
+      }
     }
   }
 }
