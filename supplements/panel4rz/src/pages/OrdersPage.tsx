@@ -657,6 +657,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         customerName={custName}
                         message={WhatsAppTemplates.orderStatus(custName, o.id, o.status, Number(o.total || 0))}
                         className="mt-1"
+                        hideActions
                       />
                     </div>
 
@@ -714,8 +715,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
 
         {/* Desktop Table View (shown on screens >= md) */}
-        <div className="hidden md:block overflow-x-auto thin-scrollbar pb-2">
-          <table className="w-full text-xs text-left text-slate-700 table-auto min-w-[1400px]">
+        <div className="hidden md:block overflow-x-auto no-scrollbar pb-2">
+          <table className="w-full text-xs text-left text-slate-700 table-auto">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="py-2.5 px-1.5 w-8 text-center">
@@ -772,6 +773,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         phone={o.phone}
                         customerName={custName}
                         message={WhatsAppTemplates.orderStatus(custName, o.id, o.status, Number(o.total || 0))}
+                        hideActions
                       />
                     </td>
                     <td className="py-2.5 px-2 font-medium text-slate-800 max-w-[90px] truncate" title={o.wilaya || ''}>
