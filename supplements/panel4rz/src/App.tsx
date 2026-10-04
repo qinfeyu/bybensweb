@@ -1708,14 +1708,6 @@ setGiftConfig(config);
       } else if (existing.status === 'canceled' && newStatus !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], -1);
       }
-
-      // DZD Budget management: ONLY Subtotal (excluding delivery costs) is added to DZD Budget when order is in 'delivered' status
-      const existingSubtotal = getOrderSubtotal(existing);
-      if (existing.status === 'delivered' && newStatus !== 'delivered') {
-        await adjustDzdBudget(-existingSubtotal);
-      } else if (existing.status !== 'delivered' && newStatus === 'delivered') {
-        await adjustDzdBudget(+existingSubtotal);
-      }
     }
 
     try {
@@ -1732,11 +1724,6 @@ setGiftConfig(config);
       if (existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
       }
-      // If order was in 'delivered' status when deleted, subtract its subtotal (excluding delivery) from DZD Budget
-      if (existing.status === 'delivered') {
-        const existingSubtotal = getOrderSubtotal(existing);
-        await adjustDzdBudget(-existingSubtotal);
-      }
     }
 
     try {
@@ -1744,7 +1731,7 @@ setGiftConfig(config);
     } catch(e) {}
 
     setOrders(prev => prev.filter(o => o.id !== orderId));
-    showToast("✓ Order deleted, stock restored & DZD budget adjusted!");
+    showToast("✓ Order deleted, stock restored.");
   };
 
   const handleEditOrderItems = async (orderId: string, newItems: any[]): Promise<{ subtotal: number; total: number }> => {
@@ -1816,11 +1803,6 @@ setGiftConfig(config);
       newTotal = Math.max(0, newSubtotal + delCost - promo);
     }
 
-    // DZD budget tracks delivered revenue
-    if (existing.status === 'delivered' && newSubtotal !== oldSubtotal) {
-      await adjustDzdBudget(newSubtotal - oldSubtotal);
-    }
-
     try {
       await supabase.from('orders').update({ items: newItemsArr, subtotal: newSubtotal, total: newTotal }).eq('id', orderId);
     } catch(e) {}
@@ -1856,17 +1838,21 @@ setGiftConfig(config);
       total: orderData.total || 0,
       status: isUnpaid ? 'unpaid' : 'delivered',
       payment_status: isUnpaid ? 'unpaid' : 'paid',
-      is_unpaid: isUnpaid,
+      paid_amount: isUnpaid ? 0 : (orderData.total || 0),
+      payment_history: isUnpaid ? [] : [{ date: new Date().toISOString(), amount: orderData.total || 0, added_to_budget: orderData.total || 0 }],
       date: new Date().toISOString()
     };
 
     // Deduct stock for POS order (runs for both paid and unpaid credit sales)
     const stockSynced = await adjustInventoryAndProductStock(newOrder.items || [], -1);
 
-    // Add paid order subtotal (products only) to DZD Budget
-    const newOrderSubtotal = getOrderSubtotal(newOrder);
-    if (!isUnpaid && newOrderSubtotal > 0) {
-      await adjustDzdBudget(+newOrderSubtotal);
+    // Add paid order to DZD Budget (Subtotal only, Option A math)
+    let addedToBudget = 0;
+    if (!isUnpaid && newOrder.total > 0) {
+      addedToBudget = newOrder.total;
+      if (addedToBudget > 0) {
+        await adjustDzdBudget(addedToBudget);
+      }
     }
 
     try {
@@ -1905,39 +1891,81 @@ setGiftConfig(config);
     if (isUnpaid) {
       showToast(`✓ Unpaid Sale recorded! Added to Unpaid & Credit tab.`, 'info');
     } else {
-      showToast(`✓ POS Order #${id} recorded! ${newOrderSubtotal.toLocaleString()} DA added to DZD Budget.`);
+      showToast(`✓ POS Order #${id} recorded! ${addedToBudget.toLocaleString()} DA added to DZD Budget.`);
     }
   };
 
-  const handleMarkOrderAsPaid = async (orderId: string) => {
+  const handleLogPayment = async (orderId: string, amount: number, markFullyPaid: boolean = false) => {
     const target = orders.find(o => o.id === orderId);
-    if (target) {
-      const subtotal = getOrderSubtotal(target);
-      if (subtotal > 0) {
-        await adjustDzdBudget(+subtotal);
-      }
+    if (!target) return;
+
+    const currentPaid = Number(target.paid_amount) || 0;
+    const totalAmount = Number(target.total) || 0;
+    const deliveryCost = Number(target.deliveryCost || target.delivery_cost) || 0;
+    
+    let amountToPay = amount;
+    if (markFullyPaid) {
+      amountToPay = Math.max(0, totalAmount - currentPaid);
+    }
+
+    if (amountToPay <= 0 && currentPaid >= totalAmount) {
+      showToast("Order is already fully paid", "info");
+      return;
+    }
+
+    const newPaid = currentPaid + amountToPay;
+    
+    // Budget Math (Option A): Only add to budget if paid amount exceeds delivery cost.
+    const prevBudgetContribution = Math.max(0, currentPaid - deliveryCost);
+    const newBudgetContribution = Math.max(0, newPaid - deliveryCost);
+    const budgetToAdd = newBudgetContribution - prevBudgetContribution;
+
+    if (budgetToAdd > 0) {
+      await adjustDzdBudget(budgetToAdd);
+    }
+
+    const newPaymentStatus: 'paid' | 'partial' | 'unpaid' = newPaid >= totalAmount ? 'paid' : (newPaid > 0 ? 'partial' : 'unpaid');
+    
+    // Safely parse payment history
+    let history: any[] = [];
+    if (typeof target.payment_history === 'string') {
+      try { history = JSON.parse(target.payment_history); } catch(e) {}
+    } else if (Array.isArray(target.payment_history)) {
+      history = [...target.payment_history];
+    }
+    
+    history.push({
+      date: new Date().toISOString(),
+      amount: amountToPay,
+      added_to_budget: budgetToAdd
+    });
+
+    const updatePayload = {
+      paid_amount: newPaid,
+      payment_status: newPaymentStatus,
+      payment_history: history,
+      is_unpaid: newPaymentStatus !== 'paid' // Keep legacy flag synced
+    };
+
+    if (newPaymentStatus === 'paid') {
+      (updatePayload as any).paid_at = new Date().toISOString();
     }
 
     try {
-      await supabase.from('orders').update({
-        status: 'delivered'
-      }).eq('id', orderId);
+      await supabase.from('orders').update(updatePayload).eq('id', orderId);
     } catch(e) {}
 
     setOrders(prev => prev.map(o => {
       if (o.id === orderId) {
         return {
           ...o,
-          status: 'delivered',
-          payment_status: 'paid',
-          is_unpaid: false,
-          paid_at: new Date().toISOString()
+          ...updatePayload
         };
       }
       return o;
     }));
 
-    showToast(`✓ Order #${orderId} marked as Paid! Moved to Sales & added to DZD Budget.`);
+    showToast(`✓ Payment of ${amountToPay.toLocaleString()} DA logged!`);
   };
 
   // ── PREORDER MUTATIONS ──
@@ -2680,6 +2708,7 @@ setGiftConfig(config);
                 onUpdateStatus={handleUpdateOrderStatus}
                 onDeleteOrder={handleDeleteOrder}
                 onEditOrderItems={handleEditOrderItems}
+                onLogPayment={handleLogPayment}
                 showToast={showToast}
                 defaultEurRate={eurRate}
               />
@@ -2723,7 +2752,7 @@ setGiftConfig(config);
                 orders={orders}
                 inventoryItems={inventoryItems}
                 products={products}
-                onMarkAsPaid={handleMarkOrderAsPaid}
+                onMarkAsPaid={(id) => handleLogPayment(id, 0, true)}
                 onDeleteOrder={handleDeleteOrder}
                 showToast={showToast}
               />
