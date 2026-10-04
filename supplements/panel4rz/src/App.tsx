@@ -1665,21 +1665,19 @@ setGiftConfig(config);
   const adjustBudget = async (currency: 'DZD' | 'EUR', amount: number) => {
     if (!amount || amount === 0) return;
 
-    if (currency === 'EUR') {
-      const currentEur = parseFloat(settings.budget_eur) || 0;
-      const newEur = parseFloat((currentEur + amount).toFixed(2)).toString();
-      setSettings(prev => ({ ...prev, budget_eur: newEur }));
-      try {
-        await supabase.from('settings').upsert([{ key: 'budget_eur', value: newEur }]);
-      } catch(e) {}
-    } else {
-      const currentDzd = parseFloat(settings.budget_dzd) || 0;
-      const newDzd = Math.round(currentDzd + amount).toString();
-      setSettings(prev => ({ ...prev, budget_dzd: newDzd }));
-      try {
-        await supabase.from('settings').upsert([{ key: 'budget_dzd', value: newDzd }]);
-      } catch(e) {}
-    }
+    setSettings(prev => {
+      if (currency === 'EUR') {
+        const currentEur = parseFloat(prev.budget_eur) || 0;
+        const newEur = parseFloat((currentEur + amount).toFixed(2)).toString();
+        supabase.from('settings').upsert([{ key: 'budget_eur', value: newEur }]).then();
+        return { ...prev, budget_eur: newEur };
+      } else {
+        const currentDzd = parseFloat(prev.budget_dzd) || 0;
+        const newDzd = Math.round(currentDzd + amount).toString();
+        supabase.from('settings').upsert([{ key: 'budget_dzd', value: newDzd }]).then();
+        return { ...prev, budget_dzd: newDzd };
+      }
+    });
   };
 
   const adjustDzdBudget = (amount: number) => adjustBudget('DZD', amount);
@@ -1960,8 +1958,15 @@ setGiftConfig(config);
     if (!target) return;
 
     const currentPaid = Number(target.paid_amount) || 0;
-    const totalAmount = Number(target.total) || 0;
     const deliveryCost = Number(target.deliveryCost || target.delivery_cost) || 0;
+    
+    // Safely calculate totalAmount as fallback for legacy orders where 'total' might be missing
+    let totalAmount = Number(target.total);
+    if (!totalAmount && totalAmount !== 0) {
+      const sub = Number(target.subtotal) || 0;
+      const promoDisc = Number((target as any).promo_discount !== undefined ? (target as any).promo_discount : (target.promoDiscount || 0));
+      totalAmount = Math.max(0, sub + deliveryCost - promoDisc);
+    }
     
     let amountToPay = amount;
     if (markFullyPaid) {
