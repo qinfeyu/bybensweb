@@ -17,6 +17,8 @@ interface UnpaidOrdersPageProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+import { getDerivedPaymentStatus } from './OrdersPage';
+
 export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
   orders,
   inventoryItems,
@@ -32,7 +34,10 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
 
   // Filter orders that are UNPAID / CREDIT
   const unpaidOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'unpaid' || o.payment_status === 'unpaid' || o.is_unpaid === true);
+    return orders.filter(o => {
+      const pm = getDerivedPaymentStatus(o);
+      return pm === 'partial' || (pm === 'unpaid' && (o.total || 0) > 0);
+    });
   }, [orders]);
 
   // Search filtered orders
@@ -50,7 +55,11 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
 
   // Summary Metrics
   const totalUnpaidAmount = useMemo(() => {
-    return unpaidOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    return unpaidOrders.reduce((sum, o) => {
+      const pm = getDerivedPaymentStatus(o);
+      const debt = pm === 'partial' ? (Number(o.total) || 0) - (Number(o.paid_amount) || 0) : (Number(o.total) || 0);
+      return sum + debt;
+    }, 0);
   }, [unpaidOrders]);
 
   const uniqueDebtorsCount = useMemo(() => {
@@ -268,7 +277,14 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
                     <div className="text-[10px] font-bold text-slate-400 uppercase">{order.source || 'POS'}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-black text-amber-600 text-sm">{Number(order.total || 0).toLocaleString()} <span className="text-[10px] font-bold">DA</span></div>
+                    <div className="font-black text-amber-600 text-sm">
+                      {(() => {
+                        const pm = getDerivedPaymentStatus(order);
+                        const debt = pm === 'partial' ? (Number(order.total) || 0) - (Number(order.paid_amount) || 0) : (Number(order.total) || 0);
+                        return debt.toLocaleString();
+                      })()}
+                      <span className="text-[10px] font-bold"> DA</span>
+                    </div>
                   </div>
                 </div>
 
@@ -279,7 +295,10 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
             <PhoneContactAction
               phone={order.phone || ''}
               customerName={custName}
-                      message={WhatsAppTemplates.unpaidReminder(custName, Number(order.total || 0))}
+                      message={WhatsAppTemplates.unpaidReminder(custName, (() => {
+                        const pm = getDerivedPaymentStatus(order);
+                        return pm === 'partial' ? (Number(order.total) || 0) - (Number(order.paid_amount) || 0) : (Number(order.total) || 0);
+                      })())}
                       className="mt-1"
                     />
                   </div>
@@ -389,7 +408,10 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
                         <PhoneContactAction
                           phone={order.phone}
                           customerName={custName}
-                          message={WhatsAppTemplates.unpaidReminder(custName, Number(order.total || 0))}
+                          message={WhatsAppTemplates.unpaidReminder(custName, (() => {
+                            const pm = getDerivedPaymentStatus(order);
+                            return pm === 'partial' ? (Number(order.total) || 0) - (Number(order.paid_amount) || 0) : (Number(order.total) || 0);
+                          })())}
                           className="mt-1"
                         />
                       </td>
@@ -412,7 +434,12 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
                       {/* Amount Due */}
                       <td className="p-3.5">
                         <div className="font-black text-amber-600 text-sm">
-                          {order.total.toLocaleString()} <span className="text-xs font-bold">DA</span>
+                          {(() => {
+                            const pm = getDerivedPaymentStatus(order);
+                            const debt = pm === 'partial' ? (Number(order.total) || 0) - (Number(order.paid_amount) || 0) : (Number(order.total) || 0);
+                            return debt.toLocaleString();
+                          })()}
+                          <span className="text-xs font-bold"> DA</span>
                         </div>
                       </td>
 
