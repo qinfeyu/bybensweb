@@ -714,8 +714,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
 
         {/* Desktop Table View (shown on screens >= md) */}
-        <div className="hidden md:block overflow-x-auto no-scrollbar">
-          <table className="w-full text-xs text-left text-slate-700 table-auto">
+        <div className="hidden md:block overflow-x-auto thin-scrollbar pb-2">
+          <table className="w-full text-xs text-left text-slate-700 table-auto min-w-[1400px]">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="py-2.5 px-1.5 w-8 text-center">
