@@ -445,8 +445,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const forecastLabel = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleString('en', { month: 'long' });
 
   // ── Stock valuation ──
-  const stockRetailDzd = inventoryItems.filter(i => i.type !== 'wholesale').reduce((s, i) => s + ((Number(i.stock) || 0) + (Number(i.stock_eu) || 0)) * (Number(i.retail_dzd) || 0), 0);
-  const stockCostEur = inventoryItems.reduce((s, i) => s + ((Number(i.stock) || 0) + (Number(i.stock_eu) || 0)) * (Number(i.price_eur) || 0), 0);
+  const stockDzdRetail = inventoryItems.filter(i => i.type !== 'wholesale').reduce((s, i) => s + (Number(i.stock) || 0) * (Number(i.retail_dzd) || 0), 0);
+  const stockDzdCostEur = inventoryItems.reduce((s, i) => s + (Number(i.stock) || 0) * (Number(i.price_eur) || 0), 0);
+  const stockDzdCount = inventoryItems.reduce((s, i) => s + (Number(i.stock) || 0), 0);
+
+  const stockEuRetail = inventoryItems.filter(i => i.type !== 'wholesale').reduce((s, i) => s + (Number(i.stock_eu) || 0) * (Number(i.retail_dzd) || 0), 0);
+  const stockEuCostEur = inventoryItems.reduce((s, i) => s + (Number(i.stock_eu) || 0) * (Number(i.price_eur) || 0), 0);
+  const stockEuCount = inventoryItems.reduce((s, i) => s + (Number(i.stock_eu) || 0), 0);
 
   // ── Sales velocity (units/day for last 30d, keyed by product name) ──
   const salesVelocity = useMemo(() => {
@@ -997,24 +1002,45 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Stock Valuation */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><Warehouse className="w-3.5 h-3.5 text-purple-500" /> Stock Valuation</h3>
-              <div className="bg-purple-50 p-3 rounded-xl">
-                <div className="text-[10px] text-purple-600 font-semibold mb-0.5">Retail Value (DZD)</div>
-                <div className="text-xl font-black text-purple-700">{fmtNum(stockRetailDzd)} DA</div>
-              </div>
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Cost Price (EUR)</div>
-                <div className="text-xl font-black text-slate-900">{stockCostEur.toFixed(2)} €</div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {[{ label: 'Supplements', type: 'supplement' }, { label: 'Snacks', type: 'snack' }].map(({ label, type }) => (
-                  <div key={type} className="bg-slate-50 p-2.5 rounded-xl text-center">
-                    <div className="text-[10px] text-slate-400">{label}</div>
-                    <div className="text-sm font-black text-slate-900 mt-0.5">{inventoryItems.filter(i => i.type === type).reduce((s, i) => s + (Number(i.stock) || 0) + (Number(i.stock_eu) || 0), 0)}</div>
-                    <div className="text-[9px] text-slate-400">units</div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col space-y-4">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                <Warehouse className="w-3.5 h-3.5 text-purple-500" /> Stock Valuation
+              </h3>
+              
+              {/* DZD Stock */}
+              <div className="space-y-2 border border-emerald-100 bg-emerald-50/30 p-3 rounded-xl">
+                <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex justify-between items-center">
+                  <span>Algeria Stock (DZD)</span>
+                  <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md text-[9px]">{stockDzdCount} units</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-white p-2 rounded-lg border border-emerald-100 shadow-sm">
+                    <div className="text-[9px] text-emerald-600 font-semibold mb-0.5">Retail Value</div>
+                    <div className="text-sm font-black text-emerald-700">{fmtNum(stockDzdRetail)} DA</div>
                   </div>
-                ))}
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                    <div className="text-[9px] text-slate-500 font-semibold mb-0.5">Cost Price</div>
+                    <div className="text-sm font-black text-slate-900">{stockDzdCostEur.toFixed(2)} €</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* EU Stock */}
+              <div className="space-y-2 border border-blue-100 bg-blue-50/30 p-3 rounded-xl">
+                <div className="text-[11px] font-bold text-blue-800 uppercase tracking-wider flex justify-between items-center">
+                  <span>Europe Stock (EU)</span>
+                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md text-[9px]">{stockEuCount} units</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-white p-2 rounded-lg border border-blue-100 shadow-sm">
+                    <div className="text-[9px] text-blue-600 font-semibold mb-0.5">Retail Value</div>
+                    <div className="text-sm font-black text-blue-700">{fmtNum(stockEuRetail)} DA</div>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                    <div className="text-[9px] text-slate-500 font-semibold mb-0.5">Cost Price</div>
+                    <div className="text-sm font-black text-slate-900">{stockEuCostEur.toFixed(2)} €</div>
+                  </div>
+                </div>
               </div>
             </div>
 
