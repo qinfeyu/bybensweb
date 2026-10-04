@@ -163,6 +163,8 @@ export default function App() {
 
   // App Data States
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const inventoryItemsRef = useRef<InventoryItem[]>([]);
+  useEffect(() => { inventoryItemsRef.current = inventoryItems; }, [inventoryItems]);
   const [products, setProducts] = useState<Product[]>([]);
   // Always-current ref so sync callbacks are never stale
   const productsRef = useRef<Product[]>([]);
@@ -1351,8 +1353,8 @@ setGiftConfig(config);
     // direction: -1 = deduct stock (order placed/active), +1 = restore stock (order canceled/deleted)
     if (!items || items.length === 0) return true;
 
-    let updatedInventory = [...inventoryItems];
-    let updatedProducts = [...products];
+    let updatedInventory = [...inventoryItemsRef.current];
+    let updatedProducts = [...productsRef.current];
     const invUpdates: { id: string; stock: number; fullItem?: InventoryItem }[] = [];
     const prodUpdates: { id: string; variants: any[]; stock: number }[] = [];
 
@@ -1623,16 +1625,19 @@ setGiftConfig(config);
     }
 
     if (invUpdates.length > 0) {
+      inventoryItemsRef.current = updatedInventory;
       setInventoryItems([...updatedInventory]);
       safeSetLocalStorage('bb_inventory_items', JSON.stringify(updatedInventory));
     }
     if (prodUpdates.length > 0) {
+      productsRef.current = updatedProducts;
       setProducts([...updatedProducts]);
       safeSetLocalStorage('bb_products_cache', JSON.stringify(updatedProducts));
     }
 
     // Always run automatic catalog product sync to ensure all variant & flavor stocks stay 100% refreshed
     syncProductsWithInventory(updatedProducts, updatedInventory);
+    productsRef.current = updatedProducts;
 
     // Persist stock changes; each write is individually guarded so one failure
     // doesn't abort the rest. Returns false if ANY stock write failed.
