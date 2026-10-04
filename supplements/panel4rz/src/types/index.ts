@@ -132,12 +132,6 @@ export interface OrderItem {
   line_total?: number;
 }
 
-export interface PaymentRecord {
-  date: string;
-  amount: number;
-  added_to_budget: number;
-}
-
 export interface Order {
   id: string;
   source?: string;
@@ -157,9 +151,7 @@ export interface Order {
   subtotal: number;
   total: number;
   status: 'waiting' | 'confirmed' | 'shipping' | 'delivered' | 'canceled' | 'unpaid';
-  payment_status?: 'paid' | 'partial' | 'unpaid';
-  paid_amount?: number;
-  payment_history?: PaymentRecord[] | string;
+  payment_status?: 'paid' | 'unpaid';
   is_unpaid?: boolean;
   paid_at?: string;
   created_at?: string;

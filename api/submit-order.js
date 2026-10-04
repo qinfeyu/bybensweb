@@ -345,9 +345,6 @@ module.exports = async function handler(req, res) {
         subtotal: Number(subtotal) || 0,
         total: Number(total) || 0,
         status: "waiting",
-        paid_amount: 0,
-        payment_status: "unpaid",
-        payment_history: [],
         created_at: new Date().toISOString(),
       }),
     });

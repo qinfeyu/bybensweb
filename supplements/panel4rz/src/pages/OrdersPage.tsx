@@ -50,7 +50,6 @@ interface OrdersPageProps {
   onUpdateStatus: (orderId: string, status: Order['status']) => Promise<void>;
   onDeleteOrder: (orderId: string) => Promise<void>;
   onEditOrderItems: (orderId: string, newItems: any[]) => Promise<{ subtotal: number; total: number }>;
-  onLogPayment?: (orderId: string, amount: number, markFullyPaid?: boolean) => Promise<void>;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   defaultEurRate: number;
 }
@@ -130,7 +129,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   onUpdateStatus,
   onDeleteOrder,
   onEditOrderItems,
-  onLogPayment,
   showToast,
   defaultEurRate
 }) => {
@@ -420,9 +418,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   // 3. Final Orders filtered by Source + Status + Search Query
   const filteredOrders = sourceFilteredOrders.filter(o => {
-    if (selectedStatus === 'debt') {
-      return o.payment_status === 'partial' || (o.payment_status === 'unpaid' && (o.total || 0) > 0);
-    }
     if (selectedStatus !== 'all' && normStatus(o.status) !== selectedStatus) return false;
     if (!searchQuery.trim()) return true;
 
@@ -494,15 +489,10 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           {/* Status Pills */}
           <div className="flex flex-wrap items-center p-1 bg-slate-100/90 rounded-xl gap-1 thin-scrollbar overflow-x-auto">
-            {['all', 'waiting', 'confirmed', 'shipping', 'delivered', 'canceled', 'debt'].map(st => {
-              let count = 0;
-              if (st === 'all') {
-                count = baseActiveOrders.length;
-              } else if (st === 'debt') {
-                count = baseActiveOrders.filter(o => o.payment_status === 'partial' || (o.payment_status === 'unpaid' && (o.total || 0) > 0)).length;
-              } else {
-                count = baseActiveOrders.filter(o => normStatus(o.status) === st).length;
-              }
+            {['all', 'waiting', 'confirmed', 'shipping', 'delivered', 'canceled'].map(st => {
+              const count = st === 'all'
+                ? baseActiveOrders.length
+                : baseActiveOrders.filter(o => normStatus(o.status) === st).length;
 
               return (
                 <button
@@ -720,7 +710,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 <th className="py-2.5 px-2">Est. Net</th>
                 <th className="py-2.5 px-2">Source</th>
                 <th className="py-2.5 px-2">Date</th>
-                <th className="py-2.5 px-2">Payment</th>
                 <th className="py-2.5 px-2">Status</th>
                 <th className="py-2.5 px-2 text-center">Actions</th>
               </tr>
@@ -784,16 +773,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       </span>
                     </td>
                     <td className="py-2.5 px-2 text-slate-500 font-medium whitespace-nowrap">{formattedDate}</td>
-                    <td className="py-2.5 px-2 whitespace-nowrap">
-                      {(() => {
-                        const pm = o.payment_status || 'unpaid';
-                        const pAmt = Number(o.paid_amount) || 0;
-                        const tAmt = Number(o.total) || 0;
-                        if (pm === 'paid') return <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-900 border border-emerald-200/80">Paid</span>;
-                        if (pm === 'partial') return <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-900 border border-amber-200/80">Partial (Debt: {(tAmt - pAmt).toLocaleString()})</span>;
-                        return <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-50 text-rose-900 border border-rose-200/80">Unpaid</span>;
-                      })()}
-                    </td>
                     <td className="py-2.5 px-2 whitespace-nowrap">
                       <select
                         value={o.status || 'waiting'}
@@ -1204,90 +1183,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   </span>
                 </div>
               </div>
-
-              {/* Payments & Debt Tracking */}
-              {onLogPayment && (
-                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-slate-900">Payments & Debt Tracking</h4>
-                    {(() => {
-                      const pm = selectedOrder.payment_status || 'unpaid';
-                      const pAmt = Number(selectedOrder.paid_amount) || 0;
-                      const tAmt = Number(selectedOrder.total) || 0;
-                      if (pm === 'paid') return <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-900 border border-emerald-200/80">Fully Paid</span>;
-                      if (pm === 'partial') return <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-900 border border-amber-200/80">Debt: {(tAmt - pAmt).toLocaleString()} DA</span>;
-                      return <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-50 text-rose-900 border border-rose-200/80">Unpaid</span>;
-                    })()}
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs p-3 bg-slate-50 rounded-lg">
-                    <div className="text-center">
-                      <div className="text-slate-500 font-semibold mb-0.5">Total</div>
-                      <div className="font-black text-slate-900">{Number(selectedOrder.total || 0).toLocaleString()}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-slate-500 font-semibold mb-0.5">Paid</div>
-                      <div className="font-black text-emerald-600">{Number(selectedOrder.paid_amount || 0).toLocaleString()}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-slate-500 font-semibold mb-0.5">Debt</div>
-                      <div className="font-black text-rose-600">{(Number(selectedOrder.total || 0) - Number(selectedOrder.paid_amount || 0)).toLocaleString()}</div>
-                    </div>
-                  </div>
-
-                  {/* Payment Timeline */}
-                  {(() => {
-                    let history: any[] = [];
-                    if (typeof selectedOrder.payment_history === 'string') {
-                      try { history = JSON.parse(selectedOrder.payment_history); } catch(e) {}
-                    } else if (Array.isArray(selectedOrder.payment_history)) {
-                      history = selectedOrder.payment_history;
-                    }
-                    if (history.length === 0) return null;
-                    return (
-                      <div className="space-y-1.5">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Payment History</div>
-                        <div className="space-y-1">
-                          {history.map((h, i) => (
-                            <div key={i} className="flex justify-between items-center text-xs py-1 border-b border-slate-100 last:border-0">
-                              <span className="text-slate-500">{new Date(h.date).toLocaleString('fr-DZ', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                              <span className="font-bold text-emerald-700">+{Number(h.amount).toLocaleString()} DA</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {(selectedOrder.payment_status !== 'paid') && (
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        onClick={() => {
-                          const amt = window.prompt("Enter amount paid today (DA):");
-                          if (amt && !isNaN(Number(amt))) {
-                            onLogPayment(selectedOrder.id, Number(amt), false);
-                            setSelectedOrder({ ...selectedOrder, paid_amount: (Number(selectedOrder.paid_amount) || 0) + Number(amt), payment_status: 'partial' });
-                          }
-                        }}
-                        className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-colors"
-                      >
-                        Log Partial Payment
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm("Mark the remaining balance as fully paid today?")) {
-                            onLogPayment(selectedOrder.id, 0, true);
-                            setSelectedOrder({ ...selectedOrder, paid_amount: selectedOrder.total, payment_status: 'paid' });
-                          }
-                        }}
-                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors"
-                      >
-                        Mark Fully Paid
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Status Updater Buttons */}
               <div className="space-y-2">
