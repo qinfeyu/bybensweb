@@ -1936,16 +1936,11 @@ setGiftConfig(config);
         subtotal: newOrder.subtotal,
         total: newOrder.total,
         status: newOrder.status,
+        payment_status: newOrder.payment_status,
+        paid_amount: newOrder.paid_amount,
+        payment_history: newOrder.payment_history,
         created_at: newOrder.date
       });
-    } catch(e) {}
-
-    // Best-effort: persist payment metadata (requires orders.payment_status / is_unpaid columns)
-    try {
-      await supabase.from('orders').update({
-        payment_status: isUnpaid ? 'unpaid' : 'paid',
-        is_unpaid: isUnpaid,
-      }).eq('id', newOrder.id);
     } catch(e) {}
 
     if (!stockSynced) {
