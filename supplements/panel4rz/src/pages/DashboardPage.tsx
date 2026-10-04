@@ -394,8 +394,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     };
   }, [posOrders, onlineOrders, preorders, preorderItems, products, inventoryItems, eurRate, period]);
 
-  const grossProfit = grossRevenue - totalCOGS;
-  const grossMarginPct = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
+  const netProductSales = grossRevenue - revenueSplit.delivery;
+  const grossProfit = netProductSales - totalCOGS;
+  const grossMarginPct = netProductSales > 0 ? (grossProfit / netProductSales) * 100 : 0;
   const opexPeriod = useMemo(() => expenses.filter(e => isInPeriod(getDateMs(e), period)), [expenses, period]);
   const opexPeriodDzdNative = opexPeriod.reduce((s, e) => s + ((e.currency || 'DZD') === 'EUR' ? 0 : Number(e.amount) || 0), 0);
   const opexPeriodEurNative = opexPeriod.reduce((s, e) => s + ((e.currency || 'DZD') === 'EUR' ? Number(e.amount) || 0 : 0), 0);
@@ -404,7 +405,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   // Combined DZD-equivalent (EUR converted at current rate) — used only for the P&L math below.
   const opexPeriodDzd = opexPeriodDzdNative + opexPeriodEurNative * eurRate;
   const netProfit = grossProfit - opexPeriodDzd;
-  const netMarginPct = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
+  const netMarginPct = netProductSales > 0 ? (netProfit / netProductSales) * 100 : 0;
 
   // ── Previous period revenue (for comparison) ──
   const prevPeriodRevenue = useMemo(() => {
@@ -716,7 +717,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${grossProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{fmtPct(grossMarginPct)}</span>
           </div>
           <div className={`text-xl font-black ${grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{grossProfit >= 0 ? '+' : '-'}<AnimatedCounter value={Math.abs(grossProfit)} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
-          <div className="text-[10px] text-slate-500 mt-1">Revenue – landed COGS</div>
+          <div className="text-[10px] text-slate-500 mt-1">Net Product Sales - landed COGS</div>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
