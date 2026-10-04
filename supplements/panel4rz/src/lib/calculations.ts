@@ -116,36 +116,44 @@ export function calculateOrderProfit(
   if (!o) return 0;
   const items = o.items || [];
   
-  let itemRevenue = 0;
+  let fallbackItemRevenue = 0;
   let totalCogs = 0;
 
-    items.forEach(it => {
-      const qty = Number(it.qty) || 1;
-      let unitP = Number(it.unitPrice || it.unit_price || it.price) || 0;
-      const info = getProductPricingAndCost(
-        it.productId || it.product_id || it.id || it.name || it.product_name || "", 
-        it.variant, 
-        unitP > 0 ? unitP : 0,
-        inventoryItems,
-        products,
-        defaultEurRate
-      );
-      const actualUnitP = (unitP > 0 ? unitP : (info.retailPrice > 0 ? info.retailPrice : Math.abs(unitP))) || 0;
-      itemRevenue += actualUnitP * qty;
-      totalCogs += (info.unitCost || (actualUnitP * 0.7)) * qty;
-    });
+  items.forEach(it => {
+    const qty = Number(it.qty) || 1;
+    let unitP = Number(it.unitPrice || it.unit_price || it.price) || 0;
+    const info = getProductPricingAndCost(
+      it.productId || it.product_id || it.id || it.name || it.product_name || "", 
+      it.variant, 
+      unitP > 0 ? unitP : 0,
+      inventoryItems,
+      products,
+      defaultEurRate
+    );
+    
+    // Revenue contribution exactly as paid (0 if it's a gift)
+    fallbackItemRevenue += unitP * qty;
+    
+    // For COGS, we must estimate a value even if unitP is 0 (gift).
+    const estRetail = unitP > 0 ? unitP : (info.retailPrice > 0 ? info.retailPrice : Math.abs(unitP));
+    totalCogs += (info.unitCost || (estRetail * 0.7)) * qty;
+  });
 
   const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
   const rawTotal = Number(o.total) || 0;
   const rawSubtotal = Number(o.subtotal) || 0;
+  const promoDisc = Number((o as any).promo_discount || (o as any).promoDiscount) || 0;
 
   let netRev = 0;
-  if (itemRevenue > 0) {
-    netRev = itemRevenue;
-  } else if (rawSubtotal > 0) {
-    netRev = rawSubtotal;
-  } else if (rawTotal > 0) {
+  // The most accurate net revenue is the rawTotal minus delivery.
+  if (rawTotal > 0) {
     netRev = Math.max(0, rawTotal - delCost);
+  } else if (rawSubtotal > 0) {
+    // Fallback if total is inexplicably missing but subtotal exists
+    netRev = Math.max(0, rawSubtotal - promoDisc);
+  } else {
+    // Absolute fallback if everything is missing
+    netRev = fallbackItemRevenue;
   }
 
   if (totalCogs <= 0 && netRev > 0) {
