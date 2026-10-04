@@ -1701,20 +1701,45 @@ setGiftConfig(config);
   // ── ORDER MUTATIONS ──
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     const existing = orders.find(o => o.id === orderId);
+    let budgetReverted = false;
+
     if (existing && existing.status !== newStatus) {
       // Stock management: restore stock if canceled, deduct stock if un-canceled
       if (newStatus === 'canceled' && existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
+        
+        // Revert budget if the order had payments logged
+        const currentPaid = Number(existing.paid_amount) || 0;
+        if (currentPaid > 0) {
+          const deliveryCost = Number(existing.deliveryCost || existing.delivery_cost) || 0;
+          const budgetContribution = Math.max(0, currentPaid - deliveryCost);
+          if (budgetContribution > 0) {
+            await adjustDzdBudget(-budgetContribution);
+          }
+          budgetReverted = true;
+        }
       } else if (existing.status === 'canceled' && newStatus !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], -1);
       }
     }
 
     try {
-      await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+      const updatePayload: any = { status: newStatus };
+      if (budgetReverted) {
+        updatePayload.paid_amount = 0;
+        updatePayload.payment_status = 'unpaid';
+        updatePayload.payment_history = '[]';
+      }
+      await supabase.from('orders').update(updatePayload).eq('id', orderId);
     } catch(e) {}
 
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    setOrders(prev => prev.map(o => {
+      if (o.id === orderId) {
+        if (budgetReverted) return { ...o, status: newStatus, paid_amount: 0, payment_status: 'unpaid', payment_history: [] };
+        return { ...o, status: newStatus };
+      }
+      return o;
+    }));
     showToast(`✓ Order #${orderId.slice(-6)} updated to ${newStatus}`);
   };
 
@@ -1723,6 +1748,16 @@ setGiftConfig(config);
     if (existing) {
       if (existing.status !== 'canceled') {
         await adjustInventoryAndProductStock(existing.items || [], +1);
+      }
+
+      // Revert budget if the order had payments logged
+      const currentPaid = Number(existing.paid_amount) || 0;
+      if (currentPaid > 0) {
+        const deliveryCost = Number(existing.deliveryCost || existing.delivery_cost) || 0;
+        const budgetContribution = Math.max(0, currentPaid - deliveryCost);
+        if (budgetContribution > 0) {
+          await adjustDzdBudget(-budgetContribution);
+        }
       }
     }
 
@@ -1803,11 +1838,41 @@ setGiftConfig(config);
       newTotal = Math.max(0, newSubtotal + delCost - promo);
     }
 
+    // Adjust paid amount and budget if overpaid
+    let updatedPaidAmount = Number(existing.paid_amount) || 0;
+    let budgetDelta = 0;
+    let newPaymentStatus = existing.payment_status || 'unpaid';
+
+    if (updatedPaidAmount > newTotal) {
+      const oldContribution = Math.max(0, updatedPaidAmount - delCost);
+      updatedPaidAmount = newTotal;
+      const newContribution = Math.max(0, updatedPaidAmount - delCost);
+      budgetDelta = newContribution - oldContribution; // Will be negative (refund)
+    }
+
+    if (updatedPaidAmount >= newTotal && newTotal > 0) {
+      newPaymentStatus = 'paid';
+    } else if (updatedPaidAmount > 0) {
+      newPaymentStatus = 'partial';
+    } else {
+      newPaymentStatus = 'unpaid';
+    }
+
+    if (budgetDelta !== 0) {
+      await adjustDzdBudget(budgetDelta);
+    }
+
     try {
-      await supabase.from('orders').update({ items: newItemsArr, subtotal: newSubtotal, total: newTotal }).eq('id', orderId);
+      await supabase.from('orders').update({ 
+        items: newItemsArr, subtotal: newSubtotal, total: newTotal,
+        paid_amount: updatedPaidAmount, payment_status: newPaymentStatus
+      }).eq('id', orderId);
     } catch(e) {}
 
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items: newItemsArr, subtotal: newSubtotal, total: newTotal } : o));
+    setOrders(prev => prev.map(o => o.id === orderId ? { 
+      ...o, items: newItemsArr, subtotal: newSubtotal, total: newTotal,
+      paid_amount: updatedPaidAmount, payment_status: newPaymentStatus 
+    } : o));
 
     if (!stockSynced) {
       showToast("⚠️ Order items saved, but some stock changes could NOT be applied — verify inventory!", 'error');
