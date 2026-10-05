@@ -27,7 +27,7 @@
     />
     <link rel="icon" href="/images/favicon.ico" />
     <script>if(localStorage.getItem('bybens_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
-    <link rel="stylesheet" href="/supplements/footer.css" />
+    <link rel="stylesheet" href="/supplements/footer.css?v=2" />
     <script>
       window.__initialDataPromise = fetch("/api/initial-data")
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -772,12 +772,13 @@
       </div>
     </div>
 
-    <script src="/content.js" defer></script>
+    <script src="/content.js?v=2" defer></script>
     <script src="/supplements/home/index.js?v=4" defer></script>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="/supplements/supabase-client.js" defer></script>
-    <script src="/supplements/marquee.js" defer></script>
-    <script src="/supplements/footer.js" defer></script>
+    <script src="/supplements/supabase-client.js?v=2" defer></script>
+    <script src="/supplements/marquee.js?v=2" defer></script>
+    <script src="/supplements/footer.js?v=2" defer></script>
   </body>
 </html>
+
