@@ -715,11 +715,11 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
 
         {/* Desktop Table View (shown on screens >= md) */}
-        <div className="hidden md:block overflow-x-auto no-scrollbar pb-2">
+        <div className="hidden md:block overflow-x-auto no-scrollbar pb-2 relative">
           <table className="w-full text-xs text-left text-slate-700 table-auto">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
+            <thead className="bg-white/95 backdrop-blur-sm text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px] sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
               <tr>
-                <th className="py-2.5 px-1.5 w-8 text-center">
+                <th className="py-3 px-2 w-8 text-center border-b border-slate-200">
                   <input
                     type="checkbox"
                     checked={isAllSelected}
@@ -727,19 +727,19 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     className="w-3.5 h-3.5 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
                   />
                 </th>
-                <th className="py-2.5 px-2">Order ID</th>
-                <th className="py-2.5 px-2">Customer</th>
-                <th className="py-2.5 px-2">Phone</th>
-                <th className="py-2.5 px-2">Wilaya</th>
-                <th className="py-2.5 px-2">Address</th>
-                <th className="py-2.5 px-1.5 text-center">Items</th>
-                <th className="py-2.5 px-2">Total</th>
-                <th className="py-2.5 px-2">Est. Net</th>
-                <th className="py-2.5 px-2">Source</th>
-                <th className="py-2.5 px-2">Date</th>
-                <th className="py-2.5 px-2">Payment</th>
-                <th className="py-2.5 px-2">Status</th>
-                <th className="py-2.5 px-2 text-center">Actions</th>
+                <th className="py-3 px-2 border-b border-slate-200">Order ID</th>
+                <th className="py-3 px-2 border-b border-slate-200">Customer</th>
+                <th className="py-3 px-2 border-b border-slate-200">Phone</th>
+                <th className="py-3 px-2 border-b border-slate-200">Wilaya</th>
+                <th className="py-3 px-2 border-b border-slate-200">Address</th>
+                <th className="py-3 px-2 text-center border-b border-slate-200">Items</th>
+                <th className="py-3 px-2 text-right border-b border-slate-200">Total</th>
+                <th className="py-3 px-2 text-right border-b border-slate-200">Est. Net</th>
+                <th className="py-3 px-2 border-b border-slate-200">Source</th>
+                <th className="py-3 px-2 border-b border-slate-200">Date</th>
+                <th className="py-3 px-2 border-b border-slate-200">Payment</th>
+                <th className="py-3 px-2 border-b border-slate-200">Status</th>
+                <th className="py-3 px-2 text-center border-b border-slate-200">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -783,8 +783,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       {o.address || o.commune || '—'}
                     </td>
                     <td className="py-2.5 px-1.5 text-center font-bold text-slate-700">{itemCount}</td>
-                    <td className="py-2.5 px-2 font-bold text-slate-900 whitespace-nowrap">{Number(o.total || 0).toLocaleString()} DA</td>
-                    <td className={`py-2.5 px-2 font-bold whitespace-nowrap ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    <td className="py-2.5 px-2 font-bold text-slate-900 whitespace-nowrap text-right">{Number(o.total || 0).toLocaleString()} DA</td>
+                    <td className={`py-2.5 px-2 font-bold whitespace-nowrap text-right ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {profit >= 0 ? '+' : ''}{Math.round(profit).toLocaleString()} DA
                     </td>
                     <td className="py-2.5 px-2 whitespace-nowrap">
@@ -816,12 +816,12 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       <select
                         value={o.status || 'waiting'}
                         onChange={(e) => onUpdateStatus(o.id, e.target.value as Order['status'])}
-                        className={`text-[11px] font-bold px-2 py-1 rounded-lg border focus:outline-none ${
-                          o.status === 'delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                          o.status === 'confirmed' ? 'bg-blue-50 text-blue-800 border-blue-200' :
-                          o.status === 'shipping' ? 'bg-purple-50 text-purple-800 border-purple-200' :
-                          o.status === 'waiting' ? 'bg-amber-50 text-amber-800 border-amber-200' :
-                          'bg-rose-50 text-rose-800 border-rose-200'
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border focus:outline-none transition-colors ${
+                          o.status === 'delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' :
+                          o.status === 'confirmed' ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100' :
+                          o.status === 'shipping' ? 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100' :
+                          o.status === 'waiting' ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' :
+                          'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
                         }`}
                       >
                         <option value="waiting">Waiting</option>

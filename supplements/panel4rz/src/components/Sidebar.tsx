@@ -110,9 +110,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const sidebarContent = (
-    <div className="h-full flex flex-col bg-slate-900 text-white border-r border-slate-800">
+    <div className="h-full flex flex-col bg-slate-950 text-slate-300 border-r border-slate-800/60">
       {/* Brand Header */}
-      <div className="p-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+      <div className="p-4 flex items-center justify-between border-b border-slate-800/60 shrink-0">
         {(!isCollapsed || isMobileOpen) && (
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 bg-red-700 rounded-lg flex items-center justify-center font-black text-xs">B</span>
@@ -170,10 +170,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     key={item.id}
                     onClick={() => handleTabClick(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 active:scale-[0.98] ${
                       isActive
-                        ? 'bg-red-700 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-red-600 text-white shadow-sm shadow-red-900/20'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
                     } ${showCollapsed ? 'justify-center px-0' : ''}`}
                     title={showCollapsed ? item.label : undefined}
                   >
@@ -200,12 +200,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Quick Link to Storefront */}
-      <div className="px-3 py-2 border-t border-slate-800 shrink-0">
+      <div className="px-3 py-2 border-t border-slate-800/60 shrink-0">
         <a
           href="/"
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-2 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/80 text-emerald-300 py-2 px-3 rounded-xl font-bold text-[11px] transition-all shadow-2xs group"
+          className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700/50 text-slate-300 hover:text-white py-2 px-3 rounded-xl font-bold text-[11px] transition-all shadow-sm group"
           title="Open live customer storefront website"
         >
           <Globe className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
@@ -215,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer User & Auth Controls */}
-      <div className="p-3 border-t border-slate-800 text-xs shrink-0">
+      <div className="p-3 border-t border-slate-800/60 text-xs shrink-0">
         {(!isCollapsed || isMobileOpen) ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -223,13 +223,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className="truncate text-[11px] font-bold">{adminEmail || 'admin@bybens.com'}</span>
               </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
             </div>
 
             {onLogout && (
               <button
                 onClick={() => { if (onLogout) onLogout(); if (onCloseMobile) onCloseMobile(); }}
-                className="w-full flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-rose-900/80 hover:text-white text-slate-400 py-2 px-3 rounded-xl font-bold text-[11px] transition-all"
+                className="w-full flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-rose-900/80 hover:text-white text-slate-400 py-2 px-3 rounded-xl font-bold text-[11px] transition-all border border-transparent hover:border-rose-800/50"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sign Out</span>
@@ -240,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onLogout && (
             <button
               onClick={onLogout}
-              className="w-full p-2 bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-white rounded-xl flex justify-center transition-colors"
+              className="w-full p-2 bg-slate-900 hover:bg-rose-900/80 text-slate-400 hover:text-white rounded-xl flex justify-center transition-all border border-transparent hover:border-rose-800/50"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />

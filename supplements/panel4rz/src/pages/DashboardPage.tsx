@@ -677,65 +677,63 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       {/* ── Order KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Revenue Orders', value: allOrders.length, prevValue: prevPeriodOrders, sub: `${weekOrders.length} this week (all statuses)`, gradient: 'from-blue-600 to-blue-700 shadow-blue-200', icon: <ShoppingCart className="w-4 h-4" /> },
-          { label: 'Avg. Order Value', value: avgOrderValue, prevValue: 0, sub: 'per order (excl. canceled)', gradient: 'from-emerald-500 to-emerald-600 shadow-emerald-200', icon: <TrendingUp className="w-4 h-4" />, suffix: ' DA' },
-          { label: 'Delivery Rate', value: deliveryRate, prevValue: 0, sub: `${statusCounts.delivered} delivered`, gradient: 'from-violet-600 to-violet-700 shadow-violet-200', icon: <CheckCircle className="w-4 h-4" />, decimals: 1, suffix: '%' },
-          { label: 'This Week', value: weekOrders.length, prevValue: prevWeekOrders.length, sub: weekTrend !== 0 ? `${weekTrend > 0 ? '↑' : '↓'} ${Math.abs(weekTrend)} vs prev week` : '= same as prev week', gradient: weekTrend >= 0 ? 'from-amber-500 to-orange-500 shadow-amber-200' : 'from-rose-500 to-red-600 shadow-rose-200', icon: weekTrend >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" /> },
-        ].map(({ label, value, prevValue, sub, gradient, icon, suffix = '', decimals = 0 }) => (
-          <div key={label} className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-4 rounded-2xl text-white shadow-lg`}>
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-white/10 rounded-full" />
-            <div className="absolute -right-2 -bottom-6 w-28 h-28 bg-white/5 rounded-full" />
-            <div className="flex items-center justify-between mb-2 relative">
-              <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider">{label}</span>
+          { label: 'Revenue Orders', value: allOrders.length, prevValue: prevPeriodOrders, sub: `${weekOrders.length} this week (all statuses)`, accent: 'text-blue-600 bg-blue-50', icon: <ShoppingCart className="w-4 h-4" /> },
+          { label: 'Avg. Order Value', value: avgOrderValue, prevValue: 0, sub: 'per order (excl. canceled)', accent: 'text-emerald-600 bg-emerald-50', icon: <TrendingUp className="w-4 h-4" />, suffix: ' DA' },
+          { label: 'Delivery Rate', value: deliveryRate, prevValue: 0, sub: `${statusCounts.delivered} delivered`, accent: 'text-violet-600 bg-violet-50', icon: <CheckCircle className="w-4 h-4" />, decimals: 1, suffix: '%' },
+          { label: 'This Week', value: weekOrders.length, prevValue: prevWeekOrders.length, sub: weekTrend !== 0 ? `${weekTrend > 0 ? '↑' : '↓'} ${Math.abs(weekTrend)} vs prev week` : '= same as prev week', accent: weekTrend >= 0 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50', icon: weekTrend >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" /> },
+        ].map(({ label, value, prevValue, sub, accent, icon, suffix = '', decimals = 0 }) => (
+          <div key={label} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
               <div className="flex items-center gap-1.5">
                 {period !== 'all' && prevValue > 0 && <DeltaBadge current={value} previous={prevValue} />}
-                <div className="p-1.5 bg-white/20 rounded-lg">{icon}</div>
+                <div className={`p-2 rounded-xl ${accent}`}>{icon}</div>
               </div>
             </div>
-            <div className="text-3xl font-black relative leading-tight">
-              <AnimatedCounter value={value} decimals={decimals} />{suffix}
+            <div className="text-3xl font-black text-slate-900 leading-tight">
+              <AnimatedCounter value={value} decimals={decimals} />{suffix && <span className="text-lg font-bold text-slate-400 ml-1">{suffix}</span>}
             </div>
-            <div className="text-[10px] text-white/70 mt-1 font-medium">{sub}</div>
+            <div className="text-[10px] text-slate-500 mt-1 font-medium">{sub}</div>
           </div>
         ))}
       </div>
 
       {/* ── Financial KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
           <div className="flex justify-between items-start mb-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gross Revenue</span>
             {period !== 'all' && <DeltaBadge current={grossRevenue} previous={prevPeriodRevenue} />}
           </div>
-          <div className="text-xl font-black text-slate-900"><AnimatedCounter value={grossRevenue} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
-          <div className="text-[10px] text-slate-500 mt-1">{periodLabel}</div>
+          <div className="text-xl font-black text-slate-900"><AnimatedCounter value={grossRevenue} /> <span className="text-xs font-bold text-slate-400 ml-0.5">DA</span></div>
+          <div className="text-[10px] text-slate-500 mt-1 font-medium">{periodLabel}</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
           <div className="flex justify-between items-start mb-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gross Profit</span>
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${grossProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{fmtPct(grossMarginPct)}</span>
           </div>
-          <div className={`text-xl font-black ${grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{grossProfit >= 0 ? '+' : '-'}<AnimatedCounter value={Math.abs(grossProfit)} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
-          <div className="text-[10px] text-slate-500 mt-1">Net Product Sales - landed COGS</div>
+          <div className={`text-xl font-black ${grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{grossProfit >= 0 ? '+' : '-'}<AnimatedCounter value={Math.abs(grossProfit)} /> <span className="text-xs font-bold text-slate-400 ml-0.5">DA</span></div>
+          <div className="text-[10px] text-slate-500 mt-1 font-medium">Net Product Sales - landed COGS</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">OPEX</div>
           <div className="flex items-baseline gap-x-3 flex-wrap">
-            <span className="text-xl font-black text-rose-600">-<AnimatedCounter value={opexPeriodDzdNative} /> <span className="text-xs font-semibold text-slate-400">DA</span></span>
-            <span className="text-xl font-black text-rose-500">-€ <AnimatedCounter value={opexPeriodEurNative} /></span>
+            <span className="text-xl font-black text-rose-600">-<AnimatedCounter value={opexPeriodDzdNative} /> <span className="text-xs font-bold text-slate-400 ml-0.5">DA</span></span>
+            <span className="text-lg font-black text-rose-500">-€ <AnimatedCounter value={opexPeriodEurNative} /></span>
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">{periodLabel} · all-time: {fmtNum(allTimeOpexDzdNative)} DA + € {fmtEur(allTimeOpexEurNative)}</div>
+          <div className="text-[10px] text-slate-500 mt-1 font-medium">{periodLabel} · all-time: {fmtNum(allTimeOpexDzdNative)} DA + € {fmtEur(allTimeOpexEurNative)}</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
           <div className="flex justify-between items-start mb-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Net Profit</span>
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${netProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{fmtPct(netMarginPct)}</span>
           </div>
-          <div className={`text-xl font-black ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{netProfit >= 0 ? '+' : '-'}<AnimatedCounter value={Math.abs(netProfit)} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
-          <div className="text-[10px] text-slate-500 mt-1">Gross profit – OPEX</div>
+          <div className={`text-xl font-black ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{netProfit >= 0 ? '+' : '-'}<AnimatedCounter value={Math.abs(netProfit)} /> <span className="text-xs font-bold text-slate-400 ml-0.5">DA</span></div>
+          <div className="text-[10px] text-slate-500 mt-1 font-medium">Gross profit – OPEX</div>
         </div>
       </div>
 
@@ -747,7 +745,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           { label: 'POS Sales', value: posOrders.length, sub: `${fmtNum(posOrders.reduce((s, o) => s + (Number(o.total) || 0), 0))} DA`, icon: <Zap className="w-4 h-4 text-amber-600" />, bg: 'bg-amber-50' },
           { label: 'Repeat Customers', value: repeatCustomerRate, sub: `${fmtPct(cancelRate)} cancel rate`, icon: <RefreshCw className="w-4 h-4 text-rose-600" />, bg: 'bg-rose-50', decimals: 1, suffix: '%' },
         ].map(({ label, value, sub, icon, bg, decimals = 0, suffix = '' }) => (
-          <div key={label} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div key={label} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
               <div className={`p-2 ${bg} rounded-xl`}>{icon}</div>
@@ -760,18 +758,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
       {/* ── Pre-order conversion + cancellation row ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Pre-Order Conversion</div>
           <div className="flex items-end gap-2">
             <div className="text-3xl font-black text-slate-900"><AnimatedCounter value={preConversion} decimals={1} />%</div>
-            <div className="text-xs text-slate-500 mb-1">{preorders.filter(p => p.status === 'fulfilled').length}/{preorders.length} fulfilled</div>
+            <div className="text-xs text-slate-500 mb-1 font-medium">{preorders.filter(p => p.status === 'fulfilled').length}/{preorders.length} fulfilled</div>
           </div>
           <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-700" style={{ width: `${preConversion}%` }} />
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Cancellation Rate</div>
           <div className="flex items-end gap-2">
             <div className={`text-3xl font-black ${cancelRate > 15 ? 'text-rose-600' : cancelRate > 8 ? 'text-amber-500' : 'text-emerald-600'}`}>
@@ -784,14 +782,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
             <div className={`h-full rounded-full transition-all duration-700 ${cancelRate > 15 ? 'bg-rose-500' : cancelRate > 8 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(cancelRate, 100)}%` }} />
           </div>
-          <div className="text-[10px] text-slate-400 mt-1">This month: {cancelThisMonth} · Prev: {cancelPrevMonth}</div>
+          <div className="text-[10px] text-slate-400 mt-1 font-medium">This month: {cancelThisMonth} · Prev: {cancelPrevMonth}</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Revenue Forecast</div>
-          <div className="text-[9px] text-slate-400 mb-2">{forecastLabel} projection</div>
-          <div className="text-2xl font-black text-slate-900"><AnimatedCounter value={forecastNextMonth} /> <span className="text-xs font-semibold text-slate-400">DA</span></div>
-          <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-500">
+          <div className="text-[9px] text-slate-400 mb-2 font-medium">{forecastLabel} projection</div>
+          <div className="text-2xl font-black text-slate-900"><AnimatedCounter value={forecastNextMonth} /> <span className="text-xs font-bold text-slate-400 ml-0.5">DA</span></div>
+          <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-500 font-medium">
             <Activity className="w-3 h-3 text-red-500" />
             <span>Based on 6-month linear trend</span>
           </div>
@@ -799,20 +797,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             {monthlyRevenues.map((v, i) => {
               const maxM = Math.max(...monthlyRevenues, forecastNextMonth, 1);
               const isLast = i === monthlyRevenues.length - 1;
-              return <div key={i} className={`flex-1 rounded-sm ${isLast ? 'bg-red-300' : 'bg-slate-200'}`} style={{ height: `${Math.max((v / maxM) * 100, 4)}%` }} />;
+              return <div key={i} className={`flex-1 rounded-sm transition-colors ${isLast ? 'bg-red-300' : 'bg-slate-200 hover:bg-slate-300'}`} style={{ height: `${Math.max((v / maxM) * 100, 4)}%` }} />;
             })}
             <div className="flex-1 rounded-sm bg-red-500 opacity-60" style={{ height: `${Math.max((forecastNextMonth / Math.max(...monthlyRevenues, forecastNextMonth, 1)) * 100, 4)}%` }} />
           </div>
-          <div className="text-[8px] text-slate-400 mt-0.5 text-right">← 6mo + forecast →</div>
+          <div className="text-[8px] text-slate-400 mt-0.5 text-right font-medium">← 6mo + forecast →</div>
         </div>
       </div>
 
       {/* ── Revenue Trend Chart + Channel Breakdown ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4 text-red-600" /> Revenue Trend — Last 6 Months</h3>
-            <div className="flex items-center gap-3 text-[9px] font-semibold text-slate-500">
+            <div className="flex items-center gap-3 text-[9px] font-bold text-slate-500">
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-blue-500 inline-block" />Online</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />POS</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-purple-400 inline-block" />Pre-order</span>
@@ -821,10 +819,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <RevenueBarChart orders={allOrders} preorders={preorders} posOrders={posOrders} />
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4 transition-all duration-200 hover:shadow-md">
           <div>
             <h3 className="font-bold text-slate-900 text-sm">Revenue by Channel</h3>
-            <p className="text-[10px] text-slate-400">{periodLabel}</p>
+            <p className="text-[10px] text-slate-400 font-medium">{periodLabel}</p>
           </div>
           <div className="space-y-4">
             <HBar label="🌐 Online" value={channelRevenue.online} total={channelRevenue.total} color="bg-blue-500" />
@@ -839,7 +837,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* ── Wilaya Breakdown ── */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md">
         <h3 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
           <MapPin className="w-4 h-4 text-red-600" /> Orders by Wilaya — Top 8
         </h3>
