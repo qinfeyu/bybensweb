@@ -51,12 +51,19 @@ async function sendTelegram(message) {
 async function adjustStock(items, direction) {
   if (!items || !Array.isArray(items) || items.length === 0) return;
 
-  // Pre-fetch all inventory items once so every per-item lookup is in-memory
+  // Pre-fetch all inventory items AND products once so every per-item lookup is purely in-memory
   let allInvItems = [];
+  let allProds = [];
   try {
-    const invAllRes = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?select=*`, { headers: SB_HEADERS });
+    const [invAllRes, prodAllRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/inventory_items?select=*`, { headers: SB_HEADERS }),
+      // Fetch a lean version of the product catalog (no heavy text columns)
+      fetch(`${SUPABASE_URL}/rest/v1/products?select=id,name,variants,stock,bundle_items`, { headers: SB_HEADERS })
+    ]);
     const invAllRows = await invAllRes.json().catch(() => ([]));
     if (Array.isArray(invAllRows)) allInvItems = invAllRows;
+    const prodAllRows = await prodAllRes.json().catch(() => ([]));
+    if (Array.isArray(prodAllRows)) allProds = prodAllRows;
   } catch (_) {}
 
   // Helper: deduct stock from a single inventory row by its canonical id
@@ -118,27 +125,21 @@ async function adjustStock(items, direction) {
     const rawFlavor = String(item.flavor || "").trim();
     const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
 
-    // Fetch product by id
-    const pRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(prodId)}&limit=1`, { headers: SB_HEADERS });
-    const pRows = await pRes.json().catch(() => ([]));
-    let prod = Array.isArray(pRows) && pRows.length > 0 ? pRows[0] : null;
+    // 1. Try finding product by ID from our in-memory catalog
+    let prod = allProds.find(p => String(p.id).toLowerCase() === String(prodId).toLowerCase());
 
     if (!prod) {
-      // Try finding product by matching variant/flavor SKU value
-      const allRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*`, { headers: SB_HEADERS });
-      const allProds = await allRes.json().catch(() => ([]));
-      if (Array.isArray(allProds)) {
-        prod = allProds.find((p) => {
-          if (!p.variants || !Array.isArray(p.variants)) return false;
-          return p.variants.some((v) => {
-            if (v.sku && String(v.sku).toLowerCase() === String(prodId).toLowerCase()) return true;
-            if (v.flavorSkus) {
-              return Object.values(v.flavorSkus).some((s) => String(s).toLowerCase() === String(prodId).toLowerCase());
-            }
-            return false;
-          });
+      // 2. Try finding product by matching variant/flavor SKU value
+      prod = allProds.find((p) => {
+        if (!p.variants || !Array.isArray(p.variants)) return false;
+        return p.variants.some((v) => {
+          if (v.sku && String(v.sku).toLowerCase() === String(prodId).toLowerCase()) return true;
+          if (v.flavorSkus) {
+            return Object.values(v.flavorSkus).some((s) => String(s).toLowerCase() === String(prodId).toLowerCase());
+          }
+          return false;
         });
-      }
+      });
     }
 
     if (!prod) {
