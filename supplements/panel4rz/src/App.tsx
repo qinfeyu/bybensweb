@@ -2025,11 +2025,16 @@ setGiftConfig(config);
       added_to_budget: budgetToAdd
     });
 
-    const updatePayload = {
+    const isPosCredit = getSourceType(target.source) === 'pos' && (target.status === 'unpaid' || (target as any).is_unpaid === true);
+
+    const updatePayload: any = {
       paid_amount: newPaid,
       payment_status: newPaymentStatus,
       payment_history: history
     };
+    if (newPaymentStatus === 'paid' && isPosCredit) {
+      updatePayload.status = 'delivered';
+    }
 
     try {
       await supabase.from('orders').update(updatePayload).eq('id', orderId);
