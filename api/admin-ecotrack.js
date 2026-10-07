@@ -41,8 +41,9 @@ module.exports = async function handler(req, res) {
     if (cleanPhone.startsWith('00213')) cleanPhone = '0' + cleanPhone.substring(5);
     payload.telephone = cleanPhone;
 
-    // Force "Colis Fragile" flag for all orders
+    // Force "Colis Fragile" and "Poids" flags for all orders
     payload.fragile = 1;
+    payload.weight = 2;
 
     const buildFormParams = (p) => {
       const formParams = new URLSearchParams();
