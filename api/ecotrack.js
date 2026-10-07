@@ -32,9 +32,22 @@ async function handleGet(req, res) {
         "Authorization": `Bearer ${SUPABASE_KEY}`
       }
     });
-    const orders = await sbRes.json().catch(() => []);
+    let orders = await sbRes.json().catch(() => []);
 
-    if (!orders || orders.length === 0) {
+    // If 'ecotrack_id' column doesn't exist, Supabase returns an error object, not an array.
+    if (!Array.isArray(orders)) {
+      // Fallback: try fetching without ecotrack_id to at least verify the order exists
+      const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=id,phone,status&limit=1`, {
+        headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
+      });
+      orders = await fallbackRes.json().catch(() => []);
+      
+      if (!Array.isArray(orders)) {
+        return res.status(500).json({ success: false, error: "Database error. Please ensure the ecotrack_id column is created." });
+      }
+    }
+
+    if (orders.length === 0) {
       return res.status(404).json({ success: false, error: "Order not found." });
     }
 
