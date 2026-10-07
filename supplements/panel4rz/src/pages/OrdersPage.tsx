@@ -294,7 +294,21 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       if (data.success) {
         showToast?.("Successfully added to Ecotrack!", "success");
       } else {
-        showToast?.(`Ecotrack Error: ${data.error || "Unknown"}`, "error");
+        let errorMsg = data.error || "Unknown Ecotrack error";
+        if (data.details && typeof data.details === 'object') {
+          const msgs: string[] = [];
+          for (const [key, val] of Object.entries(data.details)) {
+            if (Array.isArray(val)) {
+              msgs.push(`${key}: ${val.join(', ')}`);
+            } else if (typeof val === 'string') {
+              msgs.push(`${key}: ${val}`);
+            }
+          }
+          if (msgs.length > 0) {
+            errorMsg = `Ecotrack Validation: ${msgs.join(' | ')}`;
+          }
+        }
+        showToast?.(errorMsg, "error");
         console.error("Ecotrack error details:", data.details);
       }
     } catch (err: any) {

@@ -1,6 +1,15 @@
 const ECOTRACK_API_TOKEN = process.env.ECOTRACK_API_TOKEN || "";
 const ECOTRACK_API_URL = process.env.ECOTRACK_API_URL || "https://app.ecotrack.dz/api/v1/create/order";
 
+function normalizeString(str) {
+  if (!str) return "";
+  return String(str)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ''); // Remove spaces, hyphens, etc.
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -26,26 +35,75 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ success: false, error: "ECOTRACK_API_TOKEN is not configured on the server." });
     }
 
-    // Ecotrack often expects application/x-www-form-urlencoded with api_token in the body
-    const formParams = new URLSearchParams();
-    formParams.append("api_token", ECOTRACK_API_TOKEN);
-    for (const [key, value] of Object.entries(payload)) {
-      formParams.append(key, value);
-    }
+    // 1. Auto-sanitize Phone Number
+    let cleanPhone = String(payload.telephone).replace(/\s+/g, ''); // remove spaces
+    if (cleanPhone.startsWith('+213')) cleanPhone = '0' + cleanPhone.substring(4);
+    if (cleanPhone.startsWith('00213')) cleanPhone = '0' + cleanPhone.substring(5);
+    payload.telephone = cleanPhone;
 
-    const response = await fetch(ECOTRACK_API_URL, {
+    const buildFormParams = (p) => {
+      const formParams = new URLSearchParams();
+      formParams.append("api_token", ECOTRACK_API_TOKEN);
+      for (const [key, value] of Object.entries(p)) {
+        formParams.append(key, value);
+      }
+      return formParams;
+    };
+
+    let response = await fetch(ECOTRACK_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Bearer ${ECOTRACK_API_TOKEN}` // Keep Bearer as fallback
+        "Authorization": `Bearer ${ECOTRACK_API_TOKEN}`
       },
-      body: formParams
+      body: buildFormParams(payload)
     });
 
-    const data = await response.json().catch(() => null);
+    let data = await response.json().catch(() => null);
+
+    // 2. Auto-Match Commune if 422 "Commune mal écrite"
+    if (!response.ok && response.status === 422 && JSON.stringify(data).includes("Commune mal écrite")) {
+      try {
+        const communesUrl = ECOTRACK_API_URL.replace('/create/order', '/get/communes');
+        const resComm = await fetch(`${communesUrl}?api_token=${ECOTRACK_API_TOKEN}&wilaya_id=${payload.code_wilaya}`, {
+          headers: { "Authorization": `Bearer ${ECOTRACK_API_TOKEN}` }
+        });
+        const commData = await resComm.json().catch(() => null);
+        
+        let correctedCommune = null;
+        if (commData && typeof commData === 'object') {
+          const targetNorm = normalizeString(payload.commune);
+          const items = Array.isArray(commData) ? commData : Object.values(commData);
+          for (const c of items) {
+            if (c && c.nom && c.wilaya_id == payload.code_wilaya) {
+              if (normalizeString(c.nom) === targetNorm) {
+                correctedCommune = c.nom;
+                break;
+              }
+            }
+          }
+        }
+
+        // Retry with corrected commune
+        if (correctedCommune) {
+          payload.commune = correctedCommune;
+          response = await fetch(ECOTRACK_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "Authorization": `Bearer ${ECOTRACK_API_TOKEN}`
+            },
+            body: buildFormParams(payload)
+          });
+          data = await response.json().catch(() => null);
+        }
+      } catch (err) {
+        // Silently fail auto-correction and pass original error
+        console.error("Commune auto-correction failed", err);
+      }
+    }
 
     if (!response.ok) {
-      // Changed to 400 so we can distinguish from Vercel's 404
       return res.status(400).json({ 
         success: false, 
         error: `Provider API Error (${response.status}): ${data?.message || data?.error || 'Endpoint not found or invalid payload. Check ECOTRACK_API_URL.'}`,
