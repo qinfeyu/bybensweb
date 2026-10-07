@@ -26,21 +26,29 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ success: false, error: "ECOTRACK_API_TOKEN is not configured on the server." });
     }
 
+    // Ecotrack often expects application/x-www-form-urlencoded with api_token in the body
+    const formParams = new URLSearchParams();
+    formParams.append("api_token", ECOTRACK_API_TOKEN);
+    for (const [key, value] of Object.entries(payload)) {
+      formParams.append(key, value);
+    }
+
     const response = await fetch(ECOTRACK_API_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${ECOTRACK_API_TOKEN}`
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `Bearer ${ECOTRACK_API_TOKEN}` // Keep Bearer as fallback
       },
-      body: JSON.stringify(payload)
+      body: formParams
     });
 
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      return res.status(response.status).json({ 
+      // Changed to 400 so we can distinguish from Vercel's 404
+      return res.status(400).json({ 
         success: false, 
-        error: data?.message || data?.error || `Ecotrack API Error: ${response.status}`,
+        error: `Provider API Error (${response.status}): ${data?.message || data?.error || 'Endpoint not found or invalid payload. Check ECOTRACK_API_URL.'}`,
         details: data 
       });
     }
