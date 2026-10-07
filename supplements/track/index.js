@@ -281,9 +281,11 @@
     let dHTML = "", mHTML = "";
     cats.forEach(function(cat) {
       const catSubs = subs.filter(function(s) {
-        const ids = Array.isArray(s.category_ids)
-          ? s.category_ids
-          : (s.category_ids || "").split(",").filter(Boolean);
+        const ids = Array.isArray(s.categoryIds)
+          ? s.categoryIds
+          : Array.isArray(s.category_ids)
+            ? s.category_ids
+            : (s.category_ids || "").split(",").filter(Boolean);
         return ids.includes(cat.id);
       });
       if (catSubs.length > 0) {
@@ -445,6 +447,19 @@
   /* ── Theme toggle (kept for parity with site header) ── */
   function toggleTheme() {}
 
+  /* ── Expose handlers to inline onclick/oninput attributes ── */
+  window.switchLang = switchLang;
+  window.goSearch = goSearch;
+  window.handleSearch = handleSearch;
+  window.closeSearchDropdown = closeSearchDropdown;
+  window.handleSearchKey = handleSearchKey;
+  window.openMobileSearch = openMobileSearch;
+  window.closeMobileSearch = closeMobileSearch;
+  window.handleMobileSearch = handleMobileSearch;
+  window.toggleMobileMenu = toggleMobileMenu;
+  window.toggleMobileCat = toggleMobileCat;
+  window.toggleTheme = toggleTheme;
+
   /* ── Scroll ── */
   window.addEventListener("scroll", function() {
     document.getElementById("site-header").classList.toggle("scrolled", window.scrollY > 12);
@@ -472,31 +487,24 @@
     switchLang(currentLang);
     updateCartBadge();
 
-    const SB_URL = window.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
-    const SB_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZ3dsenVpZW14d3NucGlneWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTA3MDMsImV4cCI6MjA5ODgyNjcwM30.3IrYmHPKPUwki-hmkysLw3EAEcr_h8wLHZmRphDiOpI";
-    const h = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
-    fetch(SB_URL + "/rest/v1/products?select=id,name,brand,price,variants,flavors,imageUrl", { headers: h })
-      .then(function(r) { return r.json(); })
-      .then(function(rows) {
-        if (!Array.isArray(rows)) return;
+    window.getInitialData().then(function(data) {
+      if (!data || !data.success) return;
+      var rows = Array.isArray(data.products) ? data.products : [];
+      if (rows.length) {
         products = rows.map(function(p) {
-          try { p.variants = typeof p.variants === "string" ? JSON.parse(p.variants) : (p.variants || []); } catch(e) { p.variants = []; }
-          try { p.flavors = typeof p.flavors === "string" ? JSON.parse(p.flavors) : (p.flavors || []); } catch(e) { p.flavors = []; }
-          try { p.imageUrl = typeof p.imageUrl === "string" && p.imageUrl[0] === "[" ? JSON.parse(p.imageUrl) : p.imageUrl; } catch(e) {}
+          try { p.variants = typeof p.variants === "string" ? JSON.parse(p.variants) : (Array.isArray(p.variants) ? p.variants : []); } catch(e) { p.variants = []; }
+          try { p.flavors = typeof p.flavors === "string" ? JSON.parse(p.flavors) : (Array.isArray(p.flavors) ? p.flavors : []); } catch(e) { p.flavors = []; }
           return p;
         });
-        var inp = document.getElementById("searchInput");
-        if (inp && inp.value.trim()) handleSearch(inp.value);
-        var minp = document.getElementById("mobileSearchInput");
-        if (minp && minp.value.trim()) handleMobileSearch(minp.value);
-      })
-      .catch(function() {});
-
-    Promise.all([
-      fetch(SB_URL + "/rest/v1/categories?select=id,name", { headers: h }).then(function(r) { return r.json(); }),
-      fetch(SB_URL + "/rest/v1/sub_categories?select=id,name,category_ids", { headers: h }).then(function(r) { return r.json(); })
-    ]).then(function(results) {
-      renderCatNav(results[0] || [], results[1] || []);
+      }
+      renderCatNav(
+        Array.isArray(data.categories) ? data.categories : [],
+        Array.isArray(data.subCategories) ? data.subCategories : []
+      );
+      var inp = document.getElementById("searchInput");
+      if (inp && inp.value.trim()) handleSearch(inp.value);
+      var minp = document.getElementById("mobileSearchInput");
+      if (minp && minp.value.trim()) handleMobileSearch(minp.value);
     }).catch(function() {}).finally(function() {
       var _s = document.getElementById('dataSpinner');
       if (_s) _s.style.display = 'none';
