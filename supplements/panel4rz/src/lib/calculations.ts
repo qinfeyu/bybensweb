@@ -62,8 +62,8 @@ export function getProductPricingAndCost(
     if (prod.variants && prod.variants.length > 0) {
       const v = prod.variants.find(x => {
         const label = x.weight ? `${x.weight}${x.unit || ""}`.trim().toLowerCase() : String(x.label || x.name || "").trim().toLowerCase();
-        return label === vNameStr || !vNameStr;
-      }) || prod.variants[0];
+        return label === vNameStr || (!vNameStr && prod.variants?.length === 1);
+      });
 
       if (v) {
         if (Number(v.price)) retailPrice = Number(v.price);
@@ -96,9 +96,29 @@ export function getProductPricingAndCost(
     }
   }
 
-  // 3. Fallback search in inventoryItems by Name
-  if (!inv && pIdStr) {
-    inv = inventoryItems.find(x => String(x.name || "").toLowerCase().trim() === pIdStr);
+  // 3. Fallback search in inventoryItems by Name + Variant + Flavor
+  // Crucial for historical orders where the variant was deleted from the catalog.
+  if (!inv) {
+    const searchName = prod ? String(prod.name).toLowerCase().trim() : pIdStr;
+    const fNameStr = String(flavorName || "").toLowerCase().trim();
+    
+    inv = inventoryItems.find(x => {
+      const invName = String(x.name || "").toLowerCase().trim();
+      const invVar = String(x.variant_spec || x.size || "").toLowerCase().trim();
+      
+      const matchesName = invName === searchName || invName.includes(searchName) || searchName.includes(invName);
+      
+      if (!matchesName) return false;
+
+      // If we have a specific variant or flavor from the old order, require it to match the inventory item's specs
+      if (vNameStr || fNameStr) {
+        const hasVariantMatch = !vNameStr || invName.includes(vNameStr) || invVar.includes(vNameStr) || vNameStr.includes(invVar);
+        const hasFlavorMatch = !fNameStr || invName.includes(fNameStr) || invVar.includes(fNameStr) || fNameStr.includes(invVar);
+        return hasVariantMatch && hasFlavorMatch;
+      }
+      
+      return true;
+    });
   }
 
   // 4. Calculate landed unit cost & retail price from matched inventory item
