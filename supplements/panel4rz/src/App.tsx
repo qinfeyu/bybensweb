@@ -1905,11 +1905,13 @@ setGiftConfig(config);
     const id = `POS-${Date.now()}`;
     const isUnpaid = orderData.paymentStatus === 'unpaid';
 
+    const nameParts = (orderData.firstName || 'POS').trim().split(/\s+/).filter(Boolean);
+
     const newOrder: Order = {
       id,
       source: 'POS',
-      firstName: orderData.firstName || 'POS',
-      lastName: 'Customer',
+      firstName: nameParts[0] || 'POS',
+      lastName: nameParts.length > 1 ? nameParts.slice(1).join(' ') : '',
       phone: orderData.phone || '0000000000',
       address: 'Store Pickup',
       wilaya: 'Alger',
