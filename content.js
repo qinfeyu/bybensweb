@@ -13,6 +13,14 @@ window.BYBENS_CONTENT = {
     "footer.contact": "Send a Message",
     "footer.rights": "All rights reserved.",
     "footer.privacy": "Privacy Policy",
+    "footer.trackOrder": "Track Order",
+    "track.pageTitle": "Track Your Order | ByBens",
+    "track.title": "Track Your Order",
+    "track.subtitle": "Enter your Order ID and Phone Number to check your delivery status.",
+    "track.orderIdLabel": "Order ID",
+    "track.phoneLabel": "Phone Number",
+    "track.buttonText": "Track Order",
+    "track.timelineTitle": "Tracking History",
 
     // Nav
     "nav.home": "Home",
@@ -105,6 +113,14 @@ window.BYBENS_CONTENT = {
     "footer.contact": "Envoyer un message",
     "footer.rights": "Tous droits réservés.",
     "footer.privacy": "Confidentialité",
+    "footer.trackOrder": "Suivre ma commande",
+    "track.pageTitle": "Suivre ma commande | ByBens",
+    "track.title": "Suivre ma commande",
+    "track.subtitle": "Entrez votre numéro de commande et numéro de téléphone pour vérifier le statut.",
+    "track.orderIdLabel": "Numéro de Commande",
+    "track.phoneLabel": "Numéro de Téléphone",
+    "track.buttonText": "Suivre",
+    "track.timelineTitle": "Historique de suivi",
 
     // Nav
     "nav.home": "Accueil",
@@ -196,7 +212,15 @@ window.BYBENS_CONTENT = {
     "footer.categories": "الفئات",
     "footer.contact": "أرسل رسالة",
     "footer.rights": "جميع الحقوق محفوظة.",
-    "footer.privacy": "الخصوصية",
+    "footer.privacy": "سياسة الخصوصية",
+    "footer.trackOrder": "تتبع الطلب",
+    "track.pageTitle": "تتبع طلبك | ByBens",
+    "track.title": "تتبع طلبك",
+    "track.subtitle": "أدخل رقم الطلب ورقم الهاتف للتحقق من حالة التوصيل.",
+    "track.orderIdLabel": "رقم الطلب",
+    "track.phoneLabel": "رقم الهاتف",
+    "track.buttonText": "تتبع الطلب",
+    "track.timelineTitle": "سجل التتبع",
 
     // Nav
     "nav.home": "الرئيسية",

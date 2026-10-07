@@ -3348,38 +3348,46 @@
           },
         ];
 
-        try {
-          await fetch("/api/submit-order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "submitProductOrder",
-              source: "product-detail",
-              firstName,
-              lastName,
-              phone,
-              address,
-              wilaya: selectedWilayaCode
-                ? `${selectedWilayaCode} - ${wilayaName}`
-                : "",
-              commune: selectedCommuneName,
-              deliveryType: selectedDelivery,
-              deliveryCost: deliveryCharge,
-              promoCode: appliedPromos.map((pr) => pr.code).join(","),
-              promoDiscount: discount,
-              items: orderItemPayload,
-              subtotal,
-              total: totalNum,
-            }),
-          });
-        } catch (err) {
-          console.error("Order submission error:", err);
+        let orderId = null;
+          try {
+            const res = await fetch("/api/submit-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "submitProductOrder",
+                source: "product-detail",
+                firstName,
+                lastName,
+                phone,
+                address,
+                wilaya: selectedWilayaCode
+                  ? `${selectedWilayaCode} - ${wilayaName}`
+                  : "",
+                commune: selectedCommuneName,
+                deliveryType: selectedDelivery,
+                deliveryCost: deliveryCharge,
+                promoCode: appliedPromos.map((pr) => pr.code).join(","),
+                promoDiscount: discount,
+                items: orderItemPayload,
+                subtotal,
+                total: totalNum,
+              }),
+            });
+            const data = await res.json().catch(() => null);
+            if (data && data.success && data.id) {
+               orderId = data.id;
+            }
+          } catch (err) {
+            console.error("Order submission error:", err);
+          }
+  
+          if (orderId) {
+             document.getElementById("successMsg").innerHTML = `Thank you ${firstName}! Your order ID is <strong>${orderId}</strong>. Total: ${total} DA. We'll call you shortly to confirm.`;
+          } else {
+             document.getElementById("successMsg").innerHTML = `Thank you ${firstName}! Your order for ${p.name} - ${selectedQty}. Total: ${total} DA. We'll call you shortly to confirm.`;
+          }
+          document.getElementById("successOverlay").classList.add("show");
         }
-
-        document.getElementById("successMsg").textContent =
-          `Thank you ${firstName}! Your order for ${p.name} × ${selectedQty} — Total: ${total} DA. We'll call you shortly to confirm.`;
-        document.getElementById("successOverlay").classList.add("show");
-      }
 
       function closeSuccess() {
         document.getElementById("successOverlay").classList.remove("show");

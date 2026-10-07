@@ -3508,21 +3508,21 @@
           total,
         };
 
-        const submitBtn = document.getElementById("submitOrderBtn");
+                const submitBtn = document.getElementById("submitOrderBtn");
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; }
         try {
           const res = await fetch("/api/submit-order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
           const data = await res.json().catch(() => ({ success: true }));
           if (!data || data.success === false) {
             showToast((data && data.error) || "Order failed. Please try again.");
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ""; }
             return;
           }
-          document.getElementById("successMsg").textContent =
-            `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
+          const orderIdStr = data.id ? ` Your order ID is <strong>${data.id}</strong>.` : ` Your order of ${items.length} item${items.length !== 1 ? "s" : ""}.`;
+          document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orderIdStr} Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } catch (e) {
-          document.getElementById("successMsg").textContent =
-            `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""} — Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
+          document.getElementById("successMsg").innerHTML = `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""}. Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } finally {
           if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ""; }

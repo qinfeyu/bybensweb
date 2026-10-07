@@ -33,6 +33,7 @@
             <ul>
               <li><a href="/supplements" data-i18n="nav.home">Home</a></li>
               <li><a href="/supplements/products" data-i18n="nav.products">Products</a></li>
+              <li><a href="/track" data-i18n="footer.trackOrder">Track Order</a></li>
               <li><a href="#" data-i18n="footer.shipping" onclick="openShippingModal();return false;">Shipping Policy</a></li>
               <li><a href="#" data-i18n="footer.returns" onclick="openReturnsModal();return false;">Returns</a></li>
               <li><a href="/supplements/privacy" data-i18n="footer.privacy">Privacy Policy</a></li>
