@@ -4,96 +4,238 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="track.pageTitle">Track Your Order | ByBens</title>
-    
+    <!-- Open Graph & Twitter Social Meta Tags -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Track Your Order – ByBens Sports Nutrition Algeria" />
+    <meta property="og:description" content="Enter your Order ID and phone number to check your delivery status in real time." />
+    <meta property="og:image" content="https://www.bybens.com/images/og-main-banner.png" />
+    <meta property="og:url" content="https://www.bybens.com/track" />
+    <meta property="og:site_name" content="ByBens Sports Nutrition" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preconnect" href="https://uogwlzuiemxwsnpigydg.supabase.co" />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet" />
     <link rel="icon" href="/images/favicon.ico" />
-    
-    <link rel="stylesheet" href="/supplements/footer.css" />
-    <link rel="stylesheet" href="/supplements/track/css/style.css" />
+    <script>if(localStorage.getItem('bybens_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+    <link rel="stylesheet" href="/supplements/footer.css?v=2" />
 
-    <script src="/content.js" defer></script>
-    <script src="/supplements/i18n-client.js" defer></script>
-    <script src="/supplements/track/js/app.js" defer></script>
+    <link rel="stylesheet" href="/supplements/track/index.css?v=2" />
+    <script>if(sessionStorage.getItem('bb_wl'))document.documentElement.classList.add('bb-noanim');</script>
   </head>
   <body>
-    <!-- HEADER -->
-    <header class="site-header">
-      <div class="header-inner container">
-        <div class="logo">
-          <a href="/supplements/home" style="text-decoration:none;color:inherit;">BYBENS</a>
+
+    <!-- PAGE LOADER -->
+    <div id="pageLoader">
+      <div class="wl-bg"></div>
+      <div class="wl-grid"></div>
+      <div class="wl-rings"><div class="wl-ring"></div><div class="wl-ring"></div><div class="wl-ring"></div></div>
+      <div class="wl-flares"><div class="wl-flare"></div><div class="wl-flare"></div><div class="wl-flare"></div><div class="wl-flare"></div></div>
+      <div class="wl-particles"><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div><div class="wl-p"></div></div>
+      <div class="wl-body">
+        <div class="wl-logo-wrap">
+          <div class="wl-logo-glow"></div>
+          <img src="/images/logo.png" alt="ByBens" class="wl-logo" />
+          <div class="wl-shine"></div>
+          <div class="wl-shine2"></div>
         </div>
-        <div class="header-right">
-          <button
-            class="lang-btn"
-            id="langToggleBtn"
-            aria-label="Change Language"
-          >
-            <span class="lang-icon">🌐</span> <span id="currentLangDisplay">EN</span>
+        <div class="wl-line"></div>
+        <div class="wl-tagline">
+          <span class="wl-word">FUEL</span><span class="wl-word">·</span><span class="wl-word">PERFORM</span><span class="wl-word">·</span><span class="wl-word">DOMINATE</span>
+        </div>
+      </div>
+    </div>
+    <!-- Data loading spinner -->
+    <div id="dataSpinner"><div class="ds-ring"></div></div>
+
+    <!-- Marquee Placeholder -->
+    <div id="marqueePlaceholder"></div>
+
+    <!-- ─── HEADER ── -->
+    <header id="site-header">
+      <div class="container">
+        <nav class="top-nav" aria-label="Main navigation">
+          <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu" aria-expanded="false" onclick="toggleMobileMenu()">
+            <span></span><span></span><span></span>
           </button>
-        </div>
+
+          <a href="/supplements" class="logo" aria-label="ByBens Home">
+            <img src="/images/logo.png" alt="ByBens Logo" style="height:auto;width:auto;max-width:140px;object-fit:contain;" />
+          </a>
+
+          <a href="/supplements/products" class="nav-link" id="desktopSupplementsBtn">Supplements</a>
+
+          <div class="search-wrap" role="search" id="desktopSearch">
+            <input type="search" id="searchInput" placeholder="Search supplements, proteins, vitamins…" aria-label="Search products" autocomplete="off" oninput="handleSearch(this.value)" onkeydown="handleSearchKey(event)" />
+            <button class="search-btn" aria-label="Submit search" onclick="goSearch()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+            </button>
+            <div class="search-dropdown" id="searchDropdown"></div>
+          </div>
+
+          <button id="mobileSearchBtn" onclick="openMobileSearch()" aria-label="Search"
+            style="display:none;width:40px;height:40px;align-items:center;justify-content:center;border-radius:8px;color:var(--black);background:none;border:none;cursor:pointer;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </button>
+
+          <div class="nav-right">
+            <div class="lang-switch" role="group" aria-label="Language switcher">
+              <button class="lang-btn active" data-lang="en" onclick="switchLang('en')">EN</button>
+              <button class="lang-btn" data-lang="fr" onclick="switchLang('fr')">FR</button>
+              <button class="lang-btn" data-lang="ar" onclick="switchLang('ar')">AR</button>
+            </div>
+            <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode">
+              <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <button class="cart-btn" aria-label="Shopping cart" onclick="window.location.href='/supplements/checkout'">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+              <span class="cart-badge" id="cartBadge" style="display:none">0</span>
+            </button>
+          </div>
+        </nav>
       </div>
     </header>
 
-    <main class="track-main container">
-      <div class="track-header">
-        <h1 data-i18n="track.title">Track Your Order</h1>
-        <p data-i18n="track.subtitle">Enter your Order ID and Phone Number to check your delivery status.</p>
+    <!-- Category Nav -->
+    <div class="cat-nav" aria-label="Product categories">
+      <div class="container">
+        <div class="cat-nav-inner" id="catNavInner"></div>
       </div>
+    </div>
 
-      <div class="track-form-card">
-        <form id="trackForm">
-          <div class="form-group">
-            <label for="orderId" data-i18n="track.orderIdLabel">Order ID</label>
-            <input type="text" id="orderId" required placeholder="e.g. 1720000000000" />
-          </div>
-          <div class="form-group">
-            <label for="phone" data-i18n="track.phoneLabel">Phone Number</label>
-            <input type="text" id="phone" required placeholder="e.g. 0555123456" />
-          </div>
-          <button type="submit" class="track-btn" id="trackBtn">
-            <span data-i18n="track.buttonText">Track Order</span>
+    <!-- Mobile search overlay -->
+    <div id="mobileSearchOverlay" style="display:none;position:fixed;inset:0;background:var(--white);z-index:9998;flex-direction:column;padding:20px 24px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+        <div style="position:relative;flex:1">
+          <input type="search" id="mobileSearchInput" placeholder="Search supplements, proteins…"
+            style="width:100%;height:48px;padding:0 48px 0 16px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:16px;background:var(--gray-50);outline:none;font-family:var(--font-body);"
+            oninput="handleMobileSearch(this.value)" onkeydown="if(event.key==='Escape'){closeMobileSearch()}" />
+          <svg style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray-400);" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </div>
+        <button onclick="closeMobileSearch()" style="flex-shrink:0;font-size:15px;font-weight:600;color:var(--red);background:none;border:none;cursor:pointer;font-family:var(--font-body);padding:8px 4px;" data-i18n="search.cancel">Cancel</button>
+      </div>
+      <div id="mobileSearchResults" style="flex:1;overflow-y:auto;">
+        <p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">Start typing to search products…</p>
+      </div>
+    </div>
+
+    <!-- Mobile menu -->
+    <div class="mobile-menu" id="mobileMenu">
+      <div class="mobile-nav-links">
+        <a class="mobile-nav-link" href="/supplements/products">Supplements</a>
+      </div>
+      <div id="mobileCatItems"></div>
+      <div style="margin-top:24px;border-top:1px solid var(--gray-100);padding-top:20px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gray-400);margin-bottom:12px;">Language</div>
+        <div style="display:flex;gap:8px;">
+          <button class="lang-btn active" data-lang="en" onclick="switchLang('en')">EN</button>
+          <button class="lang-btn" data-lang="fr" onclick="switchLang('fr')">FR</button>
+          <button class="lang-btn" data-lang="ar" onclick="switchLang('ar')">AR</button>
+          <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" style="margin-left:auto;">
+            <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           </button>
-        </form>
-        <div class="error-msg" id="errorMsg"></div>
-      </div>
-
-      <!-- LOADER -->
-      <div class="loader-wrap hidden" id="trackLoader">
-        <div class="spinner"></div>
-      </div>
-
-      <!-- RESULTS -->
-      <div class="track-results hidden" id="trackResults">
-        <div class="status-summary" id="statusSummary">
-          <!-- Dynamically populated -->
-        </div>
-
-        <div class="timeline-container">
-          <h3 data-i18n="track.timelineTitle">Tracking History</h3>
-          <ul class="timeline" id="timelineList">
-            <!-- Dynamically populated -->
-          </ul>
         </div>
       </div>
-    </main>
+    </div>
+    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
 
-    <!-- Simple Footer -->
-    <footer class="site-footer">
-      <div class="container footer-content">
-        <div class="footer-col">
-          <div class="footer-logo">BYBENS NUTRITION</div>
-          <p data-i18n="footer.tagline">Premium authentic supplements.</p>
+    <!-- ─── HERO ── -->
+    <section class="track-hero">
+      <div class="container">
+        <div class="track-hero-eyebrow">ByBen's Supplements</div>
+        <h1 class="track-hero-title"><span data-i18n="track.title">Track Your Order</span></h1>
+        <p class="track-hero-sub" data-i18n="track.subtitle">Enter your Order ID and Phone Number to check your delivery status.</p>
+        <div class="track-hero-steps">
+          <div class="t-step"><span class="t-step-num">1</span><span data-i18n="track.heroStep1">Find your Order ID</span></div>
+          <div class="t-step"><span class="t-step-num">2</span><span data-i18n="track.heroStep2">Enter your phone number</span></div>
+          <div class="t-step"><span class="t-step-num">3</span><span data-i18n="track.heroStep3">Track in real time</span></div>
         </div>
       </div>
-      <div class="footer-bottom">
-        <div class="container">&copy; <span id="year"></span> BYBENS. All Rights Reserved.</div>
+    </section>
+
+    <!-- ─── CONTENT ── -->
+    <div class="track-body container">
+      <a href="/supplements" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        <span data-i18n="nav.home">Home</span>
+      </a>
+
+      <p class="track-intro" data-i18n="track.intro">Enter your Order ID and the phone number you used at checkout to see the real-time delivery status of your package.</p>
+
+      <div class="track-layout">
+        <!-- Search card -->
+        <div class="track-card">
+          <div class="track-card-head">
+            <div class="track-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <div>
+              <h3 data-i18n="track.formTitle">Find your package</h3>
+              <p data-i18n="track.formSub">We will look up your order and show its latest status.</p>
+            </div>
+          </div>
+
+          <form id="trackForm" novalidate>
+            <div class="form-group">
+              <label for="orderId" data-i18n="track.orderIdLabel">Order ID</label>
+              <input type="text" id="orderId" required autocomplete="off" data-i18n="track.orderIdPlaceholder" placeholder="e.g. 1720000000000" />
+            </div>
+            <div class="form-group">
+              <label for="phone" data-i18n="track.phoneLabel">Phone Number</label>
+              <input type="text" id="phone" required autocomplete="tel" data-i18n="track.phonePlaceholder" placeholder="e.g. 0555123456" />
+            </div>
+            <button type="submit" class="track-btn" id="trackBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <span data-i18n="track.buttonText">Track Order</span>
+            </button>
+          </form>
+          <div class="error-msg" id="errorMsg" role="alert"></div>
+        </div>
+
+        <!-- Results column -->
+        <div class="track-results-side">
+          <!-- LOADER -->
+          <div class="loader-wrap hidden" id="trackLoader">
+            <div class="spinner"></div>
+            <p data-i18n="track.loading">Looking up your order…</p>
+          </div>
+
+          <!-- RESULTS -->
+          <div class="track-results hidden" id="trackResults">
+            <div class="status-summary" id="statusSummary"></div>
+            <div class="timeline-container">
+              <h3 class="timeline-title">
+                <span data-i18n="track.timelineTitle">Tracking History</span>
+                <span class="timeline-id" id="timelineTrackingId"></span>
+              </h3>
+              <ul class="timeline" id="timelineList"></ul>
+            </div>
+          </div>
+        </div>
       </div>
-    </footer>
-    <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+    </div>
+
+    <!-- Footer -->
+    <div id="footerPlaceholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="/supplements/supabase-client.js?v=2" defer></script>
+    <script src="/supplements/track/index.js?v=2" defer></script>
+
+    <script src="/content.js?v=2" defer></script>
+    <script src="/supplements/marquee.js?v=2" defer></script>
+    <script src="/supplements/footer.js?v=2" defer></script>
   </body>
 </html>
