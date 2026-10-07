@@ -9,7 +9,12 @@
     <link rel="preconnect" href="https://uogwlzuiemxwsnpigydg.supabase.co" />
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet" />
     <link rel="icon" href="/images/favicon.ico" />
-    <script>if(localStorage.getItem('bybens_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+<script>if(localStorage.getItem('bybens_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+    <script>
+      window.__initialDataPromise = fetch("/api/initial-data")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; });
+    </script>
     <link rel="stylesheet" href="/supplements/footer.css?v=2" />
 
     <link rel="stylesheet" href="/supplements/privacy/index.css" />
@@ -251,7 +256,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="/supplements/supabase-client.js?v=2" defer></script>
-    <script src="/supplements/privacy/index.js?v=2" defer></script>
+    <script src="/supplements/privacy/index.js?v=3" defer></script>
 
     <script src="/content.js?v=2" defer></script>
     <script src="/supplements/marquee.js?v=2" defer></script>
