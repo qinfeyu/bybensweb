@@ -285,7 +285,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         stop_desk: (order.delivery_type === 'desk' || (order as any).deliveryType === 'desk' || String(order.delivery_type || '').includes('desk')) ? 1 : 0
       };
 
-      const res = await fetch('/api/admin-ecotrack', {
+      const res = await fetch('/api/ecotrack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

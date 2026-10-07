@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
     trackBtn.disabled = true;
 
     try {
-      const res = await fetch(`/api/track-order?orderId=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(phone)}`);
+      const res = await fetch(`/api/ecotrack?orderId=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(phone)}`);
       const data = await res.json();
 
       if (!data.success) {
