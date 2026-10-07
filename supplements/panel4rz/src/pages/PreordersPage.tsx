@@ -1143,7 +1143,7 @@ export const PreordersPage: React.FC<PreordersPageProps> = ({
                     {preorderItems.filter(x => x.pre_order_id === selectedPreorder.id).map((itm, idx) => {
                       const qty = Number(itm.qty) || 1;
                       const fallbackPrice = Number(itm.unit_price || itm.price || itm.unitPrice) || 0;
-                      const info = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, fallbackPrice, inventoryItems, products, defaultEurRate);
+                      const info = getProductPricingAndCost(itm.product_id || itm.product_name, itm.variant, itm.flavor, fallbackPrice, inventoryItems, products, defaultEurRate);
                       const price = fallbackPrice || info.retailPrice || 0;
                       const lineTotal = price * qty;
 

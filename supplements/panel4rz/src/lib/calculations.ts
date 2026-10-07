@@ -30,6 +30,7 @@ export function calculateWeightedAverageEurPrice(
 export function getProductPricingAndCost(
   productId: string,
   variantName: string | undefined,
+  flavorName: string | undefined,
   fallbackPrice: number,
   inventoryItems: InventoryItem[],
   products: Product[],
@@ -67,8 +68,19 @@ export function getProductPricingAndCost(
       if (v) {
         if (Number(v.price)) retailPrice = Number(v.price);
         
-        if (v.sku) {
-          const targetSkuStr = String(v.sku).toLowerCase().trim();
+        let targetSkuStr = "";
+        
+        if (v.flavorSkus && flavorName) {
+          const fNameStr = String(flavorName).toLowerCase().trim();
+          const fKey = Object.keys(v.flavorSkus).find(k => k.toLowerCase().trim() === fNameStr);
+          if (fKey) targetSkuStr = String(v.flavorSkus[fKey]).toLowerCase().trim();
+        }
+        
+        if (!targetSkuStr && v.sku) {
+          targetSkuStr = String(v.sku).toLowerCase().trim();
+        }
+
+        if (targetSkuStr) {
           const linkedInv = inventoryItems.find(x => 
             String(x.id || "").toLowerCase().trim() === targetSkuStr ||
             String(x.sku || "").toLowerCase().trim() === targetSkuStr
@@ -116,7 +128,32 @@ export function calculateOrderProfit(
   if (!o) return 0;
   const items = o.items || [];
   
-  let fallbackItemRevenue = 0;
+  let rawItemsTotal = 0;
+
+  // 1. Calculate base raw item total before discounts
+  items.forEach(it => {
+    const qty = Number(it.qty) || 1;
+    let unitP = Number(it.unitPrice || it.unit_price || it.price) || 0;
+    rawItemsTotal += unitP * qty;
+  });
+
+  // 2. Determine true Net Revenue (Order Total minus Delivery)
+  const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
+  const rawTotal = Number(o.total) || 0;
+  const rawSubtotal = Number(o.subtotal) || 0;
+  const promoDisc = Number((o as any).promo_discount || (o as any).promoDiscount) || 0;
+
+  let netRev = 0;
+  if (rawTotal > 0) {
+    netRev = Math.max(0, rawTotal - delCost);
+  } else if (rawSubtotal > 0) {
+    netRev = Math.max(0, rawSubtotal - promoDisc);
+  } else {
+    netRev = rawItemsTotal;
+  }
+
+  // 3. Accumulate COGS using ONLY real unit cost from inventory/catalog. 
+  // No random 70% guesswork! If a cost is completely missing, its COGS contribution is 0.
   let totalCogs = 0;
 
   items.forEach(it => {
@@ -125,40 +162,17 @@ export function calculateOrderProfit(
     const info = getProductPricingAndCost(
       it.productId || it.product_id || it.id || it.name || it.product_name || "", 
       it.variant, 
+      it.flavor,
       unitP > 0 ? unitP : 0,
       inventoryItems,
       products,
       defaultEurRate
     );
     
-    // Revenue contribution exactly as paid (0 if it's a gift)
-    fallbackItemRevenue += unitP * qty;
-    
-    // For COGS, we must estimate a value even if unitP is 0 (gift).
-    const estRetail = unitP > 0 ? unitP : (info.retailPrice > 0 ? info.retailPrice : Math.abs(unitP));
-    totalCogs += (info.unitCost || (estRetail * 0.7)) * qty;
+    if (info.unitCost > 0) {
+      totalCogs += info.unitCost * qty;
+    }
   });
-
-  const delCost = Number(o.delivery_cost || o.deliveryCost) || 0;
-  const rawTotal = Number(o.total) || 0;
-  const rawSubtotal = Number(o.subtotal) || 0;
-  const promoDisc = Number((o as any).promo_discount || (o as any).promoDiscount) || 0;
-
-  let netRev = 0;
-  // The most accurate net revenue is the rawTotal minus delivery.
-  if (rawTotal > 0) {
-    netRev = Math.max(0, rawTotal - delCost);
-  } else if (rawSubtotal > 0) {
-    // Fallback if total is inexplicably missing but subtotal exists
-    netRev = Math.max(0, rawSubtotal - promoDisc);
-  } else {
-    // Absolute fallback if everything is missing
-    netRev = fallbackItemRevenue;
-  }
-
-  if (totalCogs <= 0 && netRev > 0) {
-    totalCogs = netRev * 0.70;
-  }
 
   return netRev - totalCogs;
 }
@@ -173,7 +187,17 @@ export function calculatePreorderProfit(
   if (!p) return 0;
   const items = preorderItems.filter(x => x.pre_order_id === p.id);
   
-  let itemRevenue = 0;
+  let rawItemsTotal = 0;
+
+  if (items.length > 0) {
+    items.forEach(itm => {
+      const qty = Number(itm.qty) || 1;
+      const fallbackPrice = Number(itm.unit_price || itm.price || itm.unitPrice) || 0;
+      rawItemsTotal += fallbackPrice * qty;
+    });
+  }
+
+  const netRev = rawItemsTotal > 0 ? rawItemsTotal : (Number(p.total_amount) || 0);
   let totalCogs = 0;
 
   if (items.length > 0) {
@@ -183,20 +207,17 @@ export function calculatePreorderProfit(
       const info = getProductPricingAndCost(
         itm.product_id || itm.product_name, 
         itm.variant, 
+        itm.flavor,
         fallbackPrice,
         inventoryItems,
         products,
         defaultEurRate
       );
-      const price = fallbackPrice || info.retailPrice || 0;
-      itemRevenue += price * qty;
-      totalCogs += (info.unitCost || (price * 0.7)) * qty;
-    });
-  }
 
-  const netRev = itemRevenue > 0 ? itemRevenue : (Number(p.total_amount) || 0);
-  if (totalCogs <= 0 && netRev > 0) {
-    totalCogs = netRev * 0.70;
+      if (info.unitCost > 0) {
+        totalCogs += info.unitCost * qty;
+      }
+    });
   }
 
   return netRev - totalCogs;
