@@ -2028,8 +2028,7 @@ setGiftConfig(config);
     const updatePayload = {
       paid_amount: newPaid,
       payment_status: newPaymentStatus,
-      payment_history: history,
-      is_unpaid: newPaymentStatus !== 'paid' // Keep legacy flag synced
+      payment_history: history
     };
 
     if (newPaymentStatus === 'paid') {
@@ -2086,7 +2085,6 @@ setGiftConfig(config);
       total: totalAmt,
       status: 'delivered',
       payment_status: 'paid',
-      is_unpaid: false,
       date: pre.date || new Date().toISOString()
     };
 

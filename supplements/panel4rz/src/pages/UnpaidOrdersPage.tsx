@@ -17,7 +17,7 @@ interface UnpaidOrdersPageProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-import { getDerivedPaymentStatus } from './OrdersPage';
+import { getDerivedPaymentStatus, getSourceType } from './OrdersPage';
 
 export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
   orders,
@@ -36,7 +36,8 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
   const unpaidOrders = useMemo(() => {
     return orders.filter(o => {
       const pm = getDerivedPaymentStatus(o);
-      return pm === 'partial' || (pm === 'unpaid' && (o.total || 0) > 0);
+      const isPos = getSourceType(o.source) === 'pos';
+      return isPos && (pm === 'partial' || (pm === 'unpaid' && (o.total || 0) > 0));
     });
   }, [orders]);
 
