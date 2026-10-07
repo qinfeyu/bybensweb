@@ -49,7 +49,7 @@ import { CategoriesPage } from './pages/CategoriesPage';
 import { PromoCodesPage } from './pages/PromoCodesPage';
 import { BundlePage } from './pages/BundlePage';
 import { DeliveryPricesPage } from './pages/DeliveryPricesPage';
-import { OrdersPage, getDerivedPaymentStatus } from './pages/OrdersPage';
+import { OrdersPage, getDerivedPaymentStatus, getSourceType } from './pages/OrdersPage';
 import { PreordersPage } from './pages/PreordersPage';
 import { PosPage } from './pages/PosPage';
 import { UnpaidOrdersPage } from './pages/UnpaidOrdersPage';
@@ -2031,10 +2031,6 @@ setGiftConfig(config);
       payment_history: history
     };
 
-    if (newPaymentStatus === 'paid') {
-      (updatePayload as any).paid_at = new Date().toISOString();
-    }
-
     try {
       await supabase.from('orders').update(updatePayload).eq('id', orderId);
     } catch(e) {}
@@ -2393,7 +2389,8 @@ setGiftConfig(config);
     // Rely purely on the shared fallback logic
     return orders.filter(o => {
       const pm = getDerivedPaymentStatus(o);
-      return pm === 'partial' || (pm === 'unpaid' && (o.total || 0) > 0);
+      const isPos = getSourceType(o.source) === 'pos';
+      return isPos && (pm === 'partial' || (pm === 'unpaid' && (o.total || 0) > 0));
     }).length;
   }, [orders]);
 
