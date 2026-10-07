@@ -1355,8 +1355,10 @@ setGiftConfig(config);
 
     let updatedInventory = [...inventoryItemsRef.current];
     let updatedProducts = [...productsRef.current];
-    const invUpdates: { id: string; stock: number; fullItem?: InventoryItem }[] = [];
-    const prodUpdates: { id: string; variants: any[]; stock: number }[] = [];
+    
+    // Track unique IDs that were modified so we can batch them efficiently and avoid duplicate requests.
+    const invModifiedIds = new Set<string>();
+    const prodModifiedIds = new Set<string>();
 
     for (const item of items) {
       const qty = Number(item.qty) || 1;
@@ -1380,7 +1382,7 @@ setGiftConfig(config);
           const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
           invItem.stock = newInvStock;
           updatedInventory[directInvIdx] = invItem;
-          invUpdates.push({ id: invItem.id, stock: newInvStock });
+          invModifiedIds.add(invItem.id);
           continue;
         }
       }
@@ -1425,7 +1427,7 @@ setGiftConfig(config);
                 const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * componentQty);
                 invItem.stock = newInvStock;
                 updatedInventory[invIdx] = invItem;
-                invUpdates.push({ id: invItem.id, stock: newInvStock });
+                invModifiedIds.add(invItem.id);
               }
             }
 
@@ -1460,7 +1462,7 @@ setGiftConfig(config);
                 const cStock = cVariants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
                 compProd.variants = cVariants;
                 compProd.stock = cStock;
-                prodUpdates.push({ id: compProd.id, variants: cVariants, stock: cStock });
+                prodModifiedIds.add(compProd.id);
               }
             }
           }
@@ -1477,7 +1479,7 @@ setGiftConfig(config);
           const finalBStock = minBStock === Infinity ? Math.max(0, (Number(prod.stock) || 0) + direction * qty) : Math.max(0, minBStock);
           prod.stock = finalBStock;
           if (prod.variants && prod.variants.length > 0) prod.variants[0].stock = finalBStock;
-          prodUpdates.push({ id: prod.id, variants: prod.variants || [], stock: finalBStock });
+          prodModifiedIds.add(prod.id);
 
           continue;
         }
@@ -1504,7 +1506,7 @@ setGiftConfig(config);
             }
           }
 
-          prodUpdates.push({ id: prod.id, variants: [], stock: newGlobalStock });
+          prodModifiedIds.add(prod.id);
 
           // Also sync linked SKU or Name in Inventory Items
           const targetSku = String((prod as any).sku || prod.id || '').trim().toLowerCase();
@@ -1520,7 +1522,7 @@ setGiftConfig(config);
             const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
             invItem.stock = newInvStock;
             updatedInventory[invIdx] = invItem;
-            invUpdates.push({ id: invItem.id, stock: newInvStock });
+            invModifiedIds.add(invItem.id);
           }
 
           continue;
@@ -1581,7 +1583,7 @@ setGiftConfig(config);
           const newGlobalStock = variants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
           prod.variants = variants;
           prod.stock = newGlobalStock;
-          prodUpdates.push({ id: prod.id, variants, stock: newGlobalStock });
+          prodModifiedIds.add(prod.id);
 
           // Also update linked SKU in Inventory
           const skuSearch = (linkedSku || rawProdId).trim().toLowerCase();
@@ -1596,7 +1598,7 @@ setGiftConfig(config);
               const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
               invItem.stock = newInvStock;
               updatedInventory[invIdx] = invItem;
-              invUpdates.push({ id: invItem.id, stock: newInvStock });
+              invModifiedIds.add(invItem.id);
             }
           }
           continue;
@@ -1614,22 +1616,22 @@ setGiftConfig(config);
             rawItemName.includes(String(i.name || '').trim().toLowerCase())
           ))
         );
-        if (invIdx >= 0 && !invUpdates.some(u => u.id === updatedInventory[invIdx].id)) {
+        if (invIdx >= 0) {
           const invItem = { ...updatedInventory[invIdx] };
           const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
           invItem.stock = newInvStock;
           updatedInventory[invIdx] = invItem;
-          invUpdates.push({ id: invItem.id, stock: newInvStock });
+          invModifiedIds.add(invItem.id);
         }
       }
     }
 
-    if (invUpdates.length > 0) {
+    if (invModifiedIds.size > 0) {
       inventoryItemsRef.current = updatedInventory;
       setInventoryItems([...updatedInventory]);
       safeSetLocalStorage('bb_inventory_items', JSON.stringify(updatedInventory));
     }
-    if (prodUpdates.length > 0) {
+    if (prodModifiedIds.size > 0) {
       productsRef.current = updatedProducts;
       setProducts([...updatedProducts]);
       safeSetLocalStorage('bb_products_cache', JSON.stringify(updatedProducts));
@@ -1639,30 +1641,43 @@ setGiftConfig(config);
     syncProductsWithInventory(updatedProducts, updatedInventory);
     productsRef.current = updatedProducts;
 
-    // Persist stock changes; each write is individually guarded so one failure
-    // doesn't abort the rest. Returns false if ANY stock write failed.
+    // Persist stock changes efficiently using concurrent Promise execution.
     let allSynced = true;
-    for (const u of invUpdates) {
-      try {
-        if ((u as any).fullItem) {
-          const { stock_eu, _lastUpdated, ...cleanObj } = (u as any).fullItem;
-          await supabase.from('inventory_items').upsert(cleanObj, { onConflict: 'id' });
-        } else {
-          await supabase.from('inventory_items').update({ stock: u.stock }).eq('id', u.id);
-        }
-      } catch (e) {
-        console.warn("Inventory stock write failed:", u.id, e);
-        allSynced = false;
-      }
-    }
-    for (const u of prodUpdates) {
-      try {
-        await supabase.from('products').update({ variants: u.variants, stock: u.stock }).eq('id', u.id);
-      } catch (e) {
-        console.warn("Product stock write failed:", u.id, e);
-        allSynced = false;
-      }
-    }
+    const dbPromises: Promise<any>[] = [];
+
+    invModifiedIds.forEach(id => {
+      const invItem = updatedInventory.find(i => i.id === id);
+      if (!invItem) return;
+      dbPromises.push(
+        supabase.from('inventory_items')
+          .update({ stock: invItem.stock })
+          .eq('id', id)
+          .then((res: any) => {
+            if (res.error) {
+              console.warn("Inventory stock write failed:", id, res.error);
+              allSynced = false;
+            }
+          })
+      );
+    });
+
+    prodModifiedIds.forEach(id => {
+      const prodItem = updatedProducts.find(p => p.id === id);
+      if (!prodItem) return;
+      dbPromises.push(
+        supabase.from('products')
+          .update({ variants: prodItem.variants, stock: prodItem.stock })
+          .eq('id', id)
+          .then((res: any) => {
+            if (res.error) {
+              console.warn("Product stock write failed:", id, res.error);
+              allSynced = false;
+            }
+          })
+      );
+    });
+
+    await Promise.allSettled(dbPromises);
     return allSynced;
   };
 
