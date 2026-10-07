@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="track.pageTitle">Track Your Order | ByBens</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="/images/favicon.ico" />
+    
+    <link rel="stylesheet" href="/supplements/footer.css" />
+    <link rel="stylesheet" href="/supplements/track/css/style.css" />
+
+    <script src="/content.js" defer></script>
+    <script src="/supplements/i18n-client.js" defer></script>
+    <script src="/supplements/track/js/app.js" defer></script>
+  </head>
+  <body>
+    <!-- HEADER -->
+    <header class="site-header">
+      <div class="header-inner container">
+        <div class="logo">
+          <a href="/supplements/home" style="text-decoration:none;color:inherit;">BYBENS</a>
+        </div>
+        <div class="header-right">
+          <button
+            class="lang-btn"
+            id="langToggleBtn"
+            aria-label="Change Language"
+          >
+            <span class="lang-icon">🌐</span> <span id="currentLangDisplay">EN</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="track-main container">
+      <div class="track-header">
+        <h1 data-i18n="track.title">Track Your Order</h1>
+        <p data-i18n="track.subtitle">Enter your Order ID and Phone Number to check your delivery status.</p>
+      </div>
+
+      <div class="track-form-card">
+        <form id="trackForm">
+          <div class="form-group">
+            <label for="orderId" data-i18n="track.orderIdLabel">Order ID</label>
+            <input type="text" id="orderId" required placeholder="e.g. 1720000000000" />
+          </div>
+          <div class="form-group">
+            <label for="phone" data-i18n="track.phoneLabel">Phone Number</label>
+            <input type="text" id="phone" required placeholder="e.g. 0555123456" />
+          </div>
+          <button type="submit" class="track-btn" id="trackBtn">
+            <span data-i18n="track.buttonText">Track Order</span>
+          </button>
+        </form>
+        <div class="error-msg" id="errorMsg"></div>
+      </div>
+
+      <!-- LOADER -->
+      <div class="loader-wrap hidden" id="trackLoader">
+        <div class="spinner"></div>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="track-results hidden" id="trackResults">
+        <div class="status-summary" id="statusSummary">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div class="timeline-container">
+          <h3 data-i18n="track.timelineTitle">Tracking History</h3>
+          <ul class="timeline" id="timelineList">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+      </div>
+    </main>
+
+    <!-- Simple Footer -->
+    <footer class="site-footer">
+      <div class="container footer-content">
+        <div class="footer-col">
+          <div class="footer-logo">BYBENS NUTRITION</div>
+          <p data-i18n="footer.tagline">Premium authentic supplements.</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <div class="container">&copy; <span id="year"></span> BYBENS. All Rights Reserved.</div>
+      </div>
+    </footer>
+    <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+  </body>
+</html>

@@ -16,6 +16,7 @@
     { "src": "^/mgmt9kx/?$", "dest": "/supplements/mgmt9kx" },
     { "src": "^/panel4rz/?$", "dest": "/supplements/panel4rz" },
     { "src": "^/privacy/?$", "dest": "/supplements/privacy" },
+    { "src": "^/track/?$", "dest": "/supplements/track" },
     { "handle": "filesystem" }
   ],
   "headers": [

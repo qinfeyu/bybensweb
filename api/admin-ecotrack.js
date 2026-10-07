@@ -115,6 +115,23 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Attempt to save tracking ID to Supabase (assuming 'ecotrack_id' column exists)
+    if (data && data.tracking) {
+      const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+      if (SUPABASE_URL && SUPABASE_KEY && payload.reference) {
+        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(payload.reference)}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`
+          },
+          body: JSON.stringify({ ecotrack_id: data.tracking })
+        }).catch(() => null);
+      }
+    }
+
     return res.status(200).json({ success: true, data });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message || "Failed to submit to Ecotrack" });
