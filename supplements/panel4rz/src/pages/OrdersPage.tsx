@@ -265,6 +265,45 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     JSON.stringify((selectedOrder.items || []).map(it => ({ k: String(it.productId || it.product_id || it.name), q: Number(it.qty) || 1 })))
     : false;
 
+  const [submittingEcotrack, setSubmittingEcotrack] = useState(false);
+
+  const handleEcotrackSubmit = async (order: Order) => {
+    if (submittingEcotrack) return;
+    setSubmittingEcotrack(true);
+    try {
+      const payload = {
+        nom_client: `${order.first_name || order.firstName || ''} ${order.last_name || order.lastName || ''}`.trim() || 'Client',
+        telephone: order.phone || "",
+        adresse: order.address || order.commune || "", 
+        commune: order.commune || "",
+        code_wilaya: parseInt((order.wilaya || "").split("-")[0].trim()) || 16,
+        montant: Number(order.total || 0),
+        type: 1, 
+        reference: order.id,
+        produit: formatOrderShortSummary(order.items || []),
+        boutique: "Ben's Supplements",
+        stop_desk: (order.delivery_type === 'desk' || (order as any).deliveryType === 'desk' || String(order.delivery_type || '').includes('desk')) ? 1 : 0
+      };
+
+      const res = await fetch('/api/admin-ecotrack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast?.("Successfully added to Ecotrack!", "success");
+      } else {
+        showToast?.(`Ecotrack Error: ${data.error || "Unknown"}`, "error");
+        console.error("Ecotrack error details:", data.details);
+      }
+    } catch (err: any) {
+      showToast?.(`Failed to send to Ecotrack: ${err.message}`, "error");
+    } finally {
+      setSubmittingEcotrack(false);
+    }
+  };
+
   const handlePrintInvoice = (o: Order) => {
     const printWindow = window.open('', '_blank', 'width=800,height=700');
     if (!printWindow) {
@@ -1330,14 +1369,27 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 </div>
               </div>
 
-              {/* Bottom Action Bar: Print Invoice & Delete Order */}
-              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              {/* Bottom Action Bar: Print Invoice, Ecotrack & Delete Order */}
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 flex-wrap">
                 <button
                   onClick={() => handlePrintInvoice(selectedOrder)}
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-xs transition-colors shadow-sm"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-xs transition-colors shadow-sm min-w-[200px]"
                 >
                   <Printer className="w-4 h-4 text-red-500" />
                   <span>Print Customer Invoice / Receipt</span>
+                </button>
+
+                <button
+                  onClick={() => handleEcotrackSubmit(selectedOrder)}
+                  disabled={submittingEcotrack}
+                  className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-xs transition-colors shadow-sm min-w-[200px]"
+                >
+                  {submittingEcotrack ? (
+                    <Clock className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Truck className="w-4 h-4" />
+                  )}
+                  <span>{submittingEcotrack ? 'Sending...' : '📦 Add to Ecotrack'}</span>
                 </button>
 
                 <button
@@ -1348,7 +1400,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       cancelEditingItems();
                     }
                   }}
-                  className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center gap-1.5 text-xs transition-colors border border-rose-200"
+                  className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center gap-1.5 text-xs transition-colors border border-rose-200 min-w-[140px]"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete Order</span>
