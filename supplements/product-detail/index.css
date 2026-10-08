@@ -1663,6 +1663,25 @@
         background: var(--red-hover);
         cursor: pointer;
       }
+      .success-receipt-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        margin-bottom: 14px;
+        background: transparent;
+        border: 2px solid var(--red);
+        color: var(--red);
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background var(--transition), color var(--transition);
+      }
+      .success-receipt-btn:hover {
+        background: var(--red);
+        color: #fff;
+      }
       .success-instagram {
         display: inline-flex;
         align-items: center;
