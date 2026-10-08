@@ -1,4 +1,7 @@
 
+  // Captured order snapshot for the printable receipt (set on successful submit).
+  let _receiptData = null;
+
   // --- FREE GIFT LOGIC ---
   function updateGiftUI(subtotal, items) {
     items = items || cartGet();
@@ -3508,6 +3511,8 @@
           total,
         };
 
+        const receiptSnapshot = { ...payload, items: (payload.items || []).map(function (it) { return { ...it }; }) };
+
                 const submitBtn = document.getElementById("submitOrderBtn");
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; }
         try {
@@ -3519,8 +3524,13 @@
             return;
           }
           const orderIdStr = data.id ? ` Your order ID is <strong>${data.id}</strong>.` : ` Your order of ${items.length} item${items.length !== 1 ? "s" : ""}.`;
-          document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orderIdStr} Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
+document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orderIdStr} Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
+          if (data && data.id) {
+            _receiptData = Object.assign({}, receiptSnapshot, { orderId: String(data.id) });
+            const rBtn = document.getElementById("downloadReceiptBtn");
+            if (rBtn) { rBtn.style.display = "inline-flex"; }
+          }
         } catch (e) {
           document.getElementById("successMsg").innerHTML = `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""}. Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
@@ -3533,6 +3543,105 @@
         localStorage.removeItem(CART_KEY);
         document.getElementById("successOverlay").classList.remove("show");
         window.location.href = "/supplements/products";
+      }
+
+      function escapeHtml(v) {
+        return String(v == null ? "" : v)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function downloadReceipt() {
+        if (!_receiptData) return;
+        const r = _receiptData;
+        const fmt = (n) => (Number(n) || 0).toLocaleString("fr-FR");
+        const dateStr = new Date().toLocaleString("fr-DZ");
+        const custName = [r.firstName, r.lastName].filter(Boolean).join(" ") || "—";
+        const isHome = String(r.deliveryType || "home").toLowerCase() === "home";
+        const deliveryLabel = isHome ? "🏠 Home Delivery" : "📦 Office Pickup";
+        const wilayaCommune = r.wilaya + (r.commune ? " (" + r.commune + ")" : "");
+
+        const itemsHtml = (r.items || [])
+          .map(function (it) {
+            const giftTag = it.isGift ? " <span style='color:#dc2626;'>🎁</span>" : "";
+            return (
+              "<tr>" +
+              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;'><span dir='auto'>" + escapeHtml(it.name) + "</span>" + giftTag + "</td>" +
+              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;' dir='auto'>" + escapeHtml(it.flavor || "—") + "</td>" +
+              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;' dir='auto'>" + escapeHtml(it.variant || "—") + "</td>" +
+              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:center;'>" + (Number(it.qty) || 1) + "</td>" +
+              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;'>" + fmt(it.unitPrice) + " DA</td>" +
+              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold;'>" + fmt(it.lineTotal) + " DA</td>" +
+              "</tr>"
+            );
+          })
+          .join("");
+
+        const summaryRows =
+          (Number(r.deliveryCost) > 0
+            ? "<div class='summary-row'><span>Delivery Fee:</span><span>" + fmt(r.deliveryCost) + " DA</span></div>"
+            : "") +
+          (Number(r.promoDiscount) > 0
+            ? "<div class='summary-row' style='color:#16a34a;'><span>Discount (" + escapeHtml(r.promoCode || "PROMO") + "):</span><span>-" + fmt(r.promoDiscount) + " DA</span></div>"
+            : "");
+
+        const htmlContent =
+          "<!DOCTYPE html><html><head><title>Invoice - " + escapeHtml(r.orderId || "") + "</title>" +
+          "<style>" +
+          "body { font-family: 'Inter', system-ui, sans-serif; padding: 30px; color: #0f172a; line-height: 1.5; margin: 0; }" +
+          ".header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 15px; margin-bottom: 20px; }" +
+          ".logo { font-size: 24px; font-weight: 900; color: #dc2626; letter-spacing: -0.5px; }" +
+          ".sub { font-size: 12px; color: #64748b; }" +
+          ".grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }" +
+          ".grid-item { font-size: 13px; }" +
+          ".label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 2px; }" +
+          "table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }" +
+          "th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 800; border-bottom: 1px solid #cbd5e1; }" +
+          ".summary { float: right; width: 300px; font-size: 13px; margin-top: 10px; background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; }" +
+          ".summary-row { display: flex; justify-content: space-between; padding: 4px 0; }" +
+          ".total-row { border-top: 2px solid #0f172a; padding-top: 8px; font-weight: 900; font-size: 16px; color: #0f172a; margin-top: 4px; }" +
+          ".no-print { margin-bottom: 20px; text-align: right; }" +
+          ".btn-print { padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; }" +
+          ".hint { font-size: 12px; color: #94a3b8; margin-top: 6px; }" +
+          "@media print { .no-print { display: none !important; } }" +
+          "</style></head><body>" +
+          "<div class='no-print'><button class='btn-print' onclick='window.print()'>🖨️ Print / Save PDF</button>" +
+          "<div class='hint'>💡 You can also take a screenshot of this page.</div></div>" +
+          "<div class='header'><div><div class='logo'>BYBENS NUTRITION</div><div class='sub'>Premium Storefront &amp; Distribution</div></div>" +
+          "<div style='text-align:right;'><div style='font-weight:900; font-size:18px; color:#0f172a;'>INVOICE #" + escapeHtml(r.orderId || "—") + "</div>" +
+          "<div class='sub'>Date: " + escapeHtml(dateStr) + "</div></div></div>" +
+          "<div class='grid'>" +
+          "<div class='grid-item'><span class='label'>Customer Name</span><strong dir='auto'>" + escapeHtml(custName) + "</strong></div>" +
+          "<div class='grid-item'><span class='label'>Phone Contact</span><strong dir='auto'>" + escapeHtml(r.phone || "—") + "</strong></div>" +
+          "<div class='grid-item'><span class='label'>Wilaya &amp; Commune</span><strong dir='auto'>" + escapeHtml(wilayaCommune || "—") + "</strong></div>" +
+          "<div class='grid-item'><span class='label'>Delivery Address</span><strong dir='auto'>" + escapeHtml(r.address || "—") + "</strong></div>" +
+          "<div class='grid-item'><span class='label'>Delivery Option</span><strong>" + deliveryLabel + "</strong></div>" +
+          "<div class='grid-item'><span class='label'>Order Source</span><strong>Storefront</strong></div>" +
+          "</div>" +
+          "<table><thead><tr>" +
+          "<th>Product</th><th>Flavor</th><th>Variant</th><th style='text-align:center'>Qty</th>" +
+          "<th style='text-align:right'>Unit Price</th><th style='text-align:right'>Line Total</th>" +
+          "</tr></thead><tbody>" + itemsHtml + "</tbody></table>" +
+          "<div class='summary'>" +
+          "<div class='summary-row'><span>Subtotal:</span><span>" + fmt(r.subtotal) + " DA</span></div>" +
+          summaryRows +
+          "<div class='summary-row total-row'><span>Total:</span><span>" + fmt(r.total) + " DA</span></div>" +
+          "</div>" +
+          "<script>window.onload = function(){ window.print(); };<\/script>" +
+          "</body></html>";
+
+        const printWindow = window.open("", "_blank", "width=800,height=700");
+        if (!printWindow) {
+          showToast("Please allow popups to print your receipt.");
+          return;
+        }
+        printWindow.document.open();
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
       }
 
       /* ══════════════════════════════════════════════════════

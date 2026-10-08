@@ -227,6 +227,10 @@
               </h3>
               <ul class="timeline" id="timelineList"></ul>
             </div>
+            <button class="track-receipt-btn" id="downloadReceiptBtn" style="display:none;" onclick="window.downloadTrackReceipt()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+              <span data-i18n="track.downloadReceipt">Download Receipt</span>
+            </button>
           </div>
         </div>
       </div>
@@ -237,9 +241,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="/supplements/supabase-client.js?v=2" defer></script>
-    <script src="/supplements/track/index.js?v=2" defer></script>
+    <script src="/supplements/track/index.js?v=3" defer></script>
 
-    <script src="/content.js?v=2" defer></script>
+    <script src="/content.js?v=3" defer></script>
     <script src="/supplements/marquee.js?v=2" defer></script>
     <script src="/supplements/footer.js?v=2" defer></script>
   </body>

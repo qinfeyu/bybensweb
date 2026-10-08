@@ -296,6 +296,14 @@
       .timeline-status { font-size: 15px; font-weight: 700; color: var(--black); line-height: 1.4; }
       .timeline-loc { font-size: 13px; color: var(--gray-600); margin-top: 3px; line-height: 1.5; }
       .timeline-empty { padding: 30px 0; text-align: center; color: var(--gray-400); font-size: 14px; }
+      .track-receipt-btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 10px 22px; margin-top: 18px;
+        background: transparent; border: 2px solid var(--red); color: var(--red);
+        border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+        transition: background var(--transition), color var(--transition);
+      }
+      .track-receipt-btn:hover { background: var(--red); color: var(--white); }
 
       /* ─── RTL ── */
       [dir="rtl"] .back-link svg { transform: scaleX(-1); }

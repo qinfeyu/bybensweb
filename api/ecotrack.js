@@ -12,6 +12,24 @@ function normalizeString(str) {
     .replace(/[^a-z0-9]/g, ''); // Remove spaces, hyphens, etc.
 }
 
+// Best-effort in-memory rate limit for receipt downloads (per IP). Deterrent only:
+// counters reset on cold start. Receipt responses carry PII (name/address/items).
+const RECEIPT_THROTTLE_MAX = 10;
+const RECEIPT_THROTTLE_WINDOW_MS = 60 * 1000;
+const receiptThrottle = new Map();
+
+function isReceiptThrottled(ip) {
+  if (!ip) return false;
+  const now = Date.now();
+  const entry = receiptThrottle.get(ip);
+  if (!entry || now - entry.t0 > RECEIPT_THROTTLE_WINDOW_MS) {
+    receiptThrottle.set(ip, { count: 1, t0: now });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RECEIPT_THROTTLE_MAX;
+}
+
 async function handleGet(req, res) {
   try {
     const orderId = req.query.orderId || req.query.id;
@@ -59,6 +77,73 @@ async function handleGet(req, res) {
     
     if (!cleanInputPhone || !cleanDbPhone || !cleanDbPhone.endsWith(cleanInputPhone.slice(-8))) {
       return res.status(401).json({ success: false, error: "Phone number does not match this order." });
+    }
+
+    // Client receipt re-download. Stricter than plain tracking: the receipt payload
+    // includes PII (name, full address, items), so require an exact full-phone match
+    // plus a per-IP throttle. Must run BEFORE the no-trackingId early return so a
+    // freshly placed (not yet dispatched) order can still download its receipt.
+    if (req.query.receipt === "1") {
+      const clientIp = String(req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "").split(",")[0].trim();
+      if (isReceiptThrottled(clientIp)) {
+        return res.status(429).json({ success: false, error: "Too many receipt requests. Please try again later." });
+      }
+      // Strict full-number match for PII. Normalize DZ prefixes (+213 / 00213) the same
+      // way ecotrack's create/order does, so a client typing "+213555123456" still
+      // matches a stored "0555123456". The lenient last-8 check above is enough for
+      // plain tracking; addresses+items need the exact full match.
+      let strictPhone = cleanInputPhone;
+      if (cleanInputPhone.startsWith('00213')) {
+        strictPhone = '0' + cleanInputPhone.slice(5);
+      } else if (cleanInputPhone.startsWith('213')) {
+        strictPhone = '0' + cleanInputPhone.slice(3);
+      }
+      if (strictPhone !== cleanDbPhone) {
+        return res.status(401).json({ success: false, error: "Phone number does not match this order." });
+      }
+
+      const receiptRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=id,first_name,last_name,phone,wilaya,commune,address,delivery_type,created_at,items,subtotal,delivery_cost,promo_discount,promo_code,total&limit=1`, {
+        headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
+      });
+      const receiptRows = await receiptRes.json().catch(() => []);
+      const row = Array.isArray(receiptRows) ? receiptRows[0] : null;
+      if (!row) {
+        return res.status(404).json({ success: false, error: "Order receipt not found." });
+      }
+
+      const items = (Array.isArray(row.items) ? row.items : []).map((it) => ({
+        productId: it.productId !== undefined ? it.productId : (it.product_id || ""),
+        name: it.name || "",
+        isGift: !!it.isGift,
+        flavor: it.flavor || "",
+        variant: it.variant || "",
+        qty: Number(it.qty) || 1,
+        unitPrice: Number(it.unitPrice !== undefined ? it.unitPrice : it.unit_price) || 0,
+        lineTotal: Number(it.lineTotal !== undefined ? it.lineTotal : it.line_total) || 0,
+      }));
+
+      return res.status(200).json({
+        success: true,
+        receipt: {
+          orderId: row.id,
+          createdAt: row.created_at || null,
+          customer: {
+            firstName: row.first_name || "",
+            lastName: row.last_name || "",
+            phone: row.phone || "",
+            wilaya: row.wilaya || "",
+            commune: row.commune || "",
+            address: row.address || "",
+          },
+          deliveryType: row.delivery_type || "home",
+          items,
+          subtotal: Number(row.subtotal) || 0,
+          deliveryCost: Number(row.delivery_cost) || 0,
+          promoDiscount: Number(row.promo_discount) || 0,
+          promoCode: row.promo_code || "",
+          total: Number(row.total) || 0,
+        },
+      });
     }
 
     // 3. Check if tracking ID exists

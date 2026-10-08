@@ -46,6 +46,8 @@ window.BYBENS_CONTENT = {
     "track.active": "Active",
     "track.now": "Now",
     "track.recent": "Recent",
+    "track.downloadReceipt": "Download Receipt",
+    "checkout.downloadReceipt": "Download Receipt",
 
     // Nav
     "nav.home": "Home",
@@ -171,6 +173,8 @@ window.BYBENS_CONTENT = {
     "track.active": "Actif",
     "track.now": "Maintenant",
     "track.recent": "Récent",
+    "track.downloadReceipt": "Télécharger le reçu",
+    "checkout.downloadReceipt": "Télécharger le reçu",
 
     // Nav
     "nav.home": "Accueil",
@@ -296,6 +300,8 @@ window.BYBENS_CONTENT = {
     "track.active": "نشط",
     "track.now": "الآن",
     "track.recent": "مؤخراً",
+    "track.downloadReceipt": "تحميل الوصل",
+    "checkout.downloadReceipt": "تحميل الوصل",
 
     // Nav
     "nav.home": "الرئيسية",
