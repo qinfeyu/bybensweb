@@ -3566,74 +3566,76 @@ document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orde
 
         const itemsHtml = (r.items || [])
           .map(function (it) {
-            const giftTag = it.isGift ? " <span style='color:#dc2626;'>🎁</span>" : "";
+            const giftTag = it.isGift ? " 🎁" : "";
+            const detail = [it.variant, it.flavor].filter(Boolean).join(" | ");
             return (
-              "<tr>" +
-              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;'><span dir='auto'>" + escapeHtml(it.name) + "</span>" + giftTag + "</td>" +
-              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;' dir='auto'>" + escapeHtml(it.flavor || "—") + "</td>" +
-              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;' dir='auto'>" + escapeHtml(it.variant || "—") + "</td>" +
-              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:center;'>" + (Number(it.qty) || 1) + "</td>" +
-              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;'>" + fmt(it.unitPrice) + " DA</td>" +
-              "<td style='padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold;'>" + fmt(it.lineTotal) + " DA</td>" +
+              "<tr style='border-bottom:1px dashed #e2e8f0;'>" +
+              "<td style='padding:6px 0;'>" +
+              "<div style='font-weight:700; color:#0f172a; font-size:12px;'><span dir='auto'>" + escapeHtml(it.name) + "</span>" + giftTag + "</div>" +
+              (detail ? "<div style='font-size:10px; color:#64748b;' dir='auto'>" + escapeHtml(detail) + "</div>" : "") +
+              "<div style='font-size:11px; color:#475569;'>" + (Number(it.qty) || 1) + " × " + fmt(it.unitPrice) + " DA</div>" +
+              "</td>" +
+              "<td style='text-align:right; font-weight:700; vertical-align:top; padding-top:6px;'>" + fmt(it.lineTotal) + " DA</td>" +
               "</tr>"
             );
           })
           .join("");
 
-        const summaryRows =
+        const deliveryInfo =
+          "<div style='font-size:10px; color:#64748b; margin:12px 0 8px; padding:8px 10px; border:1px dashed #e2e8f0; border-radius:6px;'>" +
+          "<div><span style='opacity:.85;'>Wilaya/Commune:</span> <span dir='auto' style='color:#0f172a; font-weight:600;'>" + escapeHtml(wilayaCommune || "—") + "</span></div>" +
+          (r.address
+            ? "<div style='margin-top:3px;'><span style='opacity:.85;'>Address:</span> <span dir='auto' style='color:#0f172a; font-weight:600;'>" + escapeHtml(r.address) + "</span></div>"
+            : "") +
+          "<div style='margin-top:3px;'>" + deliveryLabel + "</div>" +
+          "</div>";
+
+        const totalsHtml =
+          "<div class='totals'>" +
+          "<div><span>Subtotal:</span><strong>" + fmt(r.subtotal) + " DA</strong></div>" +
           (Number(r.deliveryCost) > 0
-            ? "<div class='summary-row'><span>Delivery Fee:</span><span>" + fmt(r.deliveryCost) + " DA</span></div>"
+            ? "<div><span>Delivery Fee:</span><strong>" + fmt(r.deliveryCost) + " DA</strong></div>"
             : "") +
           (Number(r.promoDiscount) > 0
-            ? "<div class='summary-row' style='color:#16a34a;'><span>Discount (" + escapeHtml(r.promoCode || "PROMO") + "):</span><span>-" + fmt(r.promoDiscount) + " DA</span></div>"
-            : "");
+            ? "<div><span>Discount (" + escapeHtml(r.promoCode || "PROMO") + "):</span><strong style='color:#b91c1c;'>-" + fmt(r.promoDiscount) + " DA</strong></div>"
+            : "") +
+          "<div class='grand-total'><span>TOTAL:</span><span>" + fmt(r.total) + " DA</span></div>" +
+          "</div>";
 
         const htmlContent =
-          "<!DOCTYPE html><html><head><title>Invoice - " + escapeHtml(r.orderId || "") + "</title>" +
+          "<!DOCTYPE html><html><head><title>Ticket - " + escapeHtml(r.orderId || "") + "</title>" +
           "<style>" +
-          "body { font-family: 'Inter', system-ui, sans-serif; padding: 30px; color: #0f172a; line-height: 1.5; margin: 0; }" +
-          ".header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 15px; margin-bottom: 20px; }" +
-          ".logo { font-size: 24px; font-weight: 900; color: #dc2626; letter-spacing: -0.5px; }" +
-          ".sub { font-size: 12px; color: #64748b; }" +
-          ".grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }" +
-          ".grid-item { font-size: 13px; }" +
-          ".label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 2px; }" +
-          "table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }" +
-          "th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 800; border-bottom: 1px solid #cbd5e1; }" +
-          ".summary { float: right; width: 300px; font-size: 13px; margin-top: 10px; background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; }" +
-          ".summary-row { display: flex; justify-content: space-between; padding: 4px 0; }" +
-          ".total-row { border-top: 2px solid #0f172a; padding-top: 8px; font-weight: 900; font-size: 16px; color: #0f172a; margin-top: 4px; }" +
-          ".no-print { margin-bottom: 20px; text-align: right; }" +
-          ".btn-print { padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; }" +
-          ".hint { font-size: 12px; color: #94a3b8; margin-top: 6px; }" +
-          "@media print { .no-print { display: none !important; } }" +
+          "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');" +
+          "body { font-family:'Inter',sans-serif; padding:20px; margin:0; background:#fff; font-size:12px; color:#0f172a; }" +
+          ".receipt { max-width:320px; margin:0 auto; border:1px solid #e2e8f0; padding:16px; border-radius:12px; }" +
+          ".header { text-align:center; border-bottom:1.5px dashed #cbd5e1; padding-bottom:12px; margin-bottom:12px; }" +
+          ".brand { font-size:18px; font-weight:900; color:#b91c1c; }" +
+          ".info { font-size:10px; color:#64748b; margin-top:2px; }" +
+          "table { width:100%; border-collapse:collapse; margin-bottom:12px; }" +
+          ".totals { border-top:1.5px dashed #cbd5e1; padding-top:8px; font-size:11px; }" +
+          ".totals div { display:flex; justify-content:space-between; margin-bottom:4px; }" +
+          ".grand-total { font-size:15px; font-weight:900; color:#b91c1c; border-top:1px solid #0f172a; padding-top:6px; margin-top:4px; }" +
+          ".footer { text-align:center; font-size:10px; color:#94a3b8; margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:10px; }" +
+          ".btn-print { width:100%; padding:10px; background:#0f172a; color:#fff; border:none; border-radius:8px; font-weight:700; margin-bottom:12px; cursor:pointer; }" +
+          "@media print { .no-print { display:none !important; } }" +
           "</style></head><body>" +
-          "<div class='no-print'><button class='btn-print' onclick='window.print()'>🖨️ Print / Save PDF</button>" +
-          "<div class='hint'>💡 You can also take a screenshot of this page.</div></div>" +
-          "<div class='header'><div><div class='logo'>BYBENS NUTRITION</div><div class='sub'>Premium Storefront &amp; Distribution</div></div>" +
-          "<div style='text-align:right;'><div style='font-weight:900; font-size:18px; color:#0f172a;'>INVOICE #" + escapeHtml(r.orderId || "—") + "</div>" +
-          "<div class='sub'>Date: " + escapeHtml(dateStr) + "</div></div></div>" +
-          "<div class='grid'>" +
-          "<div class='grid-item'><span class='label'>Customer Name</span><strong dir='auto'>" + escapeHtml(custName) + "</strong></div>" +
-          "<div class='grid-item'><span class='label'>Phone Contact</span><strong dir='auto'>" + escapeHtml(r.phone || "—") + "</strong></div>" +
-          "<div class='grid-item'><span class='label'>Wilaya &amp; Commune</span><strong dir='auto'>" + escapeHtml(wilayaCommune || "—") + "</strong></div>" +
-          "<div class='grid-item'><span class='label'>Delivery Address</span><strong dir='auto'>" + escapeHtml(r.address || "—") + "</strong></div>" +
-          "<div class='grid-item'><span class='label'>Delivery Option</span><strong>" + deliveryLabel + "</strong></div>" +
-          "<div class='grid-item'><span class='label'>Order Source</span><strong>Storefront</strong></div>" +
+          "<div class='no-print'><button class='btn-print' onclick='window.print()'>🖨️ Print / Save PDF</button></div>" +
+          "<div class='receipt'>" +
+          "<div class='header'>" +
+          "<div class='brand'>BYBENS NUTRITION</div>" +
+          "<div class='info'>Sports Nutrition &amp; Supplements</div>" +
+          "<div class='info' style='margin-top:4px;'>Ticket: #" + escapeHtml(r.orderId || "—") + "</div>" +
+          "<div class='info'>Date: " + escapeHtml(dateStr) + "</div>" +
+          "<div class='info'>Customer: <span dir='auto'>" + escapeHtml(custName) + "</span> (<span dir='auto'>" + escapeHtml(r.phone || "—") + "</span>)</div>" +
           "</div>" +
-          "<table><thead><tr>" +
-          "<th>Product</th><th>Flavor</th><th>Variant</th><th style='text-align:center'>Qty</th>" +
-          "<th style='text-align:right'>Unit Price</th><th style='text-align:right'>Line Total</th>" +
-          "</tr></thead><tbody>" + itemsHtml + "</tbody></table>" +
-          "<div class='summary'>" +
-          "<div class='summary-row'><span>Subtotal:</span><span>" + fmt(r.subtotal) + " DA</span></div>" +
-          summaryRows +
-          "<div class='summary-row total-row'><span>Total:</span><span>" + fmt(r.total) + " DA</span></div>" +
+          deliveryInfo +
+          "<table><tbody>" + itemsHtml + "</tbody></table>" +
+          totalsHtml +
+          "<div class='footer'>Thank you for shopping with ByBens!<br>www.bybens.com</div>" +
           "</div>" +
-          "<script>window.onload = function(){ window.print(); };<\/script>" +
           "</body></html>";
 
-        const printWindow = window.open("", "_blank", "width=800,height=700");
+        const printWindow = window.open("", "_blank", "width=400,height=600");
         if (!printWindow) {
           showToast("Please allow popups to print your receipt.");
           return;
