@@ -228,7 +228,7 @@ export const PosPage: React.FC<PosPageProps> = ({
         </div>
         <div class="receipt">
           <div class="header">
-            <div class="brand">BYBENS NUTRITION</div>
+            <div class="brand">BYBENS Supplements</div>
             <div class="info">Sports Nutrition & Supplements</div>
             <div class="info" style="margin-top: 4px;">Ticket: #${saleData.orderId}</div>
             <div class="info">Date: ${new Date().toLocaleString('fr-DZ')}</div>

@@ -116,7 +116,7 @@ export const UnpaidOrdersPage: React.FC<UnpaidOrdersPageProps> = ({
       </head>
       <body>
         <div class="center border-b">
-          <div style="font-size: 18px; font-weight: bold;">BYBENS NUTRITION</div>
+          <div style="font-size: 18px; font-weight: bold;">BYBENS Supplements</div>
           <div style="font-size: 11px;">SPORTS NUTRITION & SUPPLEMENTS</div>
           <div>Phone: 0550000000</div>
           <div>Date: ${dateStr}</div>

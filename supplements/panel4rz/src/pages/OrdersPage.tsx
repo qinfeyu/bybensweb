@@ -383,7 +383,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
         <div class="header">
           <div>
-            <div class="logo">BYBENS NUTRITION</div>
+            <div class="logo">BYBENS Supplements</div>
             <div class="sub">Premium Storefront & Distribution</div>
           </div>
           <div style="text-align: right;">

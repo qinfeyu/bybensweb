@@ -3492,7 +3492,7 @@ if (orderId) {
           "<div class='no-print'><button class='btn-print' onclick='window.print()'>🖨️ Print / Save PDF</button></div>" +
           "<div class='receipt'>" +
           "<div class='header'>" +
-          "<div class='brand'>BYBENS NUTRITION</div>" +
+          "<div class='brand'>BYBENS Supplements</div>" +
           "<div class='info'>Sports Nutrition &amp; Supplements</div>" +
           "<div class='info' style='margin-top:4px;'>Ticket: #" + escapeHtml(r.orderId || "—") + "</div>" +
           "<div class='info'>Date: " + escapeHtml(dateStr) + "</div>" +

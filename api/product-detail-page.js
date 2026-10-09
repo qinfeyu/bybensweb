@@ -98,7 +98,7 @@ module.exports = async function handler(req, res) {
 
     if (prod) {
       const prodName = prod.name ? `${prod.name}${prod.brand ? " by " + prod.brand : ""}` : "Product Details";
-      const pageTitle = `${prodName} – ByBens Sports Nutrition Algeria`;
+      const pageTitle = `${prodName} – ByBens Supplements Algeria`;
 
       let rawImgs = Array.isArray(prod.image_url) ? prod.image_url : (prod.image_url ? [prod.image_url] : []);
       let mainImg = rawImgs.length > 0 ? optimizeCloudinaryUrl(rawImgs[0]) : "https://www.bybens.com/images/og-main-banner.png";
@@ -149,7 +149,7 @@ module.exports = async function handler(req, res) {
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-    <meta property="og:site_name" content="ByBens Sports Nutrition" />
+    <meta property="og:site_name" content="ByBens Supplements" />
     
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
