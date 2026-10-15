@@ -155,3 +155,19 @@ html[data-theme="dark"] .theme-btn .icon-moon { display: none; }
 .theme-btn {
   display: none !important;
 }
+
+/* ── Track Order Button ───────────────────────────────────── */
+.track-nav-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--black);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+}
+.track-nav-btn:hover { background: var(--gray-50); color: var(--red); }
+.track-nav-btn svg { display: block; }

@@ -213,7 +213,7 @@
         .top-nav { position: relative; gap: 8px; }
         .logo { position: absolute; left: 50%; transform: translateX(-50%); }
         .logo img { max-width: 100px; }
-        #mobileSearchBtn { margin-left: auto; }
+        .nav-right { margin-left: auto; }
         .lang-switch { display: none; }
         .nav-right .theme-btn { display: none; }
         .cart-btn { margin-left: 0; }

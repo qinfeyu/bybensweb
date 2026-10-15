@@ -2060,7 +2060,7 @@
         .logo img {
           max-width: 100px;
         }
-        #mobileSearchBtn {
+        .nav-right {
           margin-left: auto;
         }
         .lang-switch {
