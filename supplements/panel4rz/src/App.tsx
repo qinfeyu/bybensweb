@@ -329,41 +329,33 @@ export default function App() {
       });
 
       const mergedInvMap = new Map<string, InventoryItem>();
-      const unsavedLocalEdits: InventoryItem[] = [];
 
       cloudInv.forEach(cloudItem => {
-        if (cloudItem.id) {
-          const localItem = localInvMap.get(cloudItem.id);
-          const cloudTime = cloudItem._lastUpdated ? new Date(cloudItem._lastUpdated).getTime() : 0;
-          const localTime = localItem?._lastUpdated ? new Date(localItem._lastUpdated).getTime() : 0;
+        if (!cloudItem.id) return;
+        // CLOUD IS AUTHORITATIVE FOR STOCK. `_lastUpdated` is a client-only marker
+        // (never persisted — toDbInventoryPayload strips it), so the old
+        // local-timestamp comparison always made stale local rows win, hiding
+        // storefront order deductions and reverting them on the next save.
+        const cloudStock = Number(cloudItem.stock) || 0;
+        const hasCloudEu = cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null;
+        const cloudStockEu = hasCloudEu ? (Number(cloudItem.stock_eu) || 0) : (localEuMap[cloudItem.id] ?? 0);
 
-          // If local item has a strictly newer update timestamp, preserve the local item's edited stock/values!
-          if (localItem && localTime > cloudTime && localTime > 0) {
-            mergedInvMap.set(cloudItem.id, localItem);
-            unsavedLocalEdits.push(localItem);
-          } else {
-            const cloudStock = Number(cloudItem.stock) || 0;
-            const hasCloudEu = cloudItem.stock_eu !== undefined && cloudItem.stock_eu !== null;
-            const cloudStockEu = hasCloudEu ? (Number(cloudItem.stock_eu) || 0) : (localEuMap[cloudItem.id] ?? 0);
-
-            mergedInvMap.set(cloudItem.id, {
-              ...cloudItem,
-              stock: cloudStock,
-              stock_eu: cloudStockEu
-            });
-          }
-        }
+        mergedInvMap.set(cloudItem.id, {
+          ...cloudItem,
+          stock: cloudStock,
+          stock_eu: cloudStockEu
+        });
+        // Consumed — whatever remains in localInvMap exists only locally.
+        localInvMap.delete(cloudItem.id);
       });
 
-      localInv.forEach(item => {
-        if (item.id && !mergedInvMap.has(item.id)) {
-          mergedInvMap.set(item.id, item);
-          unsavedLocalEdits.push(item);
-        }
+      localInvMap.forEach(item => {
+        mergedInvMap.set(item.id, item);
       });
 
       const finalInv = Array.from(mergedInvMap.values());
       setInventoryItems(finalInv);
+      inventoryItemsRef.current = finalInv;
       safeSetLocalStorage('bb_inventory_items', JSON.stringify(finalInv));
       safeSetLocalStorage('bb_inventory_stock_eu_map', JSON.stringify(localEuMap));
 
@@ -729,6 +721,75 @@ export default function App() {
     } catch(e) {}
   }, []);
 
+  // ── LEAN STOCK REFRESH (new-order triggered) ──
+  // Fetches ONLY stock columns, ONLY when a genuinely new order arrives, and is
+  // throttled so bursts of orders coalesce into a single pair of small GETs.
+  const stockRefreshAtRef = useRef(0);
+  const stockRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Indirection so the throttled trailing timeout always calls the latest closure.
+  const refreshStockQuietlyRef = useRef<() => Promise<void>>(async () => {});
+  const refreshStockQuietly = useCallback(async () => {
+    const now = Date.now();
+    const wait = 10000 - (now - stockRefreshAtRef.current);
+    if (wait > 0) {
+      // Coalesce: schedule one trailing refresh, never a storm of them.
+      if (!stockRefreshTimerRef.current) {
+        stockRefreshTimerRef.current = setTimeout(() => {
+          stockRefreshTimerRef.current = null;
+          void refreshStockQuietlyRef.current();
+        }, wait);
+      }
+      return;
+    }
+    stockRefreshAtRef.current = now;
+    try {
+      const [invRes, prodRes] = await Promise.all([
+        supabase.from('inventory_items').select('id,stock'),
+        supabase.from('products').select('id,stock,variants')
+      ]);
+
+      if (!invRes.error && Array.isArray(invRes.data)) {
+        const stockMap = new Map<string, number>(
+          invRes.data.map((r: any) => [String(r.id), Number(r.stock) || 0])
+        );
+        const prevInv = inventoryItemsRef.current;
+        const nextInv = prevInv.map(it => {
+          const s = stockMap.get(String(it.id));
+          // Cloud stock wins; drop the stale client-only _lastUpdated marker.
+          return s !== undefined && s !== Number(it.stock) ? { ...it, stock: s, _lastUpdated: undefined } : it;
+        });
+        setInventoryItems(nextInv);
+        inventoryItemsRef.current = nextInv;
+        safeSetLocalStorage('bb_inventory_items', JSON.stringify(nextInv));
+      }
+
+      if (!prodRes.error && Array.isArray(prodRes.data)) {
+        const prodMap = new Map<string, any>(
+          prodRes.data.map((r: any) => [String(r.id), r])
+        );
+        const prevProds = productsRef.current;
+        let prodsChanged = false;
+        const nextProds = prevProds.map(p => {
+          const r = prodMap.get(String(p.id));
+          if (!r) return p;
+          const newStock = Number(r.stock) || 0;
+          const newVariants = Array.isArray(r.variants) ? r.variants : [];
+          if (newStock === p.stock && JSON.stringify(newVariants) === JSON.stringify(p.variants || [])) return p;
+          prodsChanged = true;
+          return { ...p, stock: newStock, variants: newVariants };
+        });
+        if (prodsChanged) {
+          setProducts(nextProds);
+          productsRef.current = nextProds;
+          safeSetLocalStorage('bb_products_cache', JSON.stringify(sanitizeProductsForCache(nextProds)));
+        }
+      }
+    } catch (e) {
+      console.warn('Quiet stock refresh failed:', e);
+    }
+  }, []);
+  useEffect(() => { refreshStockQuietlyRef.current = refreshStockQuietly; }, [refreshStockQuietly]);
+
   const syncNewOrders = useCallback(async () => {
     try {
       // Incremental sync: only fetch orders newer than what we already have,
@@ -788,6 +849,8 @@ export default function App() {
         if (hasNew) {
           playNewOrderSound();
           showToast(`🔔 New Order Received from ${newestOrderName}!`);
+          // Stock was just deducted server-side — refresh the lean stock columns.
+          void refreshStockQuietlyRef.current();
         }
       } else {
         setLastSyncAt(Date.now());
@@ -814,6 +877,8 @@ export default function App() {
           playNewOrderSound();
           const custName = `${newOrder.first_name || newOrder.firstName || ''} ${newOrder.last_name || newOrder.lastName || ''}`.trim() || `#${String(newOrder.id).slice(-6)}`;
           showToast(`🔔 New Order Received from ${custName}!`);
+          // Stock was just deducted server-side — refresh the lean stock columns.
+          void refreshStockQuietlyRef.current();
         }
       })
       .subscribe();

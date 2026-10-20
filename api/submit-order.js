@@ -49,32 +49,64 @@ async function sendTelegram(message) {
 }
 
 async function adjustStock(items, direction) {
-  if (!items || !Array.isArray(items) || items.length === 0) return;
+  if (!items || !Array.isArray(items) || items.length === 0) return [];
+
+  // Any string collected here means stock was (at least partially) NOT adjusted;
+  // the caller logs it and flags the Telegram alert.
+  const issues = [];
+
+  // fetch() helper that surfaces HTTP errors (PostgREST 4xx/5xx) instead of
+  // silently returning an error object that looks like empty data.
+  async function fetchJson(url, label) {
+    const res = await fetch(url, { headers: SB_HEADERS });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = (body && (body.message || body.error)) || res.statusText || "unknown";
+      throw new Error(`${label} failed: HTTP ${res.status} — ${msg}`);
+    }
+    return body;
+  }
 
   // Pre-fetch all inventory items AND products once so every per-item lookup is purely in-memory
   let allInvItems = [];
   let allProds = [];
   try {
-    const [invAllRes, prodAllRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/inventory_items?select=*`, { headers: SB_HEADERS }),
-      // Fetch a lean version of the product catalog (no heavy text columns)
-      fetch(`${SUPABASE_URL}/rest/v1/products?select=id,name,variants,stock,bundle_items`, { headers: SB_HEADERS })
+    const [invAllRows, prodAllRows] = await Promise.all([
+      fetchJson(`${SUPABASE_URL}/rest/v1/inventory_items?select=*`, "inventory_items prefetch").catch((e) => {
+        console.error(`[adjustStock] ${e.message}`);
+        issues.push(`inventory_items prefetch failed (${e.message})`);
+        return [];
+      }),
+      // Lean catalog (no heavy text columns). If the column list is rejected by
+      // PostgREST (e.g. schema drift), retry once with select=* before giving up.
+      fetchJson(`${SUPABASE_URL}/rest/v1/products?select=id,name,variants,stock,bundle_items`, "products prefetch")
+        .catch(() => fetchJson(`${SUPABASE_URL}/rest/v1/products?select=*`, "products prefetch (fallback)"))
+        .catch((e) => {
+          console.error(`[adjustStock] ${e.message}`);
+          issues.push(`products prefetch failed (${e.message})`);
+          return [];
+        }),
     ]);
-    const invAllRows = await invAllRes.json().catch(() => ([]));
     if (Array.isArray(invAllRows)) allInvItems = invAllRows;
-    const prodAllRows = await prodAllRes.json().catch(() => ([]));
     if (Array.isArray(prodAllRows)) allProds = prodAllRows;
-  } catch (_) {}
+  } catch (e) {
+    console.error(`[adjustStock] prefetch threw: ${e.message}`);
+    issues.push(`prefetch threw (${e.message})`);
+  }
 
   // Helper: deduct stock from a single inventory row by its canonical id
   async function patchInvStock(invRow, qty) {
     const curStock = Number(invRow.stock) || 0;
     const newStock = Math.max(0, curStock + direction * qty);
-    await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRow.id)}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRow.id)}`, {
       method: "PATCH",
       headers: SB_HEADERS,
       body: JSON.stringify({ stock: newStock }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`inventory_items PATCH "${invRow.id}" HTTP ${res.status} — ${body.message || res.statusText}`);
+    }
   }
 
   // Helper: find an inventory row by explicit SKU id (case-insensitive)
@@ -82,6 +114,19 @@ async function adjustStock(items, direction) {
     if (!sku) return null;
     const s = String(sku).trim().toLowerCase();
     return allInvItems.find(i => String(i.id || "").trim().toLowerCase() === s) || null;
+  }
+
+  // Helper: PATCH a product row, surfacing HTTP failures
+  async function patchProduct(prodId, body) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(prodId)}`, {
+      method: "PATCH",
+      headers: SB_HEADERS,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(`products PATCH "${prodId}" HTTP ${res.status} — ${errBody.message || res.statusText}`);
+    }
   }
 
   // Helper: find an inventory row by product name + optional flavor/variant_spec
@@ -146,7 +191,16 @@ async function adjustStock(items, direction) {
       // prodId itself may be a direct inventory SKU (no catalog product)
       const directInv = findInvBySku(prodId);
       if (directInv) {
-        await patchInvStock(directInv, qty);
+        try {
+          await patchInvStock(directInv, qty);
+        } catch (e) {
+          console.error(`[adjustStock] ${e.message}`);
+          issues.push(`direct SKU "${prodId}": ${e.message}`);
+        }
+      } else {
+        const warn = `No product or inventory SKU found for productId="${prodId}" (name="${item.name}") — stock NOT adjusted`;
+        console.warn(`[adjustStock] ${warn}`);
+        issues.push(warn);
       }
       continue;
     }
@@ -198,25 +252,32 @@ async function adjustStock(items, direction) {
       if (!linkedSku && v.sku) linkedSku = v.sku;
 
       const newGlobal = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-      await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(realProdId)}`, {
-        method: "PATCH",
-        headers: SB_HEADERS,
-        body: JSON.stringify({ variants, stock: newGlobal }),
-      });
+      try {
+        await patchProduct(realProdId, { variants, stock: newGlobal });
+      } catch (e) {
+        console.error(`[adjustStock] ${e.message}`);
+        issues.push(`product "${item.name}": ${e.message}`);
+      }
     } else {
       const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
-      await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(realProdId)}`, {
-        method: "PATCH",
-        headers: SB_HEADERS,
-        body: JSON.stringify({ stock: newStock }),
-      });
+      try {
+        await patchProduct(realProdId, { stock: newStock });
+      } catch (e) {
+        console.error(`[adjustStock] ${e.message}`);
+        issues.push(`product "${item.name}": ${e.message}`);
+      }
     }
 
     // ── Inventory deduction ──────────────────────────────────────────────────
     // Primary: explicit SKU link from v.flavorSkus or v.sku
     const explicitInv = findInvBySku(linkedSku);
     if (explicitInv) {
-      try { await patchInvStock(explicitInv, qty); } catch (_) {}
+      try {
+        await patchInvStock(explicitInv, qty);
+      } catch (e) {
+        console.error(`[adjustStock] ${e.message}`);
+        issues.push(`inventory "${item.name}": ${e.message}`);
+      }
     } else {
       // Fallback: match inventory row by product name + flavor/variant_spec.
       // This covers products where SKU links were never set in the product editor.
@@ -227,15 +288,23 @@ async function adjustStock(items, direction) {
           `Used name-match fallback → inventory id="${fallbackInv.id}". ` +
           `Link this product's variant to inventory SKU "${fallbackInv.id}" in the admin panel to silence this warning.`
         );
-        try { await patchInvStock(fallbackInv, qty); } catch (_) {}
+        try {
+          await patchInvStock(fallbackInv, qty);
+        } catch (e) {
+          console.error(`[adjustStock] ${e.message}`);
+          issues.push(`inventory "${item.name}": ${e.message}`);
+        }
       } else {
-        console.warn(
-          `[adjustStock] No inventory row found for "${item.name}" (flavor="${rawFlavor}", variant="${rawVariant}", prodId="${prodId}"). ` +
-          `Inventory stock was NOT decremented. Link this product variant to an inventory SKU in the admin panel.`
-        );
+        const warn =
+          `No inventory row found for "${item.name}" (flavor="${rawFlavor}", variant="${rawVariant}", prodId="${prodId}"). ` +
+          `Inventory stock was NOT decremented. Link this product variant to an inventory SKU in the admin panel.`;
+        console.warn(`[adjustStock] ${warn}`);
+        issues.push(warn);
       }
     }
   }
+
+  return issues;
 }
 
 module.exports = async function handler(req, res) {
@@ -376,8 +445,14 @@ module.exports = async function handler(req, res) {
       } catch (_) {}
     }
 
-    // 3. Deduct stock asynchronously
-    await adjustStock(items || [], -1).catch(() => {});
+    // 3. Deduct stock (logged + surfaced in the Telegram alert if anything fails)
+    let stockIssues = [];
+    try {
+      stockIssues = (await adjustStock(items || [], -1)) || [];
+    } catch (e) {
+      console.error(`[submit-order] adjustStock threw: ${e && e.message}`);
+      stockIssues = [`adjustStock threw (${e && e.message})`];
+    }
 
     // 4. Send Telegram notification
     const orderItems = items || [];
@@ -390,6 +465,9 @@ module.exports = async function handler(req, res) {
     const now = new Date();
     const timeStr = now.toLocaleString("fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const totalItems = orderItems.reduce((s, it) => s + (Number(it.qty) || 1), 0);
+    const stockWarning = stockIssues.length > 0
+      ? `⚠️ <b>Stock NOT fully adjusted:</b>\n• ${stockIssues.map(escapeHtml).join("\n• ")}\n\n`
+      : "";
 
     const telegramMsg =
       `🛒 <b>New Order!</b>\n` +
@@ -404,6 +482,7 @@ module.exports = async function handler(req, res) {
       `🏷️ Products: ${subtotal || 0} DA\n` +
       `🚚 Delivery: ${deliveryCost || 0} DA\n` +
       promoLine +
+      stockWarning +
       `💰 Total: ${total || 0} DA`;
 
     await sendTelegram(telegramMsg).catch(() => {});
