@@ -533,6 +533,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     });
   }, [inventoryItems, products, salesVelocity]);
 
+  // ── Expiring soon inventory (best-before within 60 days or already expired) ──
+  const expiringSoon = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return inventoryItems
+      .filter(i => !i.is_archived && i.best_before && (Number(i.stock) || 0) > 0)
+      .map(i => {
+        const d = new Date(`${i.best_before}T00:00:00`);
+        const days = isNaN(d.getTime()) ? null : Math.round((d.getTime() - today.getTime()) / 86400000);
+        return { item: i, days };
+      })
+      .filter(x => x.days !== null && x.days <= 60)
+      .sort((a, b) => (a.days as number) - (b.days as number));
+  }, [inventoryItems]);
+
   // ── Pipeline & velocity (7-day revenue + waiting backlog) ──
   const sevenDayRevenue = useMemo(() => {
     const days: { label: string; rev: number }[] = [];
@@ -1161,6 +1176,37 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         )}
       </div>
+
+      {/* ── Expiring Soon (best-before tracking) ── */}
+      {expiringSoon.length > 0 && (
+        <div className="bg-white rounded-2xl border border-rose-200/80 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-rose-100 bg-rose-50/40 flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-500" /> Expiring Soon
+              <span className="bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full">{expiringSoon.length}</span>
+            </h3>
+            <span className="text-[10px] text-slate-500 font-medium">best-before within 60 days · in stock</span>
+          </div>
+          <div>
+            {expiringSoon.map(({ item, days }) => (
+              <div key={item.id} className="flex items-center justify-between px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
+                <div className="min-w-0 flex-1 pr-4">
+                  <div className="text-xs font-semibold text-slate-800 truncate">
+                    {item.brand ? item.brand + ' – ' : ''}{item.name}{item.variant_spec ? ` (${item.variant_spec})` : ''}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">SKU: {item.id} · stock: {item.stock}</div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xs font-bold text-slate-700">{item.best_before}</div>
+                  <div className={`text-[10px] font-black ${days! < 0 ? 'text-rose-700 uppercase' : days! <= 30 ? 'text-rose-600' : 'text-amber-600'}`}>
+                    {days! < 0 ? `Expired ${Math.abs(days!)}d ago` : days === 0 ? 'Expires today' : `${days}d left`}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
     </div>
   );

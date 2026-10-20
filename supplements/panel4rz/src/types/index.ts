@@ -35,6 +35,7 @@ export interface InventoryItem {
   stock: number;      // DZ Stock (sellable)
   stock_eu: number;   // EU Stock;
   is_archived?: boolean;
+  best_before?: string | null; // YYYY-MM-DD, one date per SKU, NULL = unknown
   created_at?: string;
   _lastUpdated?: string;
 }

@@ -105,7 +105,7 @@ module.exports = async function handler(req, res) {
         undefined;
       if (rowId) auditDetail += ` id=${rowId}`;
       // For inventory/product upserts include the most useful numeric fields
-      const snapFields = ['stock', 'stock_eu', 'price_eur', 'name', 'action'];
+      const snapFields = ['stock', 'stock_eu', 'price_eur', 'name', 'action', 'best_before'];
       snapFields.forEach(f => {
         if (payload[f] !== undefined && payload[f] !== null) {
           auditDetail += ` ${f}=${JSON.stringify(payload[f])}`;

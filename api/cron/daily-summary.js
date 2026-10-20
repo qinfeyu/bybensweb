@@ -90,6 +90,19 @@ module.exports = async function handler(req, res) {
     });
     const products = (await prodsRes.json().catch(() => [])) || [];
 
+    // 3b. Fetch inventory items expiring within 60 days (best-before tracking).
+    // Skipped silently if the `best_before` column has not been migrated yet.
+    const expiryHorizon = new Date(Date.now() + 60 * 86400000).toISOString().split("T")[0];
+    let expiringItems = [];
+    try {
+      const expRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/inventory_items?select=id,brand,name,variant_spec,stock,best_before&and=(best_before.not.is.null,stock.gt.0,is_archived.eq.false,best_before.lte.${expiryHorizon})&order=best_before.asc`,
+        { headers: SB_HEADERS }
+      );
+      const expData = await expRes.json().catch(() => []);
+      if (expRes.ok && Array.isArray(expData)) expiringItems = expData;
+    } catch (_) {}
+
     // Aggregations
     let totalRevenue = 0;
     let storefrontRevenue = 0;
@@ -147,8 +160,7 @@ module.exports = async function handler(req, res) {
     });
 
     // Low stock items scan (stock <= 3)
-    const lowStockItems = [];
-    if (Array.isArray(products)) {
+    const lowStockItems = [];    if (Array.isArray(products)) {
       products.forEach((p) => {
         const variants = parseJsonField(p.variants);
         const flavorStock = parseJsonField(p.flavor_stock);
@@ -193,6 +205,24 @@ module.exports = async function handler(req, res) {
           (lowStockItems.length > 5 ? `\n  <i>...and ${lowStockItems.length - 5} more</i>` : "")
         : "✅ <b>Inventory Status:</b> All products well stocked.";
 
+    // Best-before / expiry warnings (archived & zero-stock SKUs already excluded)
+    const expirySection =
+      expiringItems.length > 0
+        ? `📅 <b>Best-Before Warnings (${expiringItems.length}):</b>\n` +
+          expiringItems
+            .slice(0, 8)
+            .map((it) => {
+              const days = Math.round(
+                (new Date(`${it.best_before}T00:00:00`) - new Date(new Date().toDateString())) / 86400000
+              );
+              const label = `${it.brand ? it.brand + " – " : ""}${it.name}${it.variant_spec ? " (" + it.variant_spec + ")" : ""}`;
+              const when = days < 0 ? `expired ${Math.abs(days)}d ago` : days === 0 ? "expires today" : `${days}d left`;
+              return `  • ${escapeHtml(label)} — ${escapeHtml(it.best_before)} (${when}, stock ${Number(it.stock) || 0})`;
+            })
+            .join("\n") +
+          (expiringItems.length > 8 ? `\n  <i>...and ${expiringItems.length - 8} more</i>` : "")
+        : "";
+
     const telegramMsg =
       `📊 <b>ByBens Daily Business Summary</b>\n` +
       `📅 <i>${escapeHtml(dateFormatted)}</i>\n\n` +
@@ -202,8 +232,9 @@ module.exports = async function handler(req, res) {
       `🏪 <b>POS In-Store:</b> ${posCount} sales (${posRevenue.toLocaleString("fr-DZ")} DA)\n` +
       (preorderCount > 0 ? `📦 <b>Pre-Orders:</b> ${preorderCount} orders (${preorderRevenue.toLocaleString("fr-DZ")} DA)\n` : "") +
       `\n🔥 <b>Top Seller Today:</b> ${escapeHtml(topProductStr)} (${topProductQty} sold)\n\n` +
-      `${lowStockSection}\n\n` +
-      `<i>Automated daily report generated at ${new Date().toLocaleTimeString("fr-DZ")}</i>`;
+      `${lowStockSection}\n` +
+      (expirySection ? `${expirySection}\n` : "") +
+      `\n<i>Automated daily report generated at ${new Date().toLocaleTimeString("fr-DZ")}</i>`;
 
     // 4. Send Telegram message
     await sendTelegram(telegramMsg);
@@ -224,6 +255,8 @@ module.exports = async function handler(req, res) {
         topSeller: { name: topProductStr, qty: topProductQty },
         lowStockCount: lowStockItems.length,
         lowStockItems,
+        expiringCount: expiringItems.length,
+        expiringItems,
       },
     });
   } catch (err) {

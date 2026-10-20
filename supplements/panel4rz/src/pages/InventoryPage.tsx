@@ -38,6 +38,27 @@ interface CsvDiffItem {
   changesText: string;
 }
 
+// Days until best-before date (local midnight math, avoids UTC off-by-one).
+// Returns null when unknown/invalid.
+export const getDaysUntilBestBefore = (dateStr?: string | null): number | null => {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(d.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - today.getTime()) / 86400000);
+};
+
+// 'expired' | 'critical' (<=30d) | 'warning' (<=90d) | 'ok' | 'none' (unknown)
+export const getBestBeforeLevel = (dateStr?: string | null): 'expired' | 'critical' | 'warning' | 'ok' | 'none' => {
+  const days = getDaysUntilBestBefore(dateStr);
+  if (days === null) return 'none';
+  if (days < 0) return 'expired';
+  if (days <= 30) return 'critical';
+  if (days <= 90) return 'warning';
+  return 'ok';
+};
+
 export function getNextSequentialSkuId(baseSku: string, existingItems: InventoryItem[], offset: number = 0): string {
   const cleanBase = baseSku.trim() || 'SUP-1001';
   const match = cleanBase.match(/^(.*?)(\d+)$/);
@@ -81,6 +102,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [isBulkRestockOpen, setIsBulkRestockOpen] = useState(false);
   const [bulkRestockTarget, setBulkRestockTarget] = useState<'dz' | 'eu'>('dz');
   const [bulkRestockQtys, setBulkRestockQtys] = useState<Record<string, number>>({});
+  const [bulkRestockBestBefore, setBulkRestockBestBefore] = useState<string>('');
 
   // Add / Edit Single Item Modal State
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
@@ -295,7 +317,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       delivery_dzd: 0,
       retail_dzd: 0,
       stock: 0,
-      stock_eu: 0
+      stock_eu: 0,
+      best_before: null
     });
     setIsBatchMode(false);
     setBatchVariantsText('');
@@ -318,7 +341,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       id: nextSku,
       variant_spec: '',
       stock: 0,
-      stock_eu: 0
+      stock_eu: 0,
+      best_before: null // new SKU = new stock batch, don't inherit the date
     });
     setIsBatchMode(false);
     setBatchVariantsText('');
@@ -345,7 +369,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       delivery_dzd: Number(editingItem.delivery_dzd) || 0,
       retail_dzd: Number(editingItem.retail_dzd) || 0,
       stock: Number(editingItem.stock) || 0,
-      stock_eu: Number(editingItem.stock_eu) || 0
+      stock_eu: Number(editingItem.stock_eu) || 0,
+      best_before: editingItem.best_before || null
     };
 
     await onSaveItem(payload);
@@ -372,7 +397,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       delivery_dzd: Number(editingItem.delivery_dzd) || 0,
       retail_dzd: Number(editingItem.retail_dzd) || 0,
       stock: Number(editingItem.stock) || 0,
-      stock_eu: Number(editingItem.stock_eu) || 0
+      stock_eu: Number(editingItem.stock_eu) || 0,
+      best_before: editingItem.best_before || null
     };
 
     await onSaveItem(payload);
@@ -423,7 +449,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
         delivery_dzd: Number(editingItem.delivery_dzd) || 0,
         retail_dzd: Number(editingItem.retail_dzd) || 0,
         stock: Number(editingItem.stock) || 0,
-        stock_eu: Number(editingItem.stock_eu) || 0
+        stock_eu: Number(editingItem.stock_eu) || 0,
+        best_before: editingItem.best_before || null
       };
 
       batchItems.push(newItem);
@@ -491,6 +518,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       "Retail DZD",
       "Stock EU",
       "Stock DZ",
+      "Best Before",
       "Type",
       "Is Archived"
     ];
@@ -507,6 +535,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       item.retail_dzd,
       item.stock_eu || 0,
       item.stock || 0,
+      item.best_before || '',
       item.type || 'supplement',
       item.is_archived ? 'true' : 'false'
     ]);
@@ -560,6 +589,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
       const stockDzIdx = findIdx(["stock dz", "stock_dz", "stock", "dz"]);
       const typeIdx = findIdx(["type"]);
       const archivedIdx = findIdx(["is archived", "is_archived", "archived"]);
+      const bestBeforeIdx = findIdx(["best before", "best_before", "bestbefore", "expiry", "expiry date", "expiry_date", "expiration"]);
 
       if (skuIdx === -1 || nameIdx === -1) {
         showToast("CSV must contain SKU and Name columns", "error");
@@ -578,6 +608,19 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           matches.push(val.trim());
         }
         return matches;
+      };
+
+      // Normalise date cells to YYYY-MM-DD (accepts YYYY-MM-DD and DD/MM/YYYY).
+      const normalizeDate = (raw: string): string | null => {
+        const v = (raw || '').trim();
+        if (!v) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+        const dmy = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+        if (dmy) {
+          const [, dd, mm, yyyy] = dmy;
+          return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        }
+        return null;
       };
 
       const parsedItems: InventoryItem[] = [];
@@ -608,6 +651,16 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           _lastUpdated: new Date().toISOString()
         };
 
+        // Best Before: parse when the CSV has the column; otherwise preserve the
+        // existing stored date (the save upserts whole rows, so undefined here
+        // would wipe dates on every import from a spreadsheet lacking the column).
+        const prevBestBefore = inventoryItems.find(x => x.id.toLowerCase() === id.toLowerCase())?.best_before;
+        if (bestBeforeIdx !== -1) {
+          itemPayload.best_before = normalizeDate(cols[bestBeforeIdx] || '');
+        } else {
+          itemPayload.best_before = prevBestBefore ?? null;
+        }
+
         parsedItems.push(itemPayload);
 
         const existing = inventoryItems.find(x => x.id.toLowerCase() === id.toLowerCase());
@@ -625,6 +678,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           if (existing.retail_dzd !== itemPayload.retail_dzd) fieldChanges.push(`Retail: ${existing.retail_dzd} → ${itemPayload.retail_dzd} DA`);
           if (existing.stock_eu !== itemPayload.stock_eu) fieldChanges.push(`Stock EU: ${existing.stock_eu} → ${itemPayload.stock_eu}`);
           if (existing.stock !== itemPayload.stock) fieldChanges.push(`Stock DZ: ${existing.stock} → ${itemPayload.stock}`);
+          if (bestBeforeIdx !== -1 && (existing.best_before || null) !== (itemPayload.best_before || null))
+            fieldChanges.push(`Best Before: ${existing.best_before || '—'} → ${itemPayload.best_before || '—'}`);
           if (archivedIdx !== -1 && Boolean(existing.is_archived) !== Boolean(itemPayload.is_archived))
             fieldChanges.push(`Archived: ${existing.is_archived ? 'yes' : 'no'} → ${itemPayload.is_archived ? 'yes' : 'no'}`);
 
@@ -675,6 +730,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
             ...item,
             stock: bulkRestockTarget === 'dz' ? (item.stock + addQty) : item.stock,
             stock_eu: bulkRestockTarget === 'eu' ? ((item.stock_eu || 0) + addQty) : (item.stock_eu || 0),
+            best_before: bulkRestockBestBefore || item.best_before || null,
             _lastUpdated: new Date().toISOString()
           };
           itemsToUpdate.push(updated);
@@ -689,6 +745,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
     setIsBulkRestockOpen(false);
     setBulkRestockQtys({});
+    setBulkRestockBestBefore('');
   };
 
   return (
@@ -951,6 +1008,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     {sortField === 'stock' && (sortAsc ? '▲' : '▼')}
                   </div>
                 </th>
+                <th className="p-3 text-center cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('best_before')}>
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Best Before</span>
+                    {sortField === 'best_before' && (sortAsc ? '▲' : '▼')}
+                  </div>
+                </th>
                 <th className="p-3 text-center">Actions</th>
               </tr>
             </thead>
@@ -964,6 +1027,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 const margin = calculateMargin(displayItem.retail_dzd, landed);
                 const marginPct = calculateMarginPct(displayItem.retail_dzd, margin).toFixed(1);
 
+                const bbLevel = getBestBeforeLevel(displayItem.best_before);
+                const bbDays = getDaysUntilBestBefore(displayItem.best_before);
+                const isExpiringSoon = bbLevel === 'expired' || bbLevel === 'critical';
+
                 return (
                   <tr
                     key={item.id}
@@ -972,6 +1039,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                         ? 'bg-red-50/50 hover:bg-red-100/50 transition-colors font-medium'
                         : isModified
                         ? 'bg-amber-50/70 hover:bg-amber-100/70 transition-colors border-l-4 border-l-amber-500 font-medium'
+                        : isExpiringSoon
+                        ? 'bg-rose-50/40 hover:bg-rose-100/50 transition-colors border-l-4 border-l-rose-500'
                         : 'hover:bg-slate-50/80 transition-colors'
                     }
                   >
@@ -1147,6 +1216,45 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       )}
                     </td>
 
+                    {/* Best Before */}
+                    <td className="p-3 text-center">
+                      {isSpreadsheetMode ? (
+                        <input
+                          type="date"
+                          value={displayItem.best_before || ''}
+                          onChange={(e) => handleSpreadsheetChange(item.id, 'best_before', e.target.value || null)}
+                          className="w-32 text-center bg-amber-50/80 border border-amber-300 rounded px-1 py-1 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                        />
+                      ) : displayItem.best_before ? (
+                        <span
+                          className={`font-bold ${
+                            bbLevel === 'expired' || bbLevel === 'critical'
+                              ? 'text-rose-700'
+                              : bbLevel === 'warning'
+                              ? 'text-amber-600'
+                              : 'text-slate-700'
+                          }`}
+                          title={bbLevel === 'expired'
+                            ? `Expired ${Math.abs(bbDays!)} day${Math.abs(bbDays!) !== 1 ? 's' : ''} ago`
+                            : bbDays === 0
+                            ? 'Expires today'
+                            : `${bbDays} day${bbDays! !== 1 ? 's' : ''} remaining`}
+                        >
+                          {displayItem.best_before}
+                          {bbLevel === 'expired' && (
+                            <span className="block text-[10px] font-black text-rose-600 uppercase">Expired</span>
+                          )}
+                          {bbLevel === 'critical' && (
+                            <span className="block text-[10px] font-bold text-rose-500">
+                              {bbDays === 0 ? 'Today' : `${bbDays}d left`}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 font-medium">—</span>
+                      )}
+                    </td>
+
                     {/* Actions */}
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center gap-1">
@@ -1192,7 +1300,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
               {sortedItems.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="p-12 text-center space-y-4">
+                  <td colSpan={15} className="p-12 text-center space-y-4">
                     <div className="text-slate-400 font-medium text-sm">
                       {showArchived 
                         ? `No archived items found in ${activeTab}s.`
@@ -1419,6 +1527,21 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                 >
                   EU Stock
                 </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-slate-700">Best Before (optional):</span>
+                <input
+                  type="date"
+                  value={bulkRestockBestBefore}
+                  onChange={(e) => setBulkRestockBestBefore(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 font-semibold"
+                />
+                <span className="text-[11px] text-slate-500">
+                  {bulkRestockBestBefore
+                    ? `Stamp ${bulkRestockBestBefore} on every SKU you restock below (keeps existing date otherwise).`
+                    : 'Leave empty to keep each SKU\'s existing date.'}
+                </span>
               </div>
 
               <div className="border border-slate-200 rounded-xl overflow-x-auto">
@@ -1677,6 +1800,22 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     className="w-full mt-1 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 font-bold text-emerald-900"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700">Best Before (leave empty if unknown)</label>
+                <input
+                  type="date"
+                  value={editingItem.best_before || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, best_before: e.target.value || null })}
+                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold"
+                />
+                {(() => {
+                  const level = getBestBeforeLevel(editingItem.best_before);
+                  if (level === 'expired') return <p className="text-[11px] font-bold text-rose-600 mt-1">⚠ This date is in the past</p>;
+                  if (level === 'critical') return <p className="text-[11px] font-bold text-amber-600 mt-1">⚠ Expires within 30 days</p>;
+                  return null;
+                })()}
               </div>
             </div>
 

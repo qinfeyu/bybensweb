@@ -226,20 +226,27 @@ export default function App() {
     retail_dzd: Number(item.retail_dzd) || 0,
     stock: Number(item.stock) || 0,
     stock_eu: Number(item.stock_eu) || 0,
-    is_archived: Boolean(item.is_archived)
+    is_archived: Boolean(item.is_archived),
+    best_before: item.best_before || null
   });
 
-  // Upsert inventory rows, tolerating environments where the optional
-  // `is_archived` column has not been migrated yet. Without this fallback the
-  // whole upsert (single AND bulk) 400s and no inventory change ever persists.
+  // Upsert inventory rows, tolerating environments where optional columns
+  // (`is_archived`, `best_before`) have not been migrated yet. Without this
+  // fallback the whole upsert (single AND bulk) 400s and nothing persists.
   const upsertInventoryRows = async (rows: any | any[]) => {
-    const res: any = await supabase.from('inventory_items').upsert(rows, { onConflict: 'id' });
-    const msg = res?.error?.message;
-    if (msg && /is_archived/i.test(msg)) {
-      const strip = (r: any) => { const copy = { ...r }; delete copy.is_archived; return copy; };
-      return await supabase
+    let res: any = await supabase.from('inventory_items').upsert(rows, { onConflict: 'id' });
+    let msg = res?.error?.message;
+    for (let attempt = 0; attempt < 2 && msg && /is_archived|best_before/i.test(msg); attempt++) {
+      const strip = (r: any) => {
+        const copy = { ...r };
+        if (/is_archived/i.test(msg)) delete copy.is_archived;
+        if (/best_before/i.test(msg)) delete copy.best_before;
+        return copy;
+      };
+      res = await supabase
         .from('inventory_items')
         .upsert(Array.isArray(rows) ? rows.map(strip) : strip(rows), { onConflict: 'id' });
+      msg = res?.error?.message;
     }
     return res;
   };
