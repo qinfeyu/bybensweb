@@ -198,8 +198,6 @@
       /* ══════════════════════════════════════════════════════
          CONFIG
       ══════════════════════════════════════════════════════ */
-      const SUPABASE_URL = window.SUPABASE_URL;
-      const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
       const PAGE_LOAD_TIME = Date.now(); // used for bot timing check
       // getInitialData is provided by supabase-client.js
       const CART_KEY = "bybens_cart";
@@ -1093,7 +1091,6 @@
       function renderAlsoLike() {
         const grid = document.getElementById("alsoLikeGrid");
         if (!grid || !_allProducts.length) return;
-        const cartIds = cartGet().map((i) => i.id);
         const others = _allProducts.filter((p) => p.status !== "inactive" && Number(p.stock) > 0);
         const picked = others
           .map((p) => ({ p, sort: Math.random() }))
@@ -4061,15 +4058,6 @@ document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orde
         renderCheckoutItems();
         loadData();
         updateBulkNoticeVisibility(); // Initial check for bulk notice
-
-        // Auto-fill from user account
-        const user = JSON.parse(localStorage.getItem('bybens_user'));
-        if (user) {
-          document.getElementById('firstName').value = user.firstName || '';
-          document.getElementById('lastName').value = user.lastName || '';
-          document.getElementById('phone').value = user.phone || '';
-          document.getElementById('address').value = user.address || '';
-        }
 
         const savedLang = localStorage.getItem("bybens_lang") || "en";
         // Merge content.js into i18n

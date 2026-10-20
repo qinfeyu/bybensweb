@@ -102,7 +102,6 @@
       .marquee-bar { background: var(--red); color: var(--white); overflow: hidden; height: 36px; display: flex; align-items: center; }
       .marquee-track { display: flex; align-items: center; justify-content: center; white-space: nowrap; width: 100%; }
       .marquee-item { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.8px; padding: 0 32px; text-transform: uppercase; animation: lightning 6s ease-in-out infinite; }
-      .marquee-sep { opacity: 0.5; }
       @keyframes lightning {
         0%,100% { opacity: 1; text-shadow: 0 0 8px #fff, 0 0 20px #fff; }
         10%      { opacity: 0.15; text-shadow: none; }
@@ -216,7 +215,6 @@
         .logo img { max-width: 100px; }
         .nav-right { margin-left: auto; }
         .lang-switch { display: none; }
-        .nav-right .theme-btn { display: none; }
         .cart-btn { margin-left: 0; }
         .footer-grid { grid-template-columns: 1fr; gap: 28px; }
         .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }

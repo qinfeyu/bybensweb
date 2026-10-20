@@ -450,9 +450,6 @@
     document.body.style.overflow = isOpen ? "hidden" : "";
   }
 
-  /* ── Theme toggle (kept for parity with site header) ── */
-  function toggleTheme() {}
-
   /* ── Download receipt ── */
   function escapeHtmlTrack(v) {
     return String(v == null ? "" : v)
@@ -588,7 +585,6 @@
   window.handleMobileSearch = handleMobileSearch;
   window.toggleMobileMenu = toggleMobileMenu;
   window.toggleMobileCat = toggleMobileCat;
-  window.toggleTheme = toggleTheme;
   window.downloadTrackReceipt = downloadTrackReceipt;
 
   /* ── Scroll ── */

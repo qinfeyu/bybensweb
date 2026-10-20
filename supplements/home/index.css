@@ -675,9 +675,6 @@ textarea {
   padding: 0 32px;
   text-transform: uppercase;
 }
-.marquee-sep {
-  opacity: 0.5;
-}
 
 /* ─── HERO SECTION ───────────────────────────────────────── */
 .hero {
@@ -1076,36 +1073,6 @@ textarea {
   color: var(--white);
 }
 
-.wishlist-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  background: var(--white);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-sm);
-  color: var(--gray-400);
-  transition:
-    color var(--transition),
-    transform var(--transition);
-  opacity: 0;
-  transform: scale(0.8);
-}
-.product-card:hover .wishlist-btn {
-  opacity: 1;
-  transform: scale(1);
-}
-.wishlist-btn:hover {
-  color: var(--red);
-}
-.wishlist-btn.active {
-  color: var(--red);
-}
-
 .product-info {
   padding: 16px;
   flex: 1;
@@ -1414,11 +1381,6 @@ textarea {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.25);
 }
-
-/* Banner stays dark in both modes */
-html[data-theme="dark"] .featured-banner { background: #0a0a0a; }
-html[data-theme="dark"] .banner-title { color: #ffffff; }
-html[data-theme="dark"] .banner-desc { color: rgba(255,255,255,0.55); }
 
 /* ─── FOOTER ─────────────────────────────────────────────── */
 footer {
@@ -1979,8 +1941,6 @@ footer {
   .hiw-step { flex-direction: row; text-align: left; }
   .hiw-step-body { flex: 1; }
 }
-html[data-theme="dark"] .hiw-step-num { background: #1f1f1f; border-color: #3d3d3d; }
-html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red); }
 
 /* ══ ADD-TO-CART MODAL ══ */
 .atc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.52);z-index:9000;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .22s,visibility .22s;}
@@ -2179,9 +2139,6 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
     gap: 6px !important;
     z-index: 10 !important;
   }
-  .theme-btn {
-    display: none !important;
-  }
   #mobileSearchBtn {
     display: flex !important;
   }
@@ -2342,14 +2299,6 @@ html[data-theme="dark"] .hiw-step:hover .hiw-step-num { border-color: var(--red)
   /* Display exactly 4 products in total (2 rows of 2) on mobile */
   #best-sellers-section .product-card:nth-child(n+5) {
     display: none !important;
-  }
-
-  /* Touch optimizations */
-  .wishlist-btn {
-    opacity: 1 !important;
-    transform: scale(0.85) !important;
-    top: 8px !important;
-    right: 8px !important;
   }
 
   /* Trust Bar Mobile Layout (Reference Image Design) */

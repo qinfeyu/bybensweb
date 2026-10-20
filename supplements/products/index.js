@@ -224,8 +224,6 @@
       /* ══════════════════════════════════════════════════════════════
    DATA — loaded from Supabase
 ══════════════════════════════════════════════════════════════ */
-      const SUPABASE_URL = window.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
-      const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvZ3dsenVpZW14d3NucGlneWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTA3MDMsImV4cCI6MjA5ODgyNjcwM30.3IrYmHPKPUwki-hmkysLw3EAEcr_h8wLHZmRphDiOpI";
       // getInitialData is provided by supabase-client.js
 
       var _wlStart = Date.now();
@@ -719,10 +717,6 @@
       /* ══════════════════════════════════════════════════════════════
    RENDER PRODUCTS
 ══════════════════════════════════════════════════════════════ */
-      function renderStars(r) {
-        return "★".repeat(Math.floor(r)) + (r % 1 >= 0.5 ? "½" : "");
-      }
-
       function renderProducts() {
         const t = i18n[currentLang];
         const filtered = getFiltered();
@@ -1493,15 +1487,6 @@
       }
       function cartCheckout() {
         window.location.href = "/supplements/checkout";
-      }
-
-      /* ── WISHLIST ── */
-      function toggleWishlist(btn) {
-        btn.classList.toggle("active");
-        const active = btn.classList.contains("active");
-        btn.querySelector("svg").style.fill = active ? "var(--red)" : "none";
-        btn.style.color = active ? "var(--red)" : "";
-        showToast(active ? "Added to wishlist ♥" : "Removed from wishlist");
       }
 
       /* ══════════════════════════════════════════════════════════════

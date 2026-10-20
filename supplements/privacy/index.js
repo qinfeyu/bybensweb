@@ -12,8 +12,6 @@
         else if (inp) inp.focus();
       }
 
-      function toggleTheme() {}
-
       function switchLang(lang) {
         currentLang = lang;
         const t = i18n[lang] || i18n.en;

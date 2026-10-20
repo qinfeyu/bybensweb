@@ -5,10 +5,6 @@
 
 (function() {
 
-  // Force light mode and clean up any legacy dark mode settings
-  document.documentElement.removeAttribute('data-theme');
-  localStorage.removeItem('bybens_theme');
-
   const footerHTML = `
     <footer class="site-footer" role="contentinfo">
       <div class="container">
@@ -192,11 +188,6 @@
   const placeholder = document.getElementById("footerPlaceholder");
   if (placeholder) placeholder.innerHTML = footerHTML;
   else document.body.insertAdjacentHTML('beforeend', footerHTML);
-
-  // Sync footer logo immediately after injection
-  if (typeof updateLogos === 'function') {
-    updateLogos(document.documentElement.getAttribute('data-theme') === 'dark');
-  }
 
   // Set Year
   const yearEl = document.getElementById("footerYear");

@@ -239,9 +239,6 @@
         padding: 0 32px;
         text-transform: uppercase;
       }
-      .marquee-sep {
-        opacity: 0.5;
-      }
 
       /* ─── HEADER ────────────────────────────────────────────── */
       #site-header {
@@ -756,9 +753,6 @@
         position: relative;
         overflow: hidden;
       }
-      html[data-theme="dark"] .page-hero { background: #0a0a0a; }
-      html[data-theme="dark"] .page-hero h1 { color: #ffffff; }
-      html[data-theme="dark"] .page-hero p { color: rgba(255,255,255,0.5); }
       .page-hero::before {
         content: "";
         position: absolute;
@@ -1408,38 +1402,6 @@
         opacity: 0.4;
         cursor: not-allowed;
         pointer-events: none;
-      }
-
-      .wishlist-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        width: 32px;
-        height: 32px;
-        background: var(--white);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: var(--shadow-sm);
-        color: var(--gray-400);
-        transition:
-          color var(--transition),
-          transform var(--transition);
-        opacity: 0;
-        transform: scale(0.8);
-      }
-      .product-card:hover .wishlist-btn {
-        opacity: 1;
-        transform: scale(1);
-      }
-      .wishlist-btn:hover {
-        color: var(--red);
-      }
-      .wishlist-btn.active {
-        color: var(--red);
-        opacity: 1;
-        transform: scale(1);
       }
 
       .product-info {

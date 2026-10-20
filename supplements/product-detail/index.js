@@ -4352,15 +4352,6 @@ if (orderId) {
         cartUpdateBadge();
         populateWilayas();
         loadProductData();
-        
-        // Auto-fill from user account
-        const user = JSON.parse(localStorage.getItem('bybens_user'));
-        if (user) {
-          document.getElementById('firstName').value = user.firstName || '';
-          document.getElementById('lastName').value = user.lastName || '';
-          document.getElementById('phone').value = user.phone || '';
-          document.getElementById('address').value = user.address || '';
-        }
 
         const savedLang = localStorage.getItem("bybens_lang") || "en";
         if (savedLang !== "en") switchLang(savedLang);

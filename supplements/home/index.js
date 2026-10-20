@@ -230,9 +230,6 @@ const i18n = {
   },
 };
 
-const SUPABASE_URL = window.SUPABASE_URL;
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
-
 var _wlStart = Date.now();
 function hideLoader() {
   var s = document.getElementById('dataSpinner');
@@ -345,12 +342,6 @@ function _atcCurrentFlavorQty() {
 }
 function atcChangeQty(d) { const maxQty = Math.min(5, _atcCurrentFlavorQty()); _atcQty = Math.min(maxQty, Math.max(1, _atcQty + d)); document.getElementById("atcQtyVal").textContent = _atcQty; }
 function closeAddToCartModal() { document.getElementById("atcOverlay").classList.remove("open"); document.body.style.overflow = ""; }
-function openAboutModal() { document.getElementById("aboutOverlay").classList.add("open"); document.body.style.overflow = "hidden"; }
-function closeAboutModal() { document.getElementById("aboutOverlay").classList.remove("open"); document.body.style.overflow = ""; }
-function openShippingModal() { document.getElementById("shippingOverlay").classList.add("open"); document.body.style.overflow = "hidden"; }
-function closeShippingModal() { document.getElementById("shippingOverlay").classList.remove("open"); document.body.style.overflow = ""; }
-function openReturnsModal() { document.getElementById("returnsOverlay").classList.add("open"); document.body.style.overflow = "hidden"; }
-function closeReturnsModal() { document.getElementById("returnsOverlay").classList.remove("open"); document.body.style.overflow = ""; }
 function confirmAddToCart() {
   const p = _atcProduct; if (!p) return;
   if (_atcFlavorObjs.some(fo => fo.qty > 0)) { const fo = _atcFlavorObjs.find(f => f.name === _atcFlavor); if (!fo || fo.qty <= 0) return; }
@@ -489,14 +480,6 @@ function getProductPrice(p) {
   if (disc <= 0) return base;
   if (disc <= 100) return Math.max(0, Math.round(base * (1 - disc / 100)));
   return Math.max(0, Math.round(base - disc));
-}
-
-function renderStars(rating) {
-  const full = Math.floor(rating);
-  const half = rating % 1 >= 0.5;
-  let stars = "★".repeat(full);
-  if (half) stars += "½";
-  return stars;
 }
 
 function renderProductListToContainer(containerId, productList, lang) {
@@ -716,14 +699,6 @@ function switchLang(lang) {
 
 function buyNow(id) {
   window.location.href = `/supplements/product-detail?id=${id}`;
-}
-
-function toggleWishlist(btn) {
-  btn.classList.toggle("active");
-  const isActive = btn.classList.contains("active");
-  btn.style.color = isActive ? "var(--red)" : "";
-  const icon = btn.querySelector("svg");
-  icon.style.fill = isActive ? "var(--red)" : "none";
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1080,91 +1055,6 @@ function handleMobileSearch(query) {
     )
     .join("");
 }
-
-/* ── AUTH LOGIC ── */
-function openAuthModal() { document.getElementById('authOverlay').classList.add('open'); }
-function closeAuthModal() { document.getElementById('authOverlay').classList.remove('open'); }
-function switchAuthTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById(tab + 'Form').classList.add('active');
-}
-
-async function handleAuthSubmit(e, type) {
-  e.preventDefault();
-  const formData = new FormData(e.target);
-  const data = Object.fromEntries(formData.entries());
-  data.action = type === 'login' ? 'loginCustomer' : 'registerCustomer';
-
-  const btn = e.target.querySelector('button');
-  btn.disabled = true;
-  btn.textContent = 'Processing...';
-
-  try {
-    const MANAGE_URL = window.SUPABASE_URL + '/functions/v1/manage-customers';
-    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY };
-    if (type === 'login') {
-      const res = await fetch(MANAGE_URL, {
-        method: 'POST', headers: authHeaders,
-        body: JSON.stringify({ action: 'login', email: (data.email || '').trim().toLowerCase(), password: data.password || '' }),
-      });
-      const result = await res.json();
-      if (!result.success) {
-        alert(result.error || 'Invalid email or password');
-      } else {
-        localStorage.setItem('bybens_user', JSON.stringify(result.user));
-        updateAuthUI();
-        closeAuthModal();
-        showToast('Welcome back!');
-      }
-    } else {
-      const res = await fetch(MANAGE_URL, {
-        method: 'POST', headers: authHeaders,
-        body: JSON.stringify({
-          action: 'register',
-          email: (data.email || '').trim().toLowerCase(),
-          password: data.password || '',
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          phone: data.phone || '',
-          address: data.address || '',
-        }),
-      });
-      const result = await res.json();
-      if (!result.success) { alert(result.error || 'Registration failed'); }
-      else { showToast('Account created! Please login.'); switchAuthTab('login'); }
-    }
-  } catch (err) { alert('Connection error'); }
-  btn.disabled = false;
-  btn.textContent = type === 'login' ? 'Sign In' : 'Create Account';
-}
-
-function updateAuthUI() {
-  const user = JSON.parse(localStorage.getItem('bybens_user'));
-  const loginBtn = document.getElementById('loginNavBtn');
-  const userInfo = document.getElementById('userInfo');
-  if (!loginBtn || !userInfo) return;
-  if (user) {
-    loginBtn.style.display = 'none';
-    userInfo.style.display = 'flex';
-    const nameEl = document.getElementById('userNameDisplay');
-    if (nameEl) nameEl.textContent = user.firstName;
-  } else {
-    loginBtn.style.display = 'flex';
-    userInfo.style.display = 'none';
-  }
-}
-
-function logoutCustomer() {
-  localStorage.removeItem('bybens_user');
-  updateAuthUI();
-  showToast('Logged out');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  updateAuthUI();
-});
 
 /* ══════════════ ANIMATIONS ══════════════ */
 

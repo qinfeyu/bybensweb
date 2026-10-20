@@ -233,9 +233,6 @@
         padding: 0 32px;
         text-transform: uppercase;
       }
-      .marquee-sep {
-        opacity: 0.5;
-      }
 
       /* ─── HEADER ───────────────────────────────────────────────── */
       #site-header {
@@ -1320,8 +1317,6 @@
       .btn-add-to-cart-detail:active {
         transform: translateY(0);
       }
-      html[data-theme="dark"] .btn-add-to-cart-detail { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
-      html[data-theme="dark"] .btn-add-to-cart-detail:hover { background: var(--red); border-color: var(--red); color: #fff; }
       .btn-order {
         width: 100%;
         margin-top: 12px;
@@ -2593,10 +2588,6 @@
   opacity: 0;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
   pointer-events: none;
-}
-html[data-theme="dark"] .sticky-buy-bar {
-  background: var(--dark-card);
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .sticky-buy-bar.sbb-visible {
