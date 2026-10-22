@@ -111,28 +111,42 @@
   function calculateBundleStockAndPrice(bundle, productsList) {
     var bItems = bundle.bundleItems || bundle.bundle_items || [];
     if (!bundle || !Array.isArray(bItems) || bItems.length === 0) return null;
-    
+
     var totalBasePrice = 0;
     var totalStock = Infinity;
-    
+    var complete = true;
+
     bItems.forEach(function (item) {
-      var targetSku = String(item.sku || item.productId || '').trim().toLowerCase();
-      var prod = productsList.find(function (p) {
-        if (String(p.id).trim().toLowerCase() === targetSku) return true;
-        if (p.sku && String(p.sku).trim().toLowerCase() === targetSku) return true;
-        var vars = p.variants || [];
-        for (var vIdx = 0; vIdx < vars.length; vIdx++) {
-          var v = vars[vIdx];
-          if (v.sku && String(v.sku).trim().toLowerCase() === targetSku) return true;
-          if (v.flavorSkus) {
-            var fValues = Object.values(v.flavorSkus);
-            for (var fIdx = 0; fIdx < fValues.length; fIdx++) {
-              if (String(fValues[fIdx]).trim().toLowerCase() === targetSku) return true;
+      // The SKU is the authoritative identity of a component; the catalogue
+      // product id is only a fallback (components that are pure inventory
+      // SKUs have no catalogue product).
+      var lookupKeys = [];
+      var skuKey = String(item.sku || '').trim().toLowerCase();
+      var prodIdKey = String(item.productId || '').trim().toLowerCase();
+      if (skuKey) lookupKeys.push(skuKey);
+      if (prodIdKey && prodIdKey !== skuKey) lookupKeys.push(prodIdKey);
+      if (lookupKeys.length === 0) lookupKeys.push('');
+
+      var prod = null;
+      for (var kIdx = 0; kIdx < lookupKeys.length && !prod; kIdx++) {
+        var key = lookupKeys[kIdx];
+        prod = productsList.find(function (p) {
+          if (String(p.id).trim().toLowerCase() === key) return true;
+          if (p.sku && String(p.sku).trim().toLowerCase() === key) return true;
+          var vars = p.variants || [];
+          for (var vIdx = 0; vIdx < vars.length; vIdx++) {
+            var v = vars[vIdx];
+            if (v.sku && String(v.sku).trim().toLowerCase() === key) return true;
+            if (v.flavorSkus) {
+              var fValues = Object.values(v.flavorSkus);
+              for (var fIdx = 0; fIdx < fValues.length; fIdx++) {
+                if (String(fValues[fIdx]).trim().toLowerCase() === key) return true;
+              }
             }
           }
-        }
-        return false;
-      });
+          return false;
+        });
+      }
 
       if (prod) {
         var price = 0;
@@ -167,14 +181,18 @@
 
         totalBasePrice += price * (Number(item.qty) || 1);
         totalStock = Math.min(totalStock, Math.floor(stock / (Number(item.qty) || 1)));
+      } else {
+        // A component could not be resolved: the derived stock is not reliable.
+        complete = false;
       }
     });
-    
+
     if (totalStock === Infinity) totalStock = 0;
-    
+
     return {
       price: totalBasePrice,
-      stock: totalStock
+      stock: totalStock,
+      complete: complete
     };
   }
 
@@ -219,13 +237,16 @@
 
     var productsRemapped = prods.map(_remapProduct);
     
-    // Post-process bundles to calculate dynamic price & stock
+    // Post-process bundles to calculate dynamic price & stock.
+    // The derived stock is only applied when every component could be resolved;
+    // otherwise the stored catalogue value is kept (a partial calculation would
+    // wrongly hide a sellable bundle).
     productsRemapped.forEach(function (p) {
       var bItems = p.bundleItems || p.bundle_items || [];
       if (Array.isArray(bItems) && bItems.length > 0) {
         var calc = calculateBundleStockAndPrice(p, productsRemapped);
         var existingStock = Number(p.stock) || 0;
-        var finalStock = (calc && calc.stock > 0) ? calc.stock : existingStock;
+        var finalStock = (calc && calc.complete) ? calc.stock : existingStock;
         p.stock = finalStock;
 
         var existingPrice = (p.variants && p.variants.length > 0 && Number(p.variants[0].price)) ? Number(p.variants[0].price) : (Number(p.price) || 0);

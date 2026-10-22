@@ -565,6 +565,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const getBundleCandidates = () => {
     const candidates: Array<{
       id: string;
+      productId: string;
       sku: string;
       name: string;
       brand: string;
@@ -585,6 +586,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
       candidates.push({
         id: inv.id,
+        productId: inv.id,
         sku: inv.id,
         name: inv.name,
         brand: inv.brand || '',
@@ -613,6 +615,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
               const fSku = (v.flavorSkus && v.flavorSkus[fName]) || v.sku || p.id;
               candidates.push({
                 id: `${p.id}_${vLabel}_${fName}`,
+                productId: p.id,
                 sku: fSku,
                 name: `${p.name} (${fName})`,
                 brand: p.brand || '',
@@ -626,6 +629,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
           } else {
             candidates.push({
               id: `${p.id}_${vLabel}`,
+              productId: p.id,
               sku: v.sku || p.id,
               name: `${p.name} (${vLabel})`,
               brand: p.brand || '',
@@ -639,6 +643,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       } else {
         candidates.push({
           id: p.id,
+          productId: p.id,
           sku: p.sku || p.id,
           name: p.name,
           brand: p.brand || '',
@@ -653,8 +658,12 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   };
 
   const handleAddBundleCandidate = (candidate: ReturnType<typeof getBundleCandidates>[0]) => {
+    // The component keeps the real catalogue product id (or the inventory SKU id
+    // when the component has no catalogue product); the SKU stays the
+    // authoritative identity used for stock lookups.
+    const componentProductId = candidate.productId || candidate.id;
     const existingIdx = bundleItems.findIndex(
-      b => (b.sku && b.sku === candidate.sku) || (b.productId === candidate.id && b.variant === candidate.variant && b.flavor === candidate.flavor)
+      b => (b.sku && b.sku === candidate.sku) || (b.productId === componentProductId && b.variant === candidate.variant && b.flavor === candidate.flavor)
     );
 
     if (existingIdx >= 0) {
@@ -665,7 +674,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       setBundleItems([
         ...bundleItems,
         {
-          productId: candidate.id,
+          productId: componentProductId,
           sku: candidate.sku,
           name: candidate.name,
           brand: candidate.brand,
@@ -692,16 +701,31 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       const bQty = Number(b.qty) || 1;
       let componentStock = 0;
 
-      const invMatch = inventoryItems.find(i => 
-        String(i.id).trim().toLowerCase() === String(b.sku || b.productId || '').trim().toLowerCase()
+      // The SKU is the authoritative identity of a component.
+      const compSku = String(b.sku || '').trim().toLowerCase();
+      const compProductId = String(b.productId || '').trim().toLowerCase();
+
+      const invMatch = inventoryItems.find(i =>
+        String(i.id || '').trim().toLowerCase() === compSku ||
+        String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === compSku
       );
 
       if (invMatch) {
         componentStock = Number(invMatch.stock) || 0;
       } else {
-        const prodMatch = products.find(p => p.id === b.productId);
+        // Fall back to the catalogue product (and its variant / flavour stock).
+        const prodMatch = products.find(p => String(p.id).trim().toLowerCase() === compProductId);
         if (prodMatch) {
           componentStock = Number(prodMatch.stock) || 0;
+          const vMatch = (prodMatch.variants || []).find((v: any) =>
+            (b.variant && String(v.weight || v.label || '').toLowerCase().includes(String(b.variant).toLowerCase())) ||
+            (b.flavor && v.flavorStock && v.flavorStock[b.flavor] !== undefined)
+          );
+          if (vMatch) {
+            componentStock = b.flavor && vMatch.flavorStock && vMatch.flavorStock[b.flavor] !== undefined
+              ? Number(vMatch.flavorStock[b.flavor]) || 0
+              : Number(vMatch.stock) || componentStock;
+          }
         }
       }
 

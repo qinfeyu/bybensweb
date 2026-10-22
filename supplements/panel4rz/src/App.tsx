@@ -1432,6 +1432,117 @@ setGiftConfig(config);
     const invModifiedIds = new Set<string>();
     const prodModifiedIds = new Set<string>();
 
+    // ── COMPOSITE BUNDLE PACK ────────────────────────────────────────────────
+    // A bundle is not stocked itself: it is stocked by its components. Selling one
+    // pack deducts `component.qty` of every component SKU, and the bundle's own
+    // stock is re-derived as the scarcest component allows. Components are
+    // resolved by SKU first (the SKU is the inventory identity), the product id
+    // is only a fallback.
+    const adjustBundleStock = async (bundleProd: any, bItems: any[], qty: number, depth: number): Promise<void> => {
+      if (depth > 5) return;
+
+      for (const bItem of bItems) {
+        const componentQty = (Number(bItem.qty) || 1) * qty;
+        const compTargetId = String(bItem.sku || bItem.productId || '').trim().toLowerCase();
+        const compSku = String(bItem.sku || '').trim().toLowerCase();
+        const compFlavor = String(bItem.flavor || '').trim().toLowerCase();
+        const compVariant = String(bItem.variant || '').trim().toLowerCase();
+
+        // Deduct / restore stock for component SKU in Inventory
+        if (compTargetId) {
+          const invIdx = updatedInventory.findIndex(i =>
+            String(i.id || '').trim().toLowerCase() === compTargetId ||
+            String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === compTargetId
+          );
+          if (invIdx >= 0) {
+            const invItem = { ...updatedInventory[invIdx] };
+            const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * componentQty);
+            invItem.stock = newInvStock;
+            updatedInventory[invIdx] = invItem;
+            invModifiedIds.add(invItem.id);
+          }
+        }
+
+        // Deduct / restore stock for component in Catalog Products
+        const compProd = updatedProducts.find(p => {
+          const pId = String(p.id).trim().toLowerCase();
+          if (pId === compTargetId) return true;
+          if (compSku && pId === compSku) return true;
+          if (!p.variants || !Array.isArray(p.variants)) return false;
+          return p.variants.some((v: any) => {
+            const vSku = String(v.sku || '').trim().toLowerCase();
+            if (vSku && (vSku === compTargetId || (compSku && vSku === compSku))) return true;
+            if (v.flavorSkus && typeof v.flavorSkus === 'object') {
+              return Object.values(v.flavorSkus).some((s: any) => {
+                const fs = String(s || '').trim().toLowerCase();
+                return fs && (fs === compTargetId || (compSku && fs === compSku));
+              });
+            }
+            return false;
+          });
+        });
+
+        if (compProd && compProd.variants && compProd.variants.length > 0) {
+          const cVariants = JSON.parse(JSON.stringify(compProd.variants));
+          let cIdx = cVariants.findIndex((v: any) => {
+            const vSku = String(v.sku || '').trim().toLowerCase();
+            if (vSku && (vSku === compTargetId || (compSku && vSku === compSku))) return true;
+            if (compSku && v.flavorSkus && typeof v.flavorSkus === 'object') {
+              const fSku = String((v.flavorSkus as any)[compFlavor] || '').trim().toLowerCase();
+              if (fSku && fSku === compSku) return true;
+              if (Object.values(v.flavorSkus as any).some((s: any) => String(s || '').trim().toLowerCase() === compSku)) return true;
+            }
+            return !!compVariant && String(v.weight || v.label || '').toLowerCase().includes(compVariant);
+          });
+          if (cIdx < 0) cIdx = 0;
+          if (cVariants[cIdx]) {
+            const v = cVariants[cIdx];
+            if (v.flavorStock && Object.keys(v.flavorStock).length > 0) {
+              const targetFlavor = bItem.flavor || Object.keys(v.flavorStock)[0];
+              if (v.flavorStock[targetFlavor] !== undefined) {
+                const curF = Number(v.flavorStock[targetFlavor]) || 0;
+                v.flavorStock[targetFlavor] = Math.max(0, curF + direction * componentQty);
+              }
+              v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
+            } else {
+              v.stock = Math.max(0, (Number(v.stock) || 0) + direction * componentQty);
+            }
+            cVariants[cIdx] = v;
+            const cStock = cVariants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
+            compProd.variants = cVariants;
+            compProd.stock = cStock;
+            prodModifiedIds.add(compProd.id);
+          }
+        }
+
+        // Nested bundle (a bundle containing another bundle)
+        if (compProd) {
+          let nested = compProd.bundleItems || (compProd as any).bundle_items || [];
+          if (typeof nested === 'string') { try { nested = JSON.parse(nested); } catch(e) { nested = []; } }
+          if (Array.isArray(nested) && nested.length > 0) {
+            await adjustBundleStock(compProd, nested, componentQty, depth + 1);
+          }
+        }
+      }
+
+      // Recalculate bundle stock for this bundle product itself based on component inventory
+      let minBStock = Infinity;
+      for (const bItem of bItems) {
+        const bQty = Number(bItem.qty) || 1;
+        const targetSku = String(bItem.sku || bItem.productId || '').trim().toLowerCase();
+        const invMatch = updatedInventory.find(i =>
+          String(i.id || '').trim().toLowerCase() === targetSku ||
+          String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === targetSku
+        );
+        const cStock = invMatch ? (Number(invMatch.stock) || 0) : 0;
+        minBStock = Math.min(minBStock, Math.floor(cStock / bQty));
+      }
+      const finalBStock = minBStock === Infinity ? Math.max(0, (Number(bundleProd.stock) || 0) + direction * qty) : Math.max(0, minBStock);
+      bundleProd.stock = finalBStock;
+      if (bundleProd.variants && bundleProd.variants.length > 0) bundleProd.variants[0].stock = finalBStock;
+      prodModifiedIds.add(bundleProd.id);
+    };
+
     for (const item of items) {
       const qty = Number(item.qty) || 1;
       const rawProdId = String(item.productId || item.product_id || '').trim();
@@ -1450,32 +1561,45 @@ setGiftConfig(config);
           String(i.id || '').trim().toLowerCase() === rawProdId.toLowerCase()
         );
         if (directInvIdx >= 0) {
-          const invItem = { ...updatedInventory[directInvIdx] };
-          const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
-          invItem.stock = newInvStock;
-          updatedInventory[directInvIdx] = invItem;
-          invModifiedIds.add(invItem.id);
-          continue;
+          // A composite bundle must always be unpacked, even when a catalog
+          // product happens to share its id with an inventory SKU.
+          const idProd = updatedProducts.find(p => p.id === rawProdId);
+          let idBundleItems: any[] = idProd ? (idProd.bundleItems || (idProd as any).bundle_items || []) : [];
+          if (typeof idBundleItems === 'string') { try { idBundleItems = JSON.parse(idBundleItems); } catch(e) { idBundleItems = []; } }
+          const isBundleProduct = Array.isArray(idBundleItems) && idBundleItems.length > 0;
+
+          if (!isBundleProduct) {
+            const invItem = { ...updatedInventory[directInvIdx] };
+            const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * qty);
+            invItem.stock = newInvStock;
+            updatedInventory[directInvIdx] = invItem;
+            invModifiedIds.add(invItem.id);
+            continue;
+          }
         }
       }
 
-      // 1. Try finding matching product in Catalog Products
-      let prod = updatedProducts.find(p => {
-        if (rawProdId && p.id === rawProdId) return true;
-        const pName = p.name.toLowerCase().trim();
-        if (pName === rawItemName || rawItemName.includes(pName) || pName.includes(rawItemName)) return true;
-        // Check if rawProdId matches any SKU inside product variants
-        if (rawProdId && p.variants && Array.isArray(p.variants)) {
-          return p.variants.some((v: any) => {
-            if (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase()) return true;
-            if (v.flavorSkus) {
-              return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === rawProdId.toLowerCase());
-            }
-            return false;
-          });
-        }
-        return false;
-      });
+      // 1. Try finding matching product in Catalog Products.
+      //    An exact id match always wins over the looser name / SKU matching,
+      //    otherwise a bundle can be hijacked by a similarly named product.
+      let prod = rawProdId ? updatedProducts.find(p => p.id === rawProdId) : undefined;
+      if (!prod) {
+        prod = updatedProducts.find(p => {
+          const pName = p.name.toLowerCase().trim();
+          if (pName === rawItemName || rawItemName.includes(pName) || pName.includes(rawItemName)) return true;
+          // Check if rawProdId matches any SKU inside product variants
+          if (rawProdId && p.variants && Array.isArray(p.variants)) {
+            return p.variants.some((v: any) => {
+              if (v.sku && String(v.sku).toLowerCase() === rawProdId.toLowerCase()) return true;
+              if (v.flavorSkus) {
+                return Object.values(v.flavorSkus).some((s: any) => String(s).toLowerCase() === rawProdId.toLowerCase());
+              }
+              return false;
+            });
+          }
+          return false;
+        });
+      }
 
       if (prod) {
         // 1a. If Product is a Composite Bundle Pack, unpack and deduct stock for each included SKU / product component
@@ -1483,76 +1607,7 @@ setGiftConfig(config);
         if (typeof bItems === 'string') { try { bItems = JSON.parse(bItems); } catch(e) { bItems = []; } }
 
         if (Array.isArray(bItems) && bItems.length > 0) {
-          for (const bItem of bItems) {
-            const componentQty = (Number(bItem.qty) || 1) * qty;
-            const compTargetId = String(bItem.productId || bItem.sku || '').trim().toLowerCase();
-
-            // Deduct / restore stock for component SKU in Inventory
-            if (compTargetId) {
-              const invIdx = updatedInventory.findIndex(i => 
-                String(i.id || '').trim().toLowerCase() === compTargetId || 
-                String(i.sku || (i as any).sku_id || '').trim().toLowerCase() === compTargetId ||
-                (bItem.sku && (String(i.id || '').trim().toLowerCase() === String(bItem.sku).trim().toLowerCase() || String(i.sku || '').trim().toLowerCase() === String(bItem.sku).trim().toLowerCase()))
-              );
-              if (invIdx >= 0) {
-                const invItem = { ...updatedInventory[invIdx] };
-                const newInvStock = Math.max(0, (Number(invItem.stock) || 0) + direction * componentQty);
-                invItem.stock = newInvStock;
-                updatedInventory[invIdx] = invItem;
-                invModifiedIds.add(invItem.id);
-              }
-            }
-
-            // Deduct / restore stock for component in Catalog Products
-            const compProd = updatedProducts.find(p => 
-              String(p.id).trim().toLowerCase() === compTargetId || 
-              (bItem.sku && (String(p.id).trim().toLowerCase() === String(bItem.sku).trim().toLowerCase() || (p.variants && p.variants.some((v: any) => String(v.sku || '').trim().toLowerCase() === String(bItem.sku).trim().toLowerCase())))) ||
-              (p.variants && p.variants.some((v: any) => String(v.sku || '').trim().toLowerCase() === compTargetId))
-            );
-
-            if (compProd && compProd.variants && compProd.variants.length > 0) {
-              const cVariants = JSON.parse(JSON.stringify(compProd.variants));
-              let cIdx = cVariants.findIndex((v: any) => 
-                String(v.sku || '').trim().toLowerCase() === compTargetId || 
-                (bItem.sku && String(v.sku || '').trim().toLowerCase() === String(bItem.sku).trim().toLowerCase()) ||
-                String(v.weight || v.label || '').toLowerCase().includes(String(bItem.variant || '').toLowerCase())
-              );
-              if (cIdx < 0) cIdx = 0;
-              if (cVariants[cIdx]) {
-                const v = cVariants[cIdx];
-                if (v.flavorStock && Object.keys(v.flavorStock).length > 0) {
-                  const targetFlavor = bItem.flavor || Object.keys(v.flavorStock)[0];
-                  if (v.flavorStock[targetFlavor] !== undefined) {
-                    const curF = Number(v.flavorStock[targetFlavor]) || 0;
-                    v.flavorStock[targetFlavor] = Math.max(0, curF + direction * componentQty);
-                  }
-                  v.stock = Object.values(v.flavorStock).reduce((s: number, q: any) => s + Number(q), 0);
-                } else {
-                  v.stock = Math.max(0, (Number(v.stock) || 0) + direction * componentQty);
-                }
-                cVariants[cIdx] = v;
-                const cStock = cVariants.reduce((s: number, vv: any) => s + (Number(vv.stock) || 0), 0);
-                compProd.variants = cVariants;
-                compProd.stock = cStock;
-                prodModifiedIds.add(compProd.id);
-              }
-            }
-          }
-
-          // Recalculate bundle stock for this bundle product itself based on component inventory
-          let minBStock = Infinity;
-          for (const bItem of bItems) {
-            const bQty = Number(bItem.qty) || 1;
-            const targetSku = String(bItem.sku || bItem.productId || '').trim().toLowerCase();
-            const invMatch = updatedInventory.find(i => String(i.id).trim().toLowerCase() === targetSku);
-            const cStock = invMatch ? (Number(invMatch.stock) || 0) : 0;
-            minBStock = Math.min(minBStock, Math.floor(cStock / bQty));
-          }
-          const finalBStock = minBStock === Infinity ? Math.max(0, (Number(prod.stock) || 0) + direction * qty) : Math.max(0, minBStock);
-          prod.stock = finalBStock;
-          if (prod.variants && prod.variants.length > 0) prod.variants[0].stock = finalBStock;
-          prodModifiedIds.add(prod.id);
-
+          await adjustBundleStock(prod, bItems, qty, 0);
           continue;
         }
 

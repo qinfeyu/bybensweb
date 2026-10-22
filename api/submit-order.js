@@ -48,6 +48,24 @@ async function sendTelegram(message) {
   } catch (_) {}
 }
 
+// Maximum nesting depth for composite bundle packs (a bundle inside a bundle).
+const MAX_BUNDLE_DEPTH = 5;
+
+// Normalises the `bundle_items` jsonb column into a list of component objects.
+function parseBundleItems(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((x) => x && typeof x === "object");
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((x) => x && typeof x === "object") : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
+
 async function adjustStock(items, direction) {
   if (!items || !Array.isArray(items) || items.length === 0) return [];
 
@@ -94,9 +112,33 @@ async function adjustStock(items, direction) {
     issues.push(`prefetch threw (${e.message})`);
   }
 
+  // ── In-memory stock ledger ───────────────────────────────────────────────
+  // Every read comes from these maps and every write updates them, so two order
+  // lines touching the same SKU accumulate instead of overwriting each other.
+  const invRows = new Map();   // lowercase inventory id -> row
+  const invStock = new Map();  // lowercase inventory id -> current stock
+  allInvItems.forEach((i) => {
+    const key = String(i.id || "").trim().toLowerCase();
+    if (!key) return;
+    invRows.set(key, i);
+    invStock.set(key, Number(i.stock) || 0);
+  });
+
+  const prodState = new Map(); // product id -> mutable catalog snapshot
+  allProds.forEach((p) => {
+    prodState.set(String(p.id), {
+      id: p.id,
+      name: p.name || "",
+      stock: Number(p.stock) || 0,
+      variants: Array.isArray(p.variants) ? JSON.parse(JSON.stringify(p.variants)) : [],
+      bundleItems: parseBundleItems(p.bundle_items),
+    });
+  });
+
   // Helper: deduct stock from a single inventory row by its canonical id
   async function patchInvStock(invRow, qty) {
-    const curStock = Number(invRow.stock) || 0;
+    const key = String(invRow.id || "").trim().toLowerCase();
+    const curStock = invStock.has(key) ? invStock.get(key) : (Number(invRow.stock) || 0);
     const newStock = Math.max(0, curStock + direction * qty);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRow.id)}`, {
       method: "PATCH",
@@ -107,13 +149,20 @@ async function adjustStock(items, direction) {
       const body = await res.json().catch(() => ({}));
       throw new Error(`inventory_items PATCH "${invRow.id}" HTTP ${res.status} — ${body.message || res.statusText}`);
     }
+    invStock.set(key, newStock);
+    invRow.stock = newStock;
   }
 
-  // Helper: find an inventory row by explicit SKU id (case-insensitive)
-  function findInvBySku(sku) {
+  // Helper: find an inventory row by explicit SKU id (case-insensitive).
+  // The canonical SKU lives in `id`; the optional `sku` column is a fallback.
+  function findInvRow(sku) {
     if (!sku) return null;
     const s = String(sku).trim().toLowerCase();
-    return allInvItems.find(i => String(i.id || "").trim().toLowerCase() === s) || null;
+    if (invRows.has(s)) return invRows.get(s);
+    for (const row of invRows.values()) {
+      if (String(row.sku || "").trim().toLowerCase() === s) return row;
+    }
+    return null;
   }
 
   // Helper: PATCH a product row, surfacing HTTP failures
@@ -127,6 +176,22 @@ async function adjustStock(items, direction) {
       const errBody = await res.json().catch(() => ({}));
       throw new Error(`products PATCH "${prodId}" HTTP ${res.status} — ${errBody.message || res.statusText}`);
     }
+  }
+
+  // Helper: find the catalog product that owns a given SKU (product id, variant
+  // sku or variant flavour sku). Used to resolve bundle components.
+  function findProductBySku(sku) {
+    if (!sku) return null;
+    const s = String(sku).trim().toLowerCase();
+    for (const st of prodState.values()) {
+      if (String(st.id).trim().toLowerCase() === s) return st;
+      for (const v of st.variants) {
+        if (!v || typeof v !== "object") continue;
+        if (v.sku && String(v.sku).trim().toLowerCase() === s) return st;
+        if (v.flavorSkus && Object.values(v.flavorSkus).some((x) => String(x || "").trim().toLowerCase() === s)) return st;
+      }
+    }
+    return null;
   }
 
   // Helper: find an inventory row by product name + optional flavor/variant_spec
@@ -162,34 +227,208 @@ async function adjustStock(items, direction) {
     return hit || null;
   }
 
-  for (const item of items) {
+  // Pick the variant a sold line / bundle component refers to.
+  // preferSku = true is used for bundle components, whose SKU is authoritative.
+  function pickVariantIndex(st, { variant, flavor, sku }, preferSku) {
+    const variants = (st && st.variants) || [];
+    if (!variants.length) return -1;
+
+    const wantSku = String(sku || "").trim().toLowerCase();
+    const wantFlavor = String(flavor || "").trim().toLowerCase();
+    const cleanVar = String(variant || "").trim().toLowerCase().split("/")[0].replace(/\s+/g, "");
+
+    if (preferSku && wantSku) {
+      const bySku = variants.findIndex((v) =>
+        v && typeof v === "object" && v.sku && String(v.sku).trim().toLowerCase() === wantSku
+      );
+      if (bySku >= 0) return bySku;
+      const byFlavorSku = variants.findIndex((v) =>
+        v && typeof v === "object" && v.flavorSkus &&
+        Object.values(v.flavorSkus).some((x) => String(x || "").trim().toLowerCase() === wantSku)
+      );
+      if (byFlavorSku >= 0) return byFlavorSku;
+    }
+
+    if (cleanVar) {
+      const byLabel = variants.findIndex((v) => {
+        if (!v || typeof v !== "object") return String(v).toLowerCase().replace(/\s+/g, "") === cleanVar;
+        const vWeight = String(v.weight || "").toLowerCase().replace(/\s+/g, "");
+        const vUnit = String(v.unit || "").toLowerCase().replace(/\s+/g, "");
+        const vCombo = (vWeight + vUnit);
+        const vLabel = String(v.label || v.name || "").toLowerCase().replace(/\s+/g, "");
+        return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || cleanVar.includes(vWeight);
+      });
+      if (byLabel >= 0) return byLabel;
+    }
+
+    if (wantFlavor) {
+      const byFlavor = variants.findIndex((v) =>
+        v && typeof v === "object" && v.flavorStock &&
+        Object.keys(v.flavorStock).some((k) => k.trim().toLowerCase() === wantFlavor)
+      );
+      if (byFlavor >= 0) return byFlavor;
+    }
+
+    return 0;
+  }
+
+  // Deduct a catalogue product's variant / flavour stock and its global stock.
+  async function deductCatalogStock(st, { qty, variant, flavor, sku }) {
+    const variants = st.variants || [];
+
+    // Product without variants (simple product): only the global stock moves.
+    if (!variants.length) {
+      const newStock = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+      st.stock = newStock;
+      try {
+        await patchProduct(st.id, { stock: newStock });
+      } catch (e) {
+        console.error(`[adjustStock] ${e.message}`);
+        issues.push(`product "${st.name}": ${e.message}`);
+      }
+      return;
+    }
+
+    const idx = pickVariantIndex(st, { variant, flavor, sku }, true);
+    const v = variants[idx] || variants[0];
+    if (!v) return;
+
+    let matchedFlavorKey = "";
+    const rawFlavor = String(flavor || "").trim();
+    if (rawFlavor && v.flavorStock) {
+      matchedFlavorKey = Object.keys(v.flavorStock).find((k) => k.trim().toLowerCase() === rawFlavor.toLowerCase()) || "";
+    }
+    if (!matchedFlavorKey && v.flavorStock && Object.keys(v.flavorStock).length === 1) {
+      matchedFlavorKey = Object.keys(v.flavorStock)[0];
+    }
+
+    if (matchedFlavorKey && v.flavorStock) {
+      v.flavorStock[matchedFlavorKey] = Math.max(0, (Number(v.flavorStock[matchedFlavorKey]) || 0) + direction * qty);
+      v.stock = Object.values(v.flavorStock).reduce((s, q) => s + Number(q), 0);
+    } else {
+      v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
+    }
+
+    const newGlobal = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+    st.stock = newGlobal;
+    try {
+      await patchProduct(st.id, { variants, stock: newGlobal });
+    } catch (e) {
+      console.error(`[adjustStock] ${e.message}`);
+      issues.push(`product "${st.name}": ${e.message}`);
+    }
+  }
+
+  // ── Composite bundle pack ────────────────────────────────────────────────
+  // A bundle is not stocked itself: it is stocked by its components. Selling one
+  // pack deducts `component.qty` of every component SKU, and the bundle's own
+  // stock is re-derived as the scarcest component allows.
+  async function adjustBundle(st, bItems, qty, depth) {
+    const realProdId = st.id;
+    let minStock = Infinity;
+
+    for (const bItem of bItems) {
+      const bQty = Number(bItem.qty) || 1;
+      const componentQty = bQty * qty;
+      const bSku = String(bItem.sku || "").trim();
+      const bProductId = String(bItem.productId || "").trim();
+      const bFlavor = String(bItem.flavor || "").trim();
+      const bVariant = String(bItem.variant || "").trim();
+
+      // The SKU is authoritative; the product id is only a fallback.
+      const targets = [];
+      if (bSku) targets.push(bSku);
+      if (bProductId && bProductId.toLowerCase() !== bSku.toLowerCase()) targets.push(bProductId);
+
+      let invRow = null;
+      let compState = null;
+      for (const t of targets) {
+        if (!invRow) invRow = findInvRow(t);
+        if (!compState) compState = findProductBySku(t);
+        if (invRow && compState) break;
+      }
+
+      // 1. inventory_items — the source of truth for what can still be sold.
+      if (invRow) {
+        try {
+          await patchInvStock(invRow, componentQty);
+        } catch (e) {
+          console.error(`[adjustStock] ${e.message}`);
+          issues.push(`bundle "${st.name}" inventory "${invRow.id}": ${e.message}`);
+        }
+      }
+
+      // 2. catalog product — keep the variant / flavour stock in sync.
+      if (compState) {
+        await deductCatalogStock(compState, {
+          qty: componentQty,
+          variant: bVariant,
+          flavor: bFlavor,
+          sku: bSku,
+        });
+
+        // Nested bundle (a bundle containing another bundle).
+        if (compState.bundleItems.length > 0) {
+          await adjustBundle(compState, compState.bundleItems, componentQty, depth + 1);
+        }
+      }
+
+      if (!invRow && !compState) {
+        issues.push(
+          `bundle "${st.name}" component "${bSku || bProductId}" (qty ${componentQty}) not found in inventory_items or products — stock NOT adjusted`
+        );
+        minStock = 0;
+        continue;
+      }
+
+      if (!invRow) {
+        issues.push(
+          `bundle "${st.name}" component "${bSku || bProductId}" has no inventory_items row — link it to a SKU so the bundle stock stays accurate`
+        );
+        minStock = 0;
+        continue;
+      }
+
+      const compStock = invStock.get(String(invRow.id).trim().toLowerCase()) || 0;
+      const avail = Math.floor(compStock / bQty);
+      if (avail < minStock) minStock = avail;
+    }
+
+    // The bundle can be sold as many times as its scarcest component allows
+    // (same formula the admin panel uses to derive bundle stock).
+    if (minStock === Infinity) {
+      minStock = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+    }
+    const finalStock = Math.max(0, minStock);
+
+    const variants = Array.isArray(st.variants) ? st.variants : [];
+    if (variants.length > 0) {
+      variants[0] = { ...variants[0], stock: finalStock };
+    }
+    st.stock = finalStock;
+    try {
+      await patchProduct(realProdId, variants.length > 0 ? { variants, stock: finalStock } : { stock: finalStock });
+    } catch (e) {
+      console.error(`[adjustStock] ${e.message}`);
+      issues.push(`bundle "${st.name}": ${e.message}`);
+    }
+  }
+
+  // Adjust a single order line (recurses into composite bundle packs).
+  async function adjustItem(item, depth) {
     const prodId = item.productId || item.product_id;
-    if (!prodId) continue;
+    if (!prodId) return;
     const qty = Number(item.qty) || 1;
     const rawVariant = String(item.variant || "").trim().toLowerCase();
     const rawFlavor = String(item.flavor || "").trim();
-    const cleanVar = rawVariant.split("/")[0].replace(/\s+/g, "");
 
-    // 1. Try finding product by ID from our in-memory catalog
-    let prod = allProds.find(p => String(p.id).toLowerCase() === String(prodId).toLowerCase());
+    // 1. Try finding the product in our in-memory catalog (by id, then by SKU)
+    let st = prodState.get(String(prodId));
+    if (!st) st = findProductBySku(prodId);
 
-    if (!prod) {
-      // 2. Try finding product by matching variant/flavor SKU value
-      prod = allProds.find((p) => {
-        if (!p.variants || !Array.isArray(p.variants)) return false;
-        return p.variants.some((v) => {
-          if (v.sku && String(v.sku).toLowerCase() === String(prodId).toLowerCase()) return true;
-          if (v.flavorSkus) {
-            return Object.values(v.flavorSkus).some((s) => String(s).toLowerCase() === String(prodId).toLowerCase());
-          }
-          return false;
-        });
-      });
-    }
-
-    if (!prod) {
+    if (!st) {
       // prodId itself may be a direct inventory SKU (no catalog product)
-      const directInv = findInvBySku(prodId);
+      const directInv = findInvRow(prodId);
       if (directInv) {
         try {
           await patchInvStock(directInv, qty);
@@ -202,26 +441,23 @@ async function adjustStock(items, direction) {
         console.warn(`[adjustStock] ${warn}`);
         issues.push(warn);
       }
-      continue;
+      return;
     }
 
-    const realProdId = prod.id;
-    const variants = Array.isArray(prod.variants) ? prod.variants : [];
-    let matchedIdx = -1;
-
-    if (variants.length > 0) {
-      if (cleanVar) {
-        matchedIdx = variants.findIndex((v) => {
-          if (typeof v !== "object") return String(v).toLowerCase().replace(/\s+/g, "") === cleanVar;
-          const vWeight = String(v.weight || "").toLowerCase().replace(/\s+/g, "");
-          const vUnit = String(v.unit || "").toLowerCase().replace(/\s+/g, "");
-          const vCombo = (vWeight + vUnit);
-          const vLabel = String(v.label || v.name || "").toLowerCase().replace(/\s+/g, "");
-          return vCombo === cleanVar || vWeight === cleanVar || vLabel === cleanVar || cleanVar.includes(vWeight);
-        });
+    // 2. Composite bundle pack → unpack it and adjust every component.
+    if (st.bundleItems.length > 0) {
+      if (depth >= MAX_BUNDLE_DEPTH) {
+        issues.push(`Bundle "${st.name}" nests deeper than ${MAX_BUNDLE_DEPTH} levels — stock NOT adjusted`);
+        return;
       }
-      if (matchedIdx < 0) matchedIdx = 0;
+      await adjustBundle(st, st.bundleItems, qty, depth);
+      return;
     }
+
+    // 3. Regular product line.
+    const realProdId = st.id;
+    const variants = st.variants || [];
+    const matchedIdx = pickVariantIndex(st, { variant: rawVariant, flavor: rawFlavor, sku: "" }, false);
 
     let linkedSku = "";
     let matchedFlavorKey = "";
@@ -251,7 +487,8 @@ async function adjustStock(items, direction) {
       }
       if (!linkedSku && v.sku) linkedSku = v.sku;
 
-      const newGlobal = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
+      const newGlobal = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+      st.stock = newGlobal;
       try {
         await patchProduct(realProdId, { variants, stock: newGlobal });
       } catch (e) {
@@ -259,7 +496,8 @@ async function adjustStock(items, direction) {
         issues.push(`product "${item.name}": ${e.message}`);
       }
     } else {
-      const newStock = Math.max(0, (Number(prod.stock) || 0) + direction * qty);
+      const newStock = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+      st.stock = newStock;
       try {
         await patchProduct(realProdId, { stock: newStock });
       } catch (e) {
@@ -270,7 +508,7 @@ async function adjustStock(items, direction) {
 
     // ── Inventory deduction ──────────────────────────────────────────────────
     // Primary: explicit SKU link from v.flavorSkus or v.sku
-    const explicitInv = findInvBySku(linkedSku);
+    const explicitInv = findInvRow(linkedSku);
     if (explicitInv) {
       try {
         await patchInvStock(explicitInv, qty);
@@ -302,6 +540,10 @@ async function adjustStock(items, direction) {
         issues.push(warn);
       }
     }
+  }
+
+  for (const item of items) {
+    await adjustItem(item, 0);
   }
 
   return issues;
