@@ -565,13 +565,17 @@ module.exports = async function handler(req, res) {
   try {
     const body = req.body || {};
     const {
-      action, firstName, lastName, phone, address, wilaya, commune,
+      action, fullName, firstName, lastName, phone, address, wilaya, commune,
       deliveryType, deliveryCost, promoCode, promoDiscount,
       items, subtotal, total,
     } = body;
 
     const id = Date.now().toString();
     const source = action === "submitCartOrder" ? "checkout" : "product-detail";
+    // Storefront now sends one fullName; fall back to the old two-field shape for
+    // cached bundles that are still live (assets are cached for up to a year).
+    const customerName = String(fullName || `${firstName || ""} ${lastName || ""}`)
+      .replace(/\s+/g, " ").trim().slice(0, 100);
 
     // 0. Server-side validation for free gift (authoritative — never trusts client state)
     const giftItems = (items || []).filter(it => it.isGift);
@@ -643,8 +647,8 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         id,
         source,
-        first_name: firstName || "",
-        last_name: lastName || "",
+        first_name: customerName,
+        last_name: "",
         phone: phone || "",
         address: address || "",
         wilaya: wilaya || "",
@@ -715,7 +719,7 @@ module.exports = async function handler(req, res) {
       `🛒 <b>New Order!</b>\n` +
       `🕐 ${timeStr}\n` +
       `📱 Source: ${source === "checkout" ? "Cart" : "Product page"}\n` +
-      `👤 ${escapeHtml(firstName || "")} ${escapeHtml(lastName || "")}\n` +
+      `👤 ${escapeHtml(customerName)}\n` +
       `📞 ${escapeHtml(phone || "")}\n` +
       `📍 ${escapeHtml(wilaya || "")} – ${escapeHtml(commune || "")}\n` +
       `📦 ${escapeHtml(deliveryType || "")}\n` +

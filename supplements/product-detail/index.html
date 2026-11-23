@@ -525,20 +525,13 @@
                 aria-hidden="true"
               />
 
-              <div class="form-row">
+              <div class="form-row single">
                 <div class="form-group">
-                  <label for="firstName" data-i18n="form.firstName"
-                    >First Name</label
+                  <label for="fullName" data-i18n="form.fullName"
+                    >Full Name</label
                   >
-                  <input type="text" id="firstName" placeholder="John" />
-                  <span class="error-msg" id="firstNameErr"></span>
-                </div>
-                <div class="form-group">
-                  <label for="lastName" data-i18n="form.lastName"
-                    >Last Name</label
-                  >
-                  <input type="text" id="lastName" placeholder="Doe" />
-                  <span class="error-msg" id="lastNameErr"></span>
+                  <input type="text" id="fullName" placeholder="John Doe" autocomplete="name" />
+                  <span class="error-msg" id="fullNameErr"></span>
                 </div>
               </div>
 
@@ -994,7 +987,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="/supplements/supabase-client.js?v=3" defer></script>
-    <script src="/supplements/product-detail/index.js?v=10" defer></script>
+    <script src="/supplements/product-detail/index.js?v=11" defer></script>
 
     <!-- STICKY MOBILE BUY BAR -->
     <div id="stickyBuyBar" class="sticky-buy-bar">
@@ -1032,7 +1025,7 @@
       </div>
     </div>
     <script src="/supplements/marquee.js?v=2" defer></script>
-    <script src="/content.js?v=2" defer></script>
+    <script src="/content.js?v=3" defer></script>
     <script src="/supplements/footer.js?v=3" defer></script>
   </body>
 </html>

@@ -3400,13 +3400,16 @@
         let valid = true;
         valid =
           validateField(
-            "firstName",
-            "firstNameErr",
-            "First name is required",
+            "fullName",
+            "fullNameErr",
+            "Full name is required",
           ) && valid;
-        valid =
-          validateField("lastName", "lastNameErr", "Last name is required") &&
-          valid;
+        const fullNameEl = document.getElementById("fullName");
+        if (fullNameEl.value.trim() && fullNameEl.value.trim().length < 3) {
+          document.getElementById("fullNameErr").textContent =
+            "Enter your full name (min 3 characters)";
+          valid = false;
+        }
         valid =
           validateField("phone", "phoneErr", "Phone number is required") &&
           valid;
@@ -3466,8 +3469,7 @@
           }
         }
 
-        const firstName = document.getElementById("firstName").value.trim();
-        const lastName = document.getElementById("lastName").value.trim();
+        const fullName = fullNameEl.value.trim();
         const phone = document.getElementById("phone").value.trim();
         const address = document.getElementById("address").value.trim();
         const wilayaData = WILAYAS[selectedWilayaCode];
@@ -3484,8 +3486,7 @@
 
         const payload = {
           action: "submitCartOrder",
-          firstName,
-          lastName,
+          fullName,
           phone,
           address,
           wilaya: `${selectedWilayaCode} - ${wilayaName}`,
@@ -3521,7 +3522,7 @@
             return;
           }
           const orderIdStr = data.id ? ` Your order ID is <strong>${data.id}</strong>.` : ` Your order of ${items.length} item${items.length !== 1 ? "s" : ""}.`;
-document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orderIdStr} Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
+document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}!${orderIdStr} Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
           if (data && data.id) {
             _receiptData = Object.assign({}, receiptSnapshot, { orderId: String(data.id) });
@@ -3529,7 +3530,7 @@ document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orde
             if (rBtn) { rBtn.style.display = "inline-flex"; }
           }
         } catch (e) {
-          document.getElementById("successMsg").innerHTML = `Thank you ${firstName}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""}. Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
+          document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order of ${items.length} item${items.length !== 1 ? "s" : ""}. Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
         } finally {
           if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ""; }
@@ -3556,7 +3557,7 @@ document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orde
         const r = _receiptData;
         const fmt = (n) => (Number(n) || 0).toLocaleString("fr-FR");
         const dateStr = new Date().toLocaleString("fr-DZ");
-        const custName = [r.firstName, r.lastName].filter(Boolean).join(" ") || "—";
+        const custName = r.fullName || [r.firstName, r.lastName].filter(Boolean).join(" ") || "—";
         const isHome = String(r.deliveryType || "home").toLowerCase() === "home";
         const deliveryLabel = isHome ? "🏠 Home Delivery" : "📦 Office Pickup";
         const wilayaCommune = r.wilaya + (r.commune ? " (" + r.commune + ")" : "");
@@ -3797,8 +3798,7 @@ document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orde
           "nav.home": "Home",
           "nav.products": "Products",
           "nav.contact": "Contact",
-          "form.firstName": "First Name",
-          "form.lastName": "Last Name",
+          "form.fullName": "Full Name",
           "form.phone": "Phone Number",
           "form.wilaya": "Wilaya",
           "form.address": "Address (Optional)",
@@ -3849,8 +3849,7 @@ document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orde
           "nav.home": "Accueil",
           "nav.products": "Produits",
           "nav.contact": "Contact",
-          "form.firstName": "Prénom",
-          "form.lastName": "Nom",
+          "form.fullName": "Nom complet",
           "form.phone": "Numéro de téléphone",
           "form.wilaya": "Wilaya",
           "form.address": "Adresse (Facultatif)",
@@ -3925,8 +3924,7 @@ document.getElementById("successMsg").innerHTML = `Thank you ${firstName}!${orde
           "nav.home": "الرئيسية",
           "nav.products": "المنتجات",
           "nav.contact": "اتصل بنا",
-          "form.firstName": "الاسم الأول",
-          "form.lastName": "اللقب",
+          "form.fullName": "الاسم الكامل",
           "form.phone": "رقم الهاتف",
           "form.wilaya": "الولاية",
           "form.address": "العنوان (اختياري)",

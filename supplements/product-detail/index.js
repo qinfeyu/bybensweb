@@ -3275,13 +3275,16 @@
         let valid = true;
         valid =
           validateField(
-            "firstName",
-            "firstNameErr",
-            "First name is required",
+            "fullName",
+            "fullNameErr",
+            "Full name is required",
           ) && valid;
-        valid =
-          validateField("lastName", "lastNameErr", "Last name is required") &&
-          valid;
+        const fullNameEl = document.getElementById("fullName");
+        if (fullNameEl.value.trim() && fullNameEl.value.trim().length < 3) {
+          document.getElementById("fullNameErr").textContent =
+            "Enter your full name (min 3 characters)";
+          valid = false;
+        }
         valid =
           validateField("phone", "phoneErr", "Phone number is required") &&
           valid;
@@ -3322,8 +3325,7 @@
         const deliveryCharge = freeDelivery ? 0 : cost;
         const totalNum = subtotal + deliveryCharge - discount;
         const total = totalNum.toLocaleString("fr-DZ");
-        const firstName = document.getElementById("firstName").value.trim();
-        const lastName = document.getElementById("lastName").value.trim();
+        const fullName = fullNameEl.value.trim();
         const phone = document.getElementById("phone").value.trim();
         const address = document.getElementById("address").value.trim();
         const wilayaData = WILAYAS[selectedWilayaCode];
@@ -3356,8 +3358,7 @@
               body: JSON.stringify({
                 action: "submitProductOrder",
                 source: "product-detail",
-                firstName,
-                lastName,
+                fullName,
                 phone,
                 address,
                 wilaya: selectedWilayaCode
@@ -3382,11 +3383,10 @@
           }
   
 if (orderId) {
-             document.getElementById("successMsg").innerHTML = `Thank you ${firstName}! Your order ID is <strong>${orderId}</strong>. Total: ${total} DA. We'll call you shortly to confirm.`;
+             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order ID is <strong>${orderId}</strong>. Total: ${total} DA. We'll call you shortly to confirm.`;
              _receiptData = {
                orderId: String(orderId),
-               firstName,
-               lastName,
+               fullName,
                phone,
                address,
                wilaya: selectedWilayaCode ? `${selectedWilayaCode} - ${wilayaName}` : "",
@@ -3402,7 +3402,7 @@ if (orderId) {
              const rBtn = document.getElementById("downloadReceiptBtn");
              if (rBtn) { rBtn.style.display = "inline-flex"; }
           } else {
-             document.getElementById("successMsg").innerHTML = `Thank you ${firstName}! Your order for ${p.name} - ${selectedQty}. Total: ${total} DA. We'll call you shortly to confirm.`;
+             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order for ${p.name} - ${selectedQty}. Total: ${total} DA. We'll call you shortly to confirm.`;
           }
           document.getElementById("successOverlay").classList.add("show");
         }
@@ -3429,7 +3429,7 @@ if (orderId) {
         const r = _receiptData;
         const fmt = (n) => (Number(n) || 0).toLocaleString("fr-FR");
         const dateStr = new Date().toLocaleString("fr-DZ");
-        const custName = [r.firstName, r.lastName].filter(Boolean).join(" ") || "—";
+        const custName = r.fullName || [r.firstName, r.lastName].filter(Boolean).join(" ") || "—";
         const isHome = String(r.deliveryType || "home").toLowerCase() === "home";
         const deliveryLabel = isHome ? "🏠 Home Delivery" : "📦 Office Pickup";
         const wilayaCommune = r.wilaya + (r.commune ? " (" + r.commune + ")" : "");
@@ -3535,8 +3535,7 @@ if (orderId) {
           "detail.weight": "SIZE",
           "detail.flavor": "Flavor",
           "detail.about": "About this product",
-          "form.firstName": "First Name",
-          "form.lastName": "Last Name",
+          "form.fullName": "Full Name",
           "form.phone": "Phone Number",
           "form.wilaya": "Wilaya",
           "form.commune": "Commune",
@@ -3613,8 +3612,7 @@ if (orderId) {
           "detail.weight": "Taille",
           "detail.flavor": "Saveur",
           "detail.about": "À propos du produit",
-          "form.firstName": "Prénom",
-          "form.lastName": "Nom",
+          "form.fullName": "Nom complet",
           "form.phone": "Numéro de téléphone",
           "form.wilaya": "Wilaya",
           "form.address": "Adresse (Facultatif)",
@@ -3691,8 +3689,7 @@ if (orderId) {
           "detail.weight": "الحجم",
           "detail.flavor": "النكهة",
           "detail.about": "عن هذا المنتج",
-          "form.firstName": "الاسم الأول",
-          "form.lastName": "اللقب",
+          "form.fullName": "الاسم الكامل",
           "form.phone": "رقم الهاتف",
           "form.wilaya": "الولاية",
           "form.address": "العنوان (اختياري)",
