@@ -703,10 +703,10 @@ module.exports = async function handler(req, res) {
     // 4. Send Telegram notification
     const orderItems = items || [];
     const itemLines = orderItems.map((it) =>
-      `  • ${escapeHtml(it.name)}${it.isGift ? ' 🎁 (FREE GIFT)' : ''}${it.flavor ? " – " + escapeHtml(it.flavor) : ""}${it.variant ? " (" + escapeHtml(it.variant) + ")" : ""} x${it.qty}`
+      `  • ${escapeHtml(it.name)}${it.isGift ? ' 🎁 (FREE GIFT)' : ''}${it.flavor ? " – " + escapeHtml(it.flavor) : ""}${it.variant ? " (" + escapeHtml(it.variant) + ")" : ""} x${escapeHtml(String(it.qty ?? 1))}`
     ).join("\n");
     const promoLine = promoCode
-      ? `🎟️ Promo: ${escapeHtml(promoCode)} (-${promoDiscount || 0} DA)\n`
+      ? `🎟️ Promo: ${escapeHtml(promoCode)} (-${escapeHtml(String(promoDiscount || 0))} DA)\n`
       : "🎟️ No promo code\n";
     const now = new Date();
     const timeStr = now.toLocaleString("fr-DZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -725,11 +725,11 @@ module.exports = async function handler(req, res) {
       `📦 ${escapeHtml(deliveryType || "")}\n` +
       `🛍️ Items: ${totalItems}\n\n` +
       `${itemLines}\n\n` +
-      `🏷️ Products: ${subtotal || 0} DA\n` +
-      `🚚 Delivery: ${deliveryCost || 0} DA\n` +
+      `🏷️ Products: ${escapeHtml(String(subtotal || 0))} DA\n` +
+      `🚚 Delivery: ${escapeHtml(String(deliveryCost || 0))} DA\n` +
       promoLine +
       stockWarning +
-      `💰 Total: ${total || 0} DA`;
+      `💰 Total: ${escapeHtml(String(total || 0))} DA`;
 
     await sendTelegram(telegramMsg).catch(() => {});
 

@@ -19,6 +19,14 @@ const TELEGRAM_CHAT_ID =
   process.env.TELEGRAM_CHAT_ID ||
   "";
 
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 async function sendTelegram(message) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
   try {
@@ -88,9 +96,9 @@ module.exports = async function handler(req, res) {
     // 2. Send Telegram notification directly from Vercel backend
     const telegramText =
       `✉️ <b>New Contact Message!</b>\n` +
-      `👤 <b>Name:</b> ${cleanName}\n` +
-      `📬 <b>Contact:</b> ${cleanContact}\n\n` +
-      `💬 <b>Message:</b>\n${cleanMessage}`;
+      `👤 <b>Name:</b> ${escapeHtml(cleanName)}\n` +
+      `📬 <b>Contact:</b> ${escapeHtml(cleanContact)}\n\n` +
+      `💬 <b>Message:</b>\n${escapeHtml(cleanMessage)}`;
 
     await sendTelegram(telegramText);
 

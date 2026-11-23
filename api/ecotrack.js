@@ -12,22 +12,46 @@ function normalizeString(str) {
     .replace(/[^a-z0-9]/g, ''); // Remove spaces, hyphens, etc.
 }
 
-// Best-effort in-memory rate limit for receipt downloads (per IP). Deterrent only:
-// counters reset on cold start. Receipt responses carry PII (name/address/items).
+// Best-effort in-memory rate limits, keyed on the ingress IP. Deterrent only:
+// counters reset on cold start. Every public lookup is throttled; receipt
+// downloads (which carry PII) get a stricter cap.
+const LOOKUP_THROTTLE_MAX = 60;
+const LOOKUP_THROTTLE_WINDOW_MS = 60 * 1000;
 const RECEIPT_THROTTLE_MAX = 10;
 const RECEIPT_THROTTLE_WINDOW_MS = 60 * 1000;
+const lookupThrottle = new Map();
 const receiptThrottle = new Map();
 
-function isReceiptThrottled(ip) {
-  if (!ip) return false;
+function isThrottled(map, ip, max, windowMs) {
+  if (!ip) return true;
   const now = Date.now();
-  const entry = receiptThrottle.get(ip);
-  if (!entry || now - entry.t0 > RECEIPT_THROTTLE_WINDOW_MS) {
-    receiptThrottle.set(ip, { count: 1, t0: now });
+  const entry = map.get(ip);
+  if (!entry || now - entry.t0 > windowMs) {
+    map.set(ip, { count: 1, t0: now });
     return false;
   }
   entry.count += 1;
-  return entry.count > RECEIPT_THROTTLE_MAX;
+  return entry.count > max;
+}
+
+function getClientIp(req) {
+  const headers = (req && req.headers) || {};
+  return String(headers["x-vercel-forwarded-for"] || headers["x-forwarded-for"] || headers["x-real-ip"] || "")
+    .split(",")[0]
+    .trim();
+}
+
+function normalizeDzPhone(value) {
+  let digits = String(value || "").replace(/[^0-9]/g, "");
+  if (digits.startsWith("00213")) digits = `0${digits.slice(5)}`;
+  else if (digits.startsWith("213")) digits = `0${digits.slice(3)}`;
+  // Legacy rows may store the 9-digit national form without the leading zero.
+  if (/^[0-9]{9}$/.test(digits)) digits = `0${digits}`;
+  return digits;
+}
+
+function isValidDzPhone(phone) {
+  return /^0[0-9]{9}$/.test(phone);
 }
 
 async function handleGet(req, res) {
@@ -37,6 +61,22 @@ async function handleGet(req, res) {
 
     if (!orderId || !phone) {
       return res.status(400).json({ success: false, error: "Order ID and Phone Number are required." });
+    }
+
+    // Fail closed when the platform does not give us an ingress IP: every public
+    // lookup (including receipts) is throttled, with a stricter cap for receipts.
+    const clientIp = getClientIp(req);
+    if (!clientIp) {
+      return res.status(429).json({ success: false, error: "Unable to determine request origin. Please try again later." });
+    }
+    const isReceipt = req.query.receipt === "1";
+    if (isThrottled(
+      isReceipt ? receiptThrottle : lookupThrottle,
+      clientIp,
+      isReceipt ? RECEIPT_THROTTLE_MAX : LOOKUP_THROTTLE_MAX,
+      isReceipt ? RECEIPT_THROTTLE_WINDOW_MS : LOOKUP_THROTTLE_WINDOW_MS,
+    )) {
+      return res.status(429).json({ success: false, error: "Too many lookup requests. Please try again later." });
     }
 
     if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -71,37 +111,19 @@ async function handleGet(req, res) {
 
     const order = orders[0];
 
-    // 2. Validate phone number to prevent enumeration
-    const cleanInputPhone = phone.replace(/[^0-9]/g, '');
-    const cleanDbPhone = (order.phone || "").replace(/[^0-9]/g, '');
-    
-    if (!cleanInputPhone || !cleanDbPhone || !cleanDbPhone.endsWith(cleanInputPhone.slice(-8))) {
+    // 2. Validate the full phone number (exact match, not a last-N-digits suffix)
+    // to prevent cross-order enumeration. Prefixes and formatting are normalized.
+    const inputPhone = normalizeDzPhone(phone);
+    const storedPhone = normalizeDzPhone(order.phone);
+    if (!isValidDzPhone(inputPhone) || storedPhone !== inputPhone) {
       return res.status(401).json({ success: false, error: "Phone number does not match this order." });
     }
 
-    // Client receipt re-download. Stricter than plain tracking: the receipt payload
-    // includes PII (name, full address, items), so require an exact full-phone match
-    // plus a per-IP throttle. Must run BEFORE the no-trackingId early return so a
-    // freshly placed (not yet dispatched) order can still download its receipt.
-    if (req.query.receipt === "1") {
-      const clientIp = String(req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "").split(",")[0].trim();
-      if (isReceiptThrottled(clientIp)) {
-        return res.status(429).json({ success: false, error: "Too many receipt requests. Please try again later." });
-      }
-      // Strict full-number match for PII. Normalize DZ prefixes (+213 / 00213) the same
-      // way ecotrack's create/order does, so a client typing "+213555123456" still
-      // matches a stored "0555123456". The lenient last-8 check above is enough for
-      // plain tracking; addresses+items need the exact full match.
-      let strictPhone = cleanInputPhone;
-      if (cleanInputPhone.startsWith('00213')) {
-        strictPhone = '0' + cleanInputPhone.slice(5);
-      } else if (cleanInputPhone.startsWith('213')) {
-        strictPhone = '0' + cleanInputPhone.slice(3);
-      }
-      if (strictPhone !== cleanDbPhone) {
-        return res.status(401).json({ success: false, error: "Phone number does not match this order." });
-      }
-
+    // Client receipt re-download. Must run BEFORE the no-trackingId early return so a
+    // freshly placed (not yet dispatched) order can still download its receipt. The
+    // phone check above is already an exact normalized match; the stricter receipt
+    // throttle was applied at the top of handleGet.
+    if (isReceipt) {
       const receiptRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=id,first_name,last_name,phone,wilaya,commune,address,delivery_type,created_at,items,subtotal,delivery_cost,promo_discount,promo_code,total&limit=1`, {
         headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
       });

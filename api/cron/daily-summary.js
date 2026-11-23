@@ -19,6 +19,17 @@ const TELEGRAM_CHAT_ID =
   process.env.TELEGRAM_CHAT_ID ||
   "";
 
+const crypto = require("crypto");
+const { applyAdminCors, requireAdmin } = require("../_lib/admin-auth");
+const CRON_SECRET = process.env.CRON_SECRET || "";
+
+function safeEqual(a, b) {
+  const left = Buffer.from(String(a || ""));
+  const right = Buffer.from(String(b || ""));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
 const SB_HEADERS = {
   "Content-Type": "application/json",
   apikey: SUPABASE_KEY,
@@ -61,12 +72,24 @@ function parseJsonField(val) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (!applyAdminCors(req, res)) {
+    return res.status(403).json({ error: "Origin not allowed" });
+  }
+  res.setHeader("Cache-Control", "no-store");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "GET" && req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Operators trigger
+  // the same route with their Supabase panel token instead.
+  const header = String((req.headers && req.headers.authorization) || "");
+  const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const isScheduler = Boolean(CRON_SECRET) && safeEqual(bearer, CRON_SECRET);
+  if (!isScheduler) {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
   }
 
   try {

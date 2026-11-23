@@ -26,39 +26,46 @@ async function sf(path) {
   return data;
 }
 
+async function loadInitialData() {
+  if (!SUPABASE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY is missing from environment variables.");
+  }
+
+  const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings, giftConfig] = await Promise.all([
+    sf("products?select=id,name,brand,category_ids,sub_category_ids,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
+    sf("categories?select=*&order=created_at.asc"),
+    sf("sub_categories?select=*"),
+    sf("bundle?select=*&limit=1"),
+    sf("promo_codes?select=*&order=created_at.desc"),
+    sf("delivery_prices?select=*&order=wilaya.asc"),
+    sf("settings?select=*"),
+    sf("gift_config?select=*&limit=1"),
+  ]);
+
+  const products = Array.isArray(rawProducts) ? rawProducts.filter((p) => !p.hidden) : [];
+
+  return {
+    products,
+    categories: Array.isArray(categories) ? categories : [],
+    subCategories: Array.isArray(subCategories) ? subCategories : [],
+    bundle: Array.isArray(bundle) ? bundle[0] || {} : bundle || {},
+    promos: Array.isArray(promos) ? promos : [],
+    deliveryPrices: Array.isArray(deliveryPrices) ? deliveryPrices : [],
+    settings: Array.isArray(settings) ? settings : [],
+    gift_config: Array.isArray(giftConfig) ? giftConfig[0] || {} : giftConfig || {},
+    orders: [],
+  };
+}
+
 module.exports = async function handler(_req, res) {
   try {
-    if (!SUPABASE_KEY) {
-      throw new Error("SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY is missing from environment variables.");
-    }
-
-    const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings, giftConfig] = await Promise.all([
-      sf("products?select=id,name,brand,category_ids,sub_category_ids,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
-      sf("categories?select=*&order=created_at.asc"),
-      sf("sub_categories?select=*"),
-      sf("bundle?select=*&limit=1"),
-      sf("promo_codes?select=*&order=created_at.desc"),
-      sf("delivery_prices?select=*&order=wilaya.asc"),
-      sf("settings?select=*"),
-      sf("gift_config?select=*&limit=1"),
-    ]);
-
-    const products = Array.isArray(rawProducts) ? rawProducts.filter((p) => !p.hidden) : [];
-
+    const data = await loadInitialData();
     res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=300, max-age=15");
     res.setHeader("Content-Type", "application/json");
-    res.status(200).json({
-      products,
-      categories: Array.isArray(categories) ? categories : [],
-      subCategories: Array.isArray(subCategories) ? subCategories : [],
-      bundle: Array.isArray(bundle) ? bundle[0] || {} : bundle || {},
-      promos: Array.isArray(promos) ? promos : [],
-      deliveryPrices: Array.isArray(deliveryPrices) ? deliveryPrices : [],
-      settings: Array.isArray(settings) ? settings : [],
-      gift_config: Array.isArray(giftConfig) ? giftConfig[0] || {} : giftConfig || {},
-      orders: [],
-    });
+    res.status(200).json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 };
+
+module.exports.loadInitialData = loadInitialData;

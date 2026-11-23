@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { InventoryItem, Order, PreOrder, Expense, Product, Customer } from '../types';
+import { getAdminAuthHeaders, clearAdminSession, isAdminAuthError } from '../lib/supabase';
 import {
   TrendingUp, ShoppingCart, DollarSign, Warehouse,
   AlertTriangle, CheckCircle, ChevronDown, BarChart2,
@@ -629,7 +630,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onClick={async () => {
               try {
                 setSendingTelegram(true);
-                const r = await fetch('/api/cron/daily-summary');
+                const r = await fetch('/api/cron/daily-summary', { headers: getAdminAuthHeaders() });
+                if (isAdminAuthError(r.status)) {
+                  clearAdminSession();
+                  alert("Session expired. Please sign in again.");
+                  return;
+                }
                 const data = await r.json();
                 if (data.success) {
                   setTelegramSent(true);

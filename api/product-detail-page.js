@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { loadInitialData } = require("./initial-data");
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
@@ -79,17 +80,13 @@ module.exports = async function handler(req, res) {
     // 1. Direct query by ID
     let rows = await sf(`products?select=id,name,brand,description,image_url,variants,discount&id=eq.${encodeURIComponent(productId)}&limit=1`);
 
-    // 2. Fallback to initial-data endpoint if direct REST failed
+    // 2. Fallback to the shared loader in-process. Never derive an outbound
+    // URL from Host/x-forwarded-* request headers.
     if (!Array.isArray(rows) || rows.length === 0) {
-      const host = req.headers["x-forwarded-host"] || req.headers.host || "www.bybens.com";
-      const proto = req.headers["x-forwarded-proto"] || "https";
-      const initRes = await fetch(`${proto}://${host}/api/initial-data`).catch(() => null);
-      if (initRes && initRes.ok) {
-        const initData = await initRes.json().catch(() => ({}));
-        if (Array.isArray(initData.products)) {
-          rows = initData.products;
-        }
-      }
+      try {
+        const initData = await loadInitialData();
+        if (Array.isArray(initData.products)) rows = initData.products;
+      } catch (_) {}
     }
 
     const prod = Array.isArray(rows)
