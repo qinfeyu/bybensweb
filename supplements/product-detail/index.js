@@ -177,25 +177,25 @@
             // With dropdown — wrapped in .cat-item for hover to work
             dHTML += `<div class="cat-item">
               <a href="/supplements/products" class="cat-link">
-                ${cat.name}
+                ${escapeHtml(cat.name)}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
               </a>
               <div class="dropdown">
-                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}">${s.name}</a>`).join("")}
+                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}">${escapeHtml(s.name)}</a>`).join("")}
               </div>
             </div>`;
             mHTML += `<div class="m-cat-item">
               <button class="m-cat-toggle" onclick="toggleMobileCat(this)">
-                ${cat.name} <span class="m-arrow">›</span>
+                ${escapeHtml(cat.name)} <span class="m-arrow">›</span>
               </button>
               <div class="m-sub">
-                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}" class="m-sub-link">${s.name}</a>`).join("")}
+                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}" class="m-sub-link">${escapeHtml(s.name)}</a>`).join("")}
               </div>
             </div>`;
           } else {
             // No sub-categories — still wrap in .cat-item for consistent hover underline
-            dHTML += `<div class="cat-item"><a href="/supplements/products" class="cat-link">${cat.name}</a></div>`;
-            mHTML += `<a href="/supplements/products" class="mobile-nav-link">${cat.name}</a>`;
+            dHTML += `<div class="cat-item"><a href="/supplements/products" class="cat-link">${escapeHtml(cat.name)}</a></div>`;
+            mHTML += `<a href="/supplements/products" class="mobile-nav-link">${escapeHtml(cat.name)}</a>`;
           }
         });
 
@@ -288,7 +288,7 @@
               if (footerList) {
                 footerList.innerHTML = _allCategories
                   .slice(0, 6)
-                  .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${cat.name}</a></li>`)
+                  .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${escapeHtml(cat.name)}</a></li>`)
                   .join("");
               }
             }
@@ -347,25 +347,25 @@
                 ? [p.imageUrl]
                 : [];
             const img = _alsoImgs[0]
-              ? `<img src="${_alsoImgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" decoding="async" />${_alsoImgs[1] ? `<img src="${_alsoImgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
+              ? `<img src="${safeImageUrl(_alsoImgs[0])}" alt="${escapeHtml(p.name)}" class="img-primary" loading="lazy" decoding="async" />${_alsoImgs[1] ? `<img src="${safeImageUrl(_alsoImgs[1])}" alt="${escapeHtml(p.name)}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
               : `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gray-200)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
             const badge = computeBadge(p, _bundleId, _topSoldIds);
             return `
-            <div class="also-card" onclick="window.location.href='/supplements/product-detail?id=${p.id}'" style="cursor:pointer">
+            <div class="also-card" onclick="window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'" style="cursor:pointer">
               <div class="also-card-img">${img}${badge ? `<span class="product-badge badge-${badge.type}">${badge.label}</span>` : ""}</div>
               <div class="also-card-body">
-                <div class="also-card-name">${p.name}</div>
+                <div class="also-card-name">${escapeHtml(p.name)}</div>
                 <div class="also-card-price">${price ? price.toLocaleString("fr-DZ") + " DA" : ""}</div>
                 <div class="also-card-actions">
                   ${
                     Number(p.stock) <= 0
                       ? `<button class="also-btn-cart" disabled style="opacity:0.45;cursor:not-allowed">Out of Stock</button>`
-                      : `<button class="also-btn-cart" onclick="event.stopPropagation();openAddToCartModal('${p.id}')">
+                      : `<button class="also-btn-cart" onclick="event.stopPropagation();openAddToCartModal('${escapeJsAttr(encodeURIComponent(p.id))}')">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                     Add to Cart
                   </button>`
                   }
-                  <button class="also-btn-buy" onclick="event.stopPropagation();window.location.href='/supplements/product-detail?id=${p.id}'">
+                  <button class="also-btn-buy" onclick="event.stopPropagation();window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
                     Buy Now
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
                   </button>
@@ -381,7 +381,7 @@
          then set selectedVariantIndex=0 and selectedFlavor before updateSummary()
       ── */
       function switchProductImg(url, thumbEl) {
-        document.getElementById("productMainImg").src = url;
+        document.getElementById("productMainImg").src = safeImageUrl(url);
         document
           .querySelectorAll(".gallery-thumb")
           .forEach((t) => t.classList.remove("active"));
@@ -419,11 +419,11 @@
         imgWrap.querySelectorAll("img").forEach((el) => el.remove());
         if (_imgs.length > 0) {
           const ogImg = document.querySelector('meta[property="og:image"]');
-          if (ogImg) ogImg.setAttribute("content", _imgs[0]);
+          if (ogImg) ogImg.setAttribute("content", safeImageUrl(_imgs[0]));
           const twitterImg = document.querySelector('meta[name="twitter:image"]');
-          if (twitterImg) twitterImg.setAttribute("content", _imgs[0]);
+          if (twitterImg) twitterImg.setAttribute("content", safeImageUrl(_imgs[0]));
           const mainImg = document.createElement("img");
-          mainImg.src = _imgs[0];
+          mainImg.src = safeImageUrl(_imgs[0]);
           mainImg.alt = p.name;
           mainImg.id = "productMainImg";
           mainImg.style.cssText = "width:100%;height:100%;object-fit:cover;";
@@ -432,7 +432,7 @@
             thumbsEl.innerHTML = _imgs
               .map(
                 (url, i) =>
-                  `<div class="gallery-thumb${i === 0 ? " active" : ""}" onclick="switchProductImg('${url.replace(/'/g, "\\'")}',this)"><img src="${url}" alt="" /></div>`,
+                  `<div class="gallery-thumb${i === 0 ? " active" : ""}" onclick="switchProductImg('${escapeJsAttr(safeImageUrl(url))}',this)"><img src="${safeImageUrl(url)}" alt="" /></div>`,
               )
               .join("");
             thumbsEl.style.display = "flex";
@@ -448,13 +448,13 @@
           p.categoryIds.forEach((cid) => {
             const cat = _allCategories.find((c) => c.id === cid);
             if (cat)
-              tags.push(`<span class="cat-tag primary">${cat.name}</span>`);
+              tags.push(`<span class="cat-tag primary">${escapeHtml(cat.name)}</span>`);
           });
         }
         if (p.subCategoryIds.length) {
           p.subCategoryIds.forEach((sid) => {
             const sub = _allSubCategories.find((s) => s.id === sid);
-            if (sub) tags.push(`<span class="cat-tag">${sub.name}</span>`);
+            if (sub) tags.push(`<span class="cat-tag">${escapeHtml(sub.name)}</span>`);
           });
         }
         catEl.innerHTML = tags.join("");
@@ -463,7 +463,7 @@
         // Description
         document.getElementById("productDescription").innerHTML =
           p.description ||
-          `${p.name} by ${p.brand} — a premium sports nutrition product.`;
+          `${escapeHtml(p.name)} by ${escapeHtml(p.brand)} — a premium sports nutrition product.`;
 
         // Nutritional Facts (optional)
         const nutBox = document.getElementById("productNutritionalFactsBox");
@@ -519,7 +519,7 @@
                 typeof v === "object" &&
                 v.stock !== undefined &&
                 v.stock <= 0;
-              return `<div class="variant-pill${i === 0 && !oos ? " active" : ""}${oos ? " variant-pill-oos" : ""}" ${oos ? "" : `onclick="selectVariant(this,${i})"`}>${label}</div>`;
+              return `<div class="variant-pill${i === 0 && !oos ? " active" : ""}${oos ? " variant-pill-oos" : ""}" ${oos ? "" : `onclick="selectVariant(this,${i})"`}>${escapeHtml(label)}</div>`;
             })
             .join("");
           // If first variant is OOS, auto-select first available
@@ -705,7 +705,7 @@
           .map((fo) => {
             const oos = isOOS(fo);
             const active = fo.name === selectedFlavor;
-            return `<div class="variant-pill${active ? " active" : ""}${oos ? " variant-pill-oos" : ""}" ${oos ? "" : `onclick="selectFlavor(this,'${fo.name.replace(/'/g, "\\'")}')"`}>${fo.name}</div>`;
+            return `<div class="variant-pill${active ? " active" : ""}${oos ? " variant-pill-oos" : ""}" ${oos ? "" : `onclick="selectFlavor(this,'${escapeJsAttr(fo.name)}')"`}>${escapeHtml(fo.name)}</div>`;
           })
           .join("");
       }
@@ -765,7 +765,7 @@
         }
 
         // Apply: if we have a direct URL use it, otherwise use index
-        const finalUrl = targetUrl || imgs[targetImgIdx];
+        const finalUrl = safeImageUrl(targetUrl || imgs[targetImgIdx]);
         if (finalUrl) {
           const thumbs = document.querySelectorAll(".gallery-thumb");
 
@@ -840,7 +840,7 @@
 
         const overlay = document.getElementById("imgPopupOverlay");
         const content = document.getElementById("imgPopupContent");
-        content.src = imgs[currentPopupImgIdx];
+        content.src = safeImageUrl(imgs[currentPopupImgIdx]);
         overlay.classList.add("open");
         document.body.style.overflow = "hidden";
         updatePopupNav();
@@ -851,7 +851,7 @@
         const p = selectedProduct;
         const imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
         currentPopupImgIdx = (currentPopupImgIdx + delta + imgs.length) % imgs.length;
-        document.getElementById("imgPopupContent").src = imgs[currentPopupImgIdx];
+        document.getElementById("imgPopupContent").src = safeImageUrl(imgs[currentPopupImgIdx]);
       }
 
       function updatePopupNav() {
@@ -1013,8 +1013,8 @@
               label += ` (−${pr.value.toLocaleString("fr-DZ")} DA)`;
             else if (pr.type === "free_delivery") label += " (Free delivery)";
             return `<span style="display:inline-flex;align-items:center;gap:5px;background:#e6f4ec;color:#0a7c3e;border:1px solid #b2dfcc;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">
-            ${label}
-            <button onclick="removePromoPD('${pr.id}')" style="background:none;border:none;cursor:pointer;color:#0a7c3e;font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
+            ${escapeHtml(label)}
+            <button onclick="removePromoPD('${escapeJsAttr(encodeURIComponent(pr.id))}')" style="background:none;border:none;cursor:pointer;color:#0a7c3e;font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
           </span>`;
           })
           .join("");
@@ -3383,7 +3383,7 @@
           }
   
 if (orderId) {
-             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order ID is <strong>${orderId}</strong>. Total: ${total} DA. We'll call you shortly to confirm.`;
+             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order ID is <strong>${escapeHtml(orderId)}</strong>. Total: ${total} DA. We'll call you shortly to confirm.`;
              _receiptData = {
                orderId: String(orderId),
                fullName,
@@ -3402,7 +3402,7 @@ if (orderId) {
              const rBtn = document.getElementById("downloadReceiptBtn");
              if (rBtn) { rBtn.style.display = "inline-flex"; }
           } else {
-             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order for ${p.name} - ${selectedQty}. Total: ${total} DA. We'll call you shortly to confirm.`;
+             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order for ${escapeHtml(p.name)} - ${selectedQty}. Total: ${total} DA. We'll call you shortly to confirm.`;
           }
           document.getElementById("successOverlay").classList.add("show");
         }
@@ -3422,6 +3422,24 @@ if (orderId) {
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#39;");
+      }
+
+      function escapeJsAttr(v) {
+        return String(v == null ? "" : v)
+          .replace(/\\/g, "\\\\")
+          .replace(/'/g, "\\'")
+          .replace(/\n/g, "\\n")
+          .replace(/\r/g, "\\r")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function safeImageUrl(v) {
+        const s = String(v == null ? "" : v).trim();
+        if (/^https:\/\//i.test(s) || /^http:\/\//i.test(s) || s.indexOf("//") === 0 || s.indexOf("/") === 0) return s;
+        return "";
       }
 
       function downloadReceipt() {
@@ -3853,10 +3871,10 @@ if (orderId) {
           .map(
             (item, idx) => `
           <div class="cart-row">
-            <div class="cart-row-img">${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="${item.name}">` : ""}</div>
+            <div class="cart-row-img">${item.imageUrl ? `<img src="${safeImageUrl(Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl)}" alt="${escapeHtml(item.name)}">` : ""}</div>
             <div class="cart-row-info">
-              <div class="cart-row-name">${item.name}</div>
-              <div class="cart-row-meta">${[item.flavor, item.variant].filter(Boolean).join(" · ")}</div>
+              <div class="cart-row-name">${escapeHtml(item.name)}</div>
+              <div class="cart-row-meta">${escapeHtml([item.flavor, item.variant].filter(Boolean).join(" · "))}</div>
               <div class="cart-row-bot">
                 <div class="ciq">
                   <button class="ciq-btn" onclick="cartQty(${idx},-1)">&#8722;</button>
@@ -3980,7 +3998,7 @@ if (orderId) {
         _atcVariantIdx = 0;
         const _atcImg0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
         document.getElementById("atcImg").innerHTML = _atcImg0
-          ? `<img src="${_atcImg0}" alt="${p.name}">`
+          ? `<img src="${safeImageUrl(_atcImg0)}" alt="${escapeHtml(p.name)}">`
           : `<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
         document.getElementById("atcName").textContent = p.name;
         _atcRefreshPrice();
@@ -4005,7 +4023,7 @@ if (orderId) {
                     ? `${v.weight}${v.unit || ""}`
                     : v.label || v.name || `Option ${i + 1}`
                   : String(v);
-              return `<button class="atc-option${i === 0 ? " active" : ""}" onclick="atcPickVariant(this,${i})">${lbl}</button>`;
+              return `<button class="atc-option${i === 0 ? " active" : ""}" onclick="atcPickVariant(this,${i})">${escapeHtml(lbl)}</button>`;
             })
             .join("");
           weightSec.style.display = "";
@@ -4042,7 +4060,7 @@ if (orderId) {
           .map((fo) => {
             const oos = isOOS(fo);
             const active = fo.name === _atcFlavor;
-            return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${fo.name.replace(/'/g, "\\'")}')"`}>${fo.name}${oos ? " (OOS)" : ""}</button>`;
+            return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${escapeJsAttr(fo.name)}')"`}>${escapeHtml(fo.name)}${oos ? " (OOS)" : ""}</button>`;
           })
           .join("");
       }
@@ -4183,7 +4201,7 @@ if (orderId) {
           );
 
         if (!matches.length) {
-          dropdown.innerHTML = `<div class="search-drop-empty">No results for "${query}"</div>`;
+          dropdown.innerHTML = `<div class="search-drop-empty">No results for "${escapeHtml(query)}"</div>`;
           dropdown.classList.add("open");
           return;
         }
@@ -4193,14 +4211,14 @@ if (orderId) {
             const price = getProductPrice(p, 0).toLocaleString("fr-DZ");
             const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
             const thumb = _t0
-              ? `<img src="${_t0}" alt="${p.name}" />`
+              ? `<img src="${safeImageUrl(_t0)}" alt="${escapeHtml(p.name)}" />`
               : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
             return `
-            <div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/product-detail?id=${encodeURIComponent(p.id)}'">
+            <div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
               <div class="search-drop-thumb">${thumb}</div>
               <div class="search-drop-info">
-                <p class="search-drop-brand">${p.brand || ""}</p>
-                <p class="search-drop-name">${p.name}</p>
+                <p class="search-drop-brand">${escapeHtml(p.brand || "")}</p>
+                <p class="search-drop-name">${escapeHtml(p.name)}</p>
               </div>
               <span class="search-drop-price">${price} DA</span>
             </div>`;
@@ -4265,21 +4283,21 @@ if (orderId) {
             )
         );
         if (!matches.length) {
-          results.innerHTML = `<p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">No results for "${query}"</p>`;
+          results.innerHTML = `<p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">No results for "${escapeHtml(query)}"</p>`;
           return;
         }
         results.innerHTML = matches.map((p) => {
           const price = getProductPrice(p, 0).toLocaleString("fr-DZ");
           const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
           const thumb = _t0
-            ? `<img src="${_t0}" alt="${p.name}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" />`
+            ? `<img src="${safeImageUrl(_t0)}" alt="${escapeHtml(p.name)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" />`
             : `<div style="width:48px;height:48px;border-radius:8px;background:var(--gray-100);flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg></div>`;
-          return `<div onclick="closeMobileSearch(); window.location.href='/supplements/product-detail?id=${encodeURIComponent(p.id)}'"
+          return `<div onclick="closeMobileSearch(); window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'"
             style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100);cursor:pointer;">
             ${thumb}
             <div style="flex:1;min-width:0;">
-              <p style="font-size:12px;color:var(--gray-400);margin:0 0 2px;">${p.brand || ""}</p>
-              <p style="font-size:14px;font-weight:600;color:var(--gray-800);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</p>
+              <p style="font-size:12px;color:var(--gray-400);margin:0 0 2px;">${escapeHtml(p.brand || "")}</p>
+              <p style="font-size:14px;font-weight:600;color:var(--gray-800);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</p>
             </div>
             <span style="font-size:13px;font-weight:700;color:var(--red);flex-shrink:0;">${price} DA</span>
           </div>`;

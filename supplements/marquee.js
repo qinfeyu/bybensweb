@@ -2,6 +2,15 @@
   const placeholder = document.getElementById("marqueePlaceholder");
   if (!placeholder) return;
 
+  function escapeHtml(v) {
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   const defaultText = "🚚 Free delivery over 15 000 DA CODE: FREEDELIVERY";
 
   // Inject style tag for close button hover state
@@ -34,7 +43,7 @@
       placeholder.innerHTML = `
         <div class="marquee-bar" role="marquee" aria-label="Promotions" style="position: relative;">
           <div class="marquee-track">
-            <span class="marquee-item">${text}</span>
+            <span class="marquee-item">${escapeHtml(text)}</span>
           </div>
           <button class="marquee-close-btn" onclick="dismissMarquee()" aria-label="Close banner" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: inherit; font-size: 18px; cursor: pointer; padding: 4px 8px; display: flex; align-items: center; justify-content: center; opacity: 0.8; transition: opacity 0.2s ease; z-index: 10;">&times;</button>
         </div>

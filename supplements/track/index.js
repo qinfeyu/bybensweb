@@ -191,8 +191,8 @@
     const isDelivered = latest.status === 'livred';
 
     statusSummary.innerHTML =
-      '<h2 class="' + (isDelivered ? 'status-success' : '') + '">' + translateStatus(latest.status) + '</h2>' +
-      '<p>' + T('track.trackingId') + ': <strong>' + (trackingId || '') + '</strong></p>';
+      '<h2 class="' + (isDelivered ? 'status-success' : '') + '">' + escapeHtmlTrack(translateStatus(latest.status)) + '</h2>' +
+      '<p>' + T('track.trackingId') + ': <strong>' + escapeHtmlTrack(trackingId || '') + '</strong></p>';
 
     timelineList.innerHTML = activities.map(function(act, index) {
       const isFirst = index === 0;
@@ -200,9 +200,9 @@
       return (
         '<li class="timeline-item ' + (isFirst ? 'active' : '') + ' ' + (isOk ? 'success' : '') + '">' +
           '<div class="timeline-dot"></div>' +
-          '<div class="timeline-date">' + formatDate(act.date, act.time) + '</div>' +
-          '<div class="timeline-status">' + translateStatus(act.status) + '</div>' +
-          (act.scanLocation ? '<div class="timeline-loc">' + act.scanLocation + '</div>' : '') +
+          '<div class="timeline-date">' + escapeHtmlTrack(formatDate(act.date, act.time)) + '</div>' +
+          '<div class="timeline-status">' + escapeHtmlTrack(translateStatus(act.status)) + '</div>' +
+          (act.scanLocation ? '<div class="timeline-loc">' + escapeHtmlTrack(act.scanLocation) + '</div>' : '') +
         '</li>'
       );
     }).join('');
@@ -295,19 +295,19 @@
         return ids.includes(cat.id);
       });
       if (catSubs.length > 0) {
-        dHTML += '<div class="cat-item"><a href="/supplements/products" class="cat-link">' + cat.name +
+        dHTML += '<div class="cat-item"><a href="/supplements/products" class="cat-link">' + escapeHtmlTrack(cat.name) +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></a>' +
           '<div class="dropdown">' + catSubs.map(function(s) {
-            return '<a href="/supplements/products?sub=' + encodeURIComponent(s.name) + '">' + s.name + '</a>';
+            return '<a href="/supplements/products?sub=' + encodeURIComponent(s.name) + '">' + escapeHtmlTrack(s.name) + '</a>';
           }).join("") + '</div></div>';
         mHTML += '<div class="m-cat-item"><button class="m-cat-toggle" onclick="toggleMobileCat(this)">' +
-          cat.name + ' <span class="m-arrow">›</span></button><div class="m-sub">' +
+          escapeHtmlTrack(cat.name) + ' <span class="m-arrow">›</span></button><div class="m-sub">' +
           catSubs.map(function(s) {
-            return '<a href="/supplements/products?sub=' + encodeURIComponent(s.name) + '" class="m-sub-link">' + s.name + '</a>';
+            return '<a href="/supplements/products?sub=' + encodeURIComponent(s.name) + '" class="m-sub-link">' + escapeHtmlTrack(s.name) + '</a>';
           }).join("") + '</div></div>';
       } else {
-        dHTML += '<div class="cat-item"><a href="/supplements/products" class="cat-link">' + cat.name + '</a></div>';
-        mHTML += '<a href="/supplements/products" class="mobile-nav-link">' + cat.name + '</a>';
+        dHTML += '<div class="cat-item"><a href="/supplements/products" class="cat-link">' + escapeHtmlTrack(cat.name) + '</a></div>';
+        mHTML += '<a href="/supplements/products" class="mobile-nav-link">' + escapeHtmlTrack(cat.name) + '</a>';
       }
     });
     inner.innerHTML = dHTML;
@@ -315,7 +315,7 @@
     const footerList = document.getElementById("footerCategoryList");
     if (footerList) {
       footerList.innerHTML = cats.slice(0, 6).map(function(cat) {
-        return '<li><a href="/supplements/products?cat=' + encodeURIComponent(cat.id) + '">' + cat.name + '</a></li>';
+        return '<li><a href="/supplements/products?cat=' + encodeURIComponent(cat.id) + '">' + escapeHtmlTrack(cat.name) + '</a></li>';
       }).join("");
     }
   }
@@ -360,21 +360,21 @@
         (Array.isArray(p.flavors) ? p.flavors : []).some(function(f) { return (f.name || "").toLowerCase().includes(q); });
     });
     if (!matches.length) {
-      dropdown.innerHTML = '<div class="search-drop-empty">No results for "' + query + '"</div>';
+      dropdown.innerHTML = '<div class="search-drop-empty">No results for "' + escapeHtmlTrack(query) + '"</div>';
       dropdown.classList.add("open");
       return;
     }
     dropdown.innerHTML = matches.map(function(p) {
       var price = _getProductPrice(p);
       var _t = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
-      var thumb = _t ? '<img src="' + _t + '" alt="' + p.name + '" />' : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>';
+      var thumb = _t ? '<img src="' + safeImageUrl(_t) + '" alt="' + escapeHtmlTrack(p.name) + '" />' : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>';
       var flavorLabel = Array.isArray(p.flavors) && p.flavors.length ? p.flavors[0].name : "";
-      return '<div class="search-drop-item" onclick="closeSearchDropdown();window.location.href=\'/supplements/product-detail?id=' + p.id + '\'">' +
+      return '<div class="search-drop-item" onclick="closeSearchDropdown();window.location.href=\'/supplements/product-detail?id=' + escapeJsAttr(encodeURIComponent(p.id)) + '\'">' +
         '<div class="search-drop-thumb">' + thumb + '</div>' +
         '<div class="search-drop-info">' +
-          '<p class="search-drop-brand">' + (p.brand || "") + '</p>' +
-          '<p class="search-drop-name">' + p.name + '</p>' +
-          (flavorLabel ? '<p style="font-size:11px;color:var(--gray-400);margin:0;">' + flavorLabel + '</p>' : '') +
+          '<p class="search-drop-brand">' + escapeHtmlTrack(p.brand || "") + '</p>' +
+          '<p class="search-drop-name">' + escapeHtmlTrack(p.name) + '</p>' +
+          (flavorLabel ? '<p style="font-size:11px;color:var(--gray-400);margin:0;">' + escapeHtmlTrack(flavorLabel) + '</p>' : '') +
         '</div>' +
         '<span class="search-drop-price">' + price + ' DA</span>' +
         '</div>';
@@ -418,20 +418,20 @@
         (Array.isArray(p.flavors) ? p.flavors : []).some(function(f) { return (f.name || "").toLowerCase().includes(q); });
     });
     if (!matches.length) {
-      resultsEl.innerHTML = '<p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">No results for "' + query + '"</p>';
+      resultsEl.innerHTML = '<p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">No results for "' + escapeHtmlTrack(query) + '"</p>';
       return;
     }
     resultsEl.innerHTML = matches.map(function(p) {
       var price = _getProductPrice(p);
       var _i = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
-      var imgEl = _i ? '<img src="' + _i + '" alt="' + p.name + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />' : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gray-200)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>';
+      var imgEl = _i ? '<img src="' + safeImageUrl(_i) + '" alt="' + escapeHtmlTrack(p.name) + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />' : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gray-200)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>';
       var flavorLabel = Array.isArray(p.flavors) && p.flavors.length ? p.flavors[0].name : "";
-      return '<div onclick="closeMobileSearch();window.location.href=\'/supplements/product-detail?id=' + p.id + '\'" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray-100);cursor:pointer;">' +
+      return '<div onclick="closeMobileSearch();window.location.href=\'/supplements/product-detail?id=' + escapeJsAttr(encodeURIComponent(p.id)) + '\'" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray-100);cursor:pointer;">' +
         '<div style="width:48px;height:48px;background:var(--gray-50);border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--gray-100);overflow:hidden;">' + imgEl + '</div>' +
         '<div style="flex:1;min-width:0;">' +
-          '<p style="font-size:13px;color:var(--gray-400);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin:0 0 2px;">' + (p.brand || "") + '</p>' +
-          '<p style="font-size:15px;font-weight:600;color:var(--black);margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</p>' +
-          '<p style="font-size:12px;color:var(--gray-400);margin:0;">' + flavorLabel + '</p>' +
+          '<p style="font-size:13px;color:var(--gray-400);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin:0 0 2px;">' + escapeHtmlTrack(p.brand || "") + '</p>' +
+          '<p style="font-size:15px;font-weight:600;color:var(--black);margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtmlTrack(p.name) + '</p>' +
+          '<p style="font-size:12px;color:var(--gray-400);margin:0;">' + escapeHtmlTrack(flavorLabel) + '</p>' +
         '</div>' +
         '<span style="font-family:var(--font-display);font-size:18px;color:var(--black);flex-shrink:0;direction:ltr;">' + price + ' DA</span>' +
         '</div>';
@@ -458,6 +458,24 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function escapeJsAttr(v) {
+    return String(v == null ? "" : v)
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function safeImageUrl(v) {
+    const s = String(v == null ? "" : v).trim();
+    if (/^https:\/\//i.test(s) || /^http:\/\//i.test(s) || s.indexOf("//") === 0 || s.indexOf("/") === 0) return s;
+    return "";
   }
 
   function trackFmt(n) { return (Number(n) || 0).toLocaleString("fr-FR"); }

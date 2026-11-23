@@ -263,6 +263,33 @@ function cartUpdateBadge() {
     icon.classList.add("cart-pulse");
   }
 }
+function escapeHtml(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeJsAttr(v) {
+  return String(v == null ? "" : v)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function safeImageUrl(v) {
+  const s = String(v == null ? "" : v).trim();
+  if (/^https:\/\//i.test(s) || /^http:\/\//i.test(s) || s.indexOf("//") === 0 || s.indexOf("/") === 0) return s;
+  return "";
+}
+
 /* ── Add to Cart Modal ── */
 let _atcProduct = null, _atcQty = 1, _atcFlavor = "", _atcFlavorObjs = [], _atcVariantIdx = 0;
 function openAddToCartModal(productId) {
@@ -270,7 +297,7 @@ function openAddToCartModal(productId) {
   _atcProduct = p; _atcQty = 1; _atcFlavor = ""; _atcVariantIdx = 0;
   const _atcImg0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
   document.getElementById("atcImg").innerHTML = _atcImg0
-    ? `<img src="${_atcImg0}" alt="${p.name}">`
+    ? `<img src="${safeImageUrl(_atcImg0)}" alt="${escapeHtml(p.name)}">`
     : `<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
   document.getElementById("atcName").textContent = p.name;
   _atcRefreshPrice();
@@ -284,7 +311,7 @@ function openAddToCartModal(productId) {
   if (variants.length) {
     document.getElementById("atcWeightOptions").innerHTML = variants.map((v, i) => {
       const lbl = typeof v === "object" ? (v.weight ? `${v.weight}${v.unit || ""}` : v.label || v.name || `Option ${i + 1}`) : String(v);
-      return `<button class="atc-option${i === 0 ? " active" : ""}" onclick="atcPickVariant(this,${i})">${lbl}</button>`;
+      return `<button class="atc-option${i === 0 ? " active" : ""}" onclick="atcPickVariant(this,${i})">${escapeHtml(lbl)}</button>`;
     }).join("");
     weightSec.style.display = "";
   } else { weightSec.style.display = "none"; }
@@ -309,7 +336,7 @@ function _atcRenderFlavorOptions() {
   document.getElementById("atcFlavorOptions").innerHTML = _atcFlavorObjs.map(fo => {
     const oos = isOOS(fo);
     const active = fo.name === _atcFlavor;
-    return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${fo.name.replace(/'/g, "\\'")}')"`}>${fo.name}${oos ? " (OOS)" : ""}</button>`;
+    return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${escapeJsAttr(fo.name)}')"`}>${escapeHtml(fo.name)}${oos ? " (OOS)" : ""}</button>`;
   }).join("");
 }
 function _atcRefreshPrice() {
@@ -380,10 +407,10 @@ function _renderCartDrawer() {
   }
   body.innerHTML = items.map((item, idx) => `
     <div class="cart-row">
-      <div class="cart-row-img">${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="${item.name}">` : ""}</div>
+      <div class="cart-row-img">${item.imageUrl ? `<img src="${safeImageUrl(Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl)}" alt="${escapeHtml(item.name)}">` : ""}</div>
       <div class="cart-row-info">
-        <div class="cart-row-name">${item.name}</div>
-        <div class="cart-row-meta">${[item.flavor, item.variant].filter(Boolean).join(" · ")}</div>
+        <div class="cart-row-name">${escapeHtml(item.name)}</div>
+        <div class="cart-row-meta">${escapeHtml([item.flavor, item.variant].filter(Boolean).join(" · "))}</div>
         <div class="cart-row-bot">
           <div class="ciq">
             <button class="ciq-btn" onclick="cartQty(${idx},-1)">&#8722;</button>
@@ -445,7 +472,7 @@ function updateBannerLang(lang) {
   const descs = { en: _bundleText.descriptionEn, fr: _bundleText.descriptionFr, ar: _bundleText.descriptionAr };
   const fallbackTitle = "RAMP UP YOUR<em>PERFORMANCE</em>";
   const fallbackDesc = "Get our most popular bundle at 20% off. Limited stock — order now and fuel your next workout.";
-  titleEl.innerHTML = titles[lang] || fallbackTitle;
+  titleEl.innerHTML = titles[lang] ? escapeHtml(titles[lang]) : fallbackTitle;
   descEl.textContent = descs[lang] || fallbackDesc;
 }
 let _topSoldIds = [];
@@ -520,19 +547,19 @@ function renderProductListToContainer(containerId, productList, lang) {
       // Image
       const _imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
       const imgEl = _imgs[0]
-        ? `<img src="${_imgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" decoding="async" />${_imgs[1] ? `<img src="${_imgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
+        ? `<img src="${safeImageUrl(_imgs[0])}" alt="${escapeHtml(p.name)}" class="img-primary" loading="lazy" decoding="async" />${_imgs[1] ? `<img src="${safeImageUrl(_imgs[1])}" alt="${escapeHtml(p.name)}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
         : `<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
 
       return `
-<article class="product-card" onclick="window.location.href='/supplements/product-detail?id=${p.id}'" style="cursor:pointer">
+<article class="product-card" onclick="window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'" style="cursor:pointer">
   <div class="product-img">
     ${imgEl}
     ${badge ? `<span class="product-badge badge-${badge.type}">${badge.label}</span>` : ''}
   </div>
   <div class="product-info">
-    <span class="product-brand">${p.brand || ""}</span>
-    <h3 class="product-name">${p.name}</h3>
-    ${flavorLabel ? `<span class="product-flavor">${flavorLabel}</span>` : ""}
+    <span class="product-brand">${escapeHtml(p.brand || "")}</span>
+    <h3 class="product-name">${escapeHtml(p.name)}</h3>
+    ${flavorLabel ? `<span class="product-flavor">${escapeHtml(flavorLabel)}</span>` : ""}
     <div class="product-pricing">
       ${currentPrice > 0 ? `<span class="price">${currentPrice.toLocaleString()} DA</span>` : ""}
       ${oldPrice ? `<span class="price-old">${oldPrice.toLocaleString()} DA</span>` : ""}
@@ -541,11 +568,11 @@ function renderProductListToContainer(containerId, productList, lang) {
     <div class="product-actions">
       ${Number(p.stock) <= 0
           ? `<button class="btn-cart" disabled style="flex:1;opacity:0.45;cursor:not-allowed">Out of Stock</button>`
-          : `<button class="btn-cart" onclick="event.stopPropagation();openAddToCartModal('${p.id}')">
+          : `<button class="btn-cart" onclick="event.stopPropagation();openAddToCartModal('${escapeJsAttr(encodeURIComponent(p.id))}')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         <span>${t["btn.addcart"]}</span>
       </button>
-      <button class="btn-buy" onclick="event.stopPropagation();buyNow('${p.id}')">
+      <button class="btn-buy" onclick="event.stopPropagation();buyNow('${escapeJsAttr(encodeURIComponent(p.id))}')">
         <span>${t["btn.buynow"]}</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
       </button>`
@@ -698,7 +725,7 @@ function switchLang(lang) {
 }
 
 function buyNow(id) {
-  window.location.href = `/supplements/product-detail?id=${id}`;
+  window.location.href = `/supplements/product-detail?id=${encodeURIComponent(id)}`;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -731,7 +758,7 @@ function handleSearch(query) {
     );
 
   if (!matches.length) {
-    dropdown.innerHTML = `<div class="search-drop-empty">No results for "${query}"</div>`;
+    dropdown.innerHTML = `<div class="search-drop-empty">No results for "${escapeHtml(query)}"</div>`;
     dropdown.classList.add("open");
     return;
   }
@@ -741,15 +768,15 @@ function handleSearch(query) {
     const flavorLabel = p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
     const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
     const thumb = _t0
-      ? `<img src="${_t0}" alt="${p.name}" />`
+      ? `<img src="${safeImageUrl(_t0)}" alt="${escapeHtml(p.name)}" />`
       : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
     return `
-      <div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/product-detail?id=${p.id}'">
+      <div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
         <div class="search-drop-thumb">${thumb}</div>
         <div class="search-drop-info">
-          <p class="search-drop-brand">${p.brand || ""}</p>
-          <p class="search-drop-name">${p.name}</p>
-          ${flavorLabel ? `<p style="font-size:11px;color:var(--gray-400);margin:0;">${flavorLabel}</p>` : ""}
+          <p class="search-drop-brand">${escapeHtml(p.brand || "")}</p>
+          <p class="search-drop-name">${escapeHtml(p.name)}</p>
+          ${flavorLabel ? `<p style="font-size:11px;color:var(--gray-400);margin:0;">${escapeHtml(flavorLabel)}</p>` : ""}
         </div>
         <span class="search-drop-price">${price} DA</span>
       </div>`;
@@ -885,8 +912,8 @@ async function loadInitialData() {
         const img = document.getElementById("bundleBannerImg");
         const link = document.getElementById("bundleBannerLink");
         const _bundleImg0 = Array.isArray(product.imageUrl) ? product.imageUrl[0] : product.imageUrl;
-        if (img && _bundleImg0) { img.src = _bundleImg0; img.style.display = ""; }
-        if (link) link.href = `/supplements/product-detail?id=${product.id}`;
+        if (img && _bundleImg0) { img.src = safeImageUrl(_bundleImg0); img.style.display = ""; }
+        if (link) link.href = `/supplements/product-detail?id=${encodeURIComponent(product.id)}`;
         const section = document.getElementById("featuredBannerSection");
         if (section) section.style.display = "";
       }
@@ -902,7 +929,7 @@ async function loadInitialData() {
       visualCategoriesGrid.innerHTML = categories.map(cat => {
         return `
           <a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="category-btn-card">
-            <span>${cat.name}</span>
+            <span>${escapeHtml(cat.name)}</span>
           </a>
         `;
       }).join("");
@@ -918,13 +945,13 @@ async function loadInitialData() {
           s.categoryIds.includes(cat.id),
         );
         if (subs.length === 0) {
-          return `<div class="cat-item"><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="cat-link">${cat.name}</a></div>`;
+          return `<div class="cat-item"><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="cat-link">${escapeHtml(cat.name)}</a></div>`;
         }
         return `
           <div class="cat-item">
-            <a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="cat-link">${cat.name} ${chevron}</a>
+            <a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="cat-link">${escapeHtml(cat.name)} ${chevron}</a>
             <div class="dropdown" role="menu">
-              ${subs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.id)}" role="menuitem">${s.name}</a>`).join("")}
+              ${subs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.id)}" role="menuitem">${escapeHtml(s.name)}</a>`).join("")}
             </div>
           </div>`;
       })
@@ -935,7 +962,7 @@ async function loadInitialData() {
     if (footerList) {
       footerList.innerHTML = categories
         .slice(0, 6)
-        .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${cat.name}</a></li>`)
+        .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${escapeHtml(cat.name)}</a></li>`)
         .join("");
     }
 
@@ -947,15 +974,15 @@ async function loadInitialData() {
           s.categoryIds.includes(cat.id),
         );
         if (subs.length === 0) {
-          return `<a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="m-link">${cat.name}</a>`;
+          return `<a href="/supplements/products?cat=${encodeURIComponent(cat.id)}" class="m-link">${escapeHtml(cat.name)}</a>`;
         }
         return `
           <div class="m-cat-item">
             <button class="m-link m-cat-toggle" onclick="toggleMobileCat(this)">
-              ${cat.name} <span class="m-arrow">›</span>
+              ${escapeHtml(cat.name)} <span class="m-arrow">›</span>
             </button>
             <div class="m-sub">
-              ${subs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.id)}" class="m-sub-link">${s.name}</a>`).join("")}
+              ${subs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.id)}" class="m-sub-link">${escapeHtml(s.name)}</a>`).join("")}
             </div>
           </div>`;
       })
@@ -1027,7 +1054,7 @@ function handleMobileSearch(query) {
       (p.flavors || []).some((f) => f.name.toLowerCase().includes(q)),
   );
   if (!matches.length) {
-    resultsEl.innerHTML = `<p style="font-size:13px; color:var(--gray-400); text-align:center; margin-top:40px;">No results for "${query}"</p>`;
+    resultsEl.innerHTML = `<p style="font-size:13px; color:var(--gray-400); text-align:center; margin-top:40px;">No results for "${escapeHtml(query)}"</p>`;
     return;
   }
   resultsEl.innerHTML = matches
@@ -1037,17 +1064,17 @@ function handleMobileSearch(query) {
         const flavorLabel = p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
         const _i0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
         const imgEl = _i0
-          ? `<img src="${_i0}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`
+          ? `<img src="${safeImageUrl(_i0)}" alt="${escapeHtml(p.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`
           : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gray-200)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
         return `
-<div onclick="window.location.href='/supplements/product-detail?id=${p.id}'" style="display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--gray-100); cursor:pointer;">
+<div onclick="window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'" style="display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--gray-100); cursor:pointer;">
   <div style="width:48px; height:48px; background:var(--gray-50); border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border:1px solid var(--gray-100); overflow:hidden;">
     ${imgEl}
   </div>
   <div style="flex:1; min-width:0;">
-    <p style="font-size:13px; color:var(--gray-400); font-weight:600; letter-spacing:1px; text-transform:uppercase; margin:0 0 2px;">${p.brand || ""}</p>
-    <p style="font-size:15px; font-weight:600; color:var(--black); margin:0 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</p>
-    <p style="font-size:12px; color:var(--gray-400); margin:0;">${flavorLabel}</p>
+    <p style="font-size:13px; color:var(--gray-400); font-weight:600; letter-spacing:1px; text-transform:uppercase; margin:0 0 2px;">${escapeHtml(p.brand || "")}</p>
+    <p style="font-size:15px; font-weight:600; color:var(--black); margin:0 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.name)}</p>
+    <p style="font-size:12px; color:var(--gray-400); margin:0;">${escapeHtml(flavorLabel)}</p>
   </div>
   <span style="font-family:var(--font-display); font-size:18px; color:var(--black); flex-shrink:0; direction:ltr;">${price} DA</span>
 </div>`;

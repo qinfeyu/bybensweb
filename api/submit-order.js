@@ -33,6 +33,264 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
+// ── Authoritative order pricing ────────────────────────────────────────────
+// The storefront sends prices for UX; the server re-derives them from the
+// catalog, promo codes and delivery table before anything is persisted.
+function parseJsonFieldSafe(value, fallback) {
+  if (Array.isArray(value) || (value && typeof value === "object")) return value;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" ? parsed : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+function normalizeVariantLabel(value) {
+  return String(value == null ? "" : value).toLowerCase().replace(/\s+/g, "");
+}
+
+function variantLabel(v, index) {
+  if (v && typeof v === "object") {
+    if (v.weight) return `${v.weight}${v.unit || ""}`;
+    if (v.label) return String(v.label);
+    if (v.name) return String(v.name);
+  }
+  if (v !== undefined && v !== null) return String(v);
+  return `Option ${index + 1}`;
+}
+
+function findPricedVariant(product, item) {
+  const variants = parseJsonFieldSafe(product && product.variants, []);
+  if (!Array.isArray(variants) || variants.length === 0) return null;
+  // Cached bundles may send a SKU instead of a product id; the SKU identifies
+  // the priced variant directly.
+  const wantedSku = String((item && (item.sku || item.productId || item.product_id)) || "").trim().toLowerCase();
+  if (wantedSku) {
+    const bySku = variants.find((v) => {
+      if (!v || typeof v !== "object") return false;
+      return [v.sku, ...Object.values(v.flavorSkus || {})]
+        .some((s) => String(s || "").trim().toLowerCase() === wantedSku);
+    });
+    if (bySku !== undefined) return bySku;
+  }
+  const wanted = normalizeVariantLabel(item && item.variant);
+  if (wanted) {
+    const byLabel = variants.find((v) => normalizeVariantLabel(variantLabel(v, 0)) === wanted);
+    if (byLabel !== undefined) return byLabel;
+    const byWeight = variants.find((v) => v && typeof v === "object" && normalizeVariantLabel(v.weight) === wanted);
+    if (byWeight !== undefined) return byWeight;
+  }
+  return variants[0];
+}
+
+function authoritativeUnitPrice(product, item) {
+  const variant = findPricedVariant(product, item);
+  const base = Number(variant && typeof variant === "object" && variant.price) || Number(product.price) || 0;
+  const disc = Number(product.discount) || 0;
+  if (disc <= 0) return base;
+  return disc <= 100
+    ? Math.max(0, Math.round(base * (1 - disc / 100)))
+    : Math.max(0, Math.round(base - disc));
+}
+
+function isStorewidePromo(promo) {
+  const value = promo.apply_to_all !== undefined ? promo.apply_to_all : promo.applyToAll;
+  return value === true || String(value).toUpperCase() === "TRUE";
+}
+
+function productAcceptsPromo(product, promo) {
+  if (!product) return false;
+  const allow = product.allow_promo !== undefined ? product.allow_promo : product.allowPromo;
+  if (!(allow === true || String(allow).toUpperCase() === "TRUE")) return false;
+  const rawIds = product.promo_code_ids !== undefined ? product.promo_code_ids : product.promoCodeIds;
+  let ids = rawIds;
+  if (typeof rawIds === "string" && rawIds.trim()) {
+    ids = rawIds.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  if (!Array.isArray(ids)) ids = [];
+  if (ids.length === 0) return true;
+  return ids.some((id) => String(id) === String(promo.id));
+}
+
+function promoEligibleSubtotal(lines, promo) {
+  const full = lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
+  if (!promo) return 0;
+  if (isStorewidePromo(promo)) return full;
+  const eligible = lines.filter((l) => productAcceptsPromo(l.product, promo));
+  if (promo.type === "free_delivery") return eligible.length > 0 ? full : 0;
+  return eligible.reduce((s, l) => s + l.unitPrice * l.qty, 0);
+}
+
+function promoStillValid(promo, subtotal) {
+  if (String(promo.status || "active").toLowerCase() !== "active") return false;
+  const minOrder = Number(promo.min_order !== undefined ? promo.min_order : promo.minOrder) || 0;
+  if (minOrder > 0 && subtotal < minOrder) return false;
+  if (promo.expiry) {
+    const exp = new Date(promo.expiry);
+    if (!Number.isNaN(exp.getTime())) {
+      exp.setHours(23, 59, 59, 999);
+      if (exp.getTime() < Date.now()) return false;
+    }
+  }
+  if (promo.maxUses && Number(promo.uses) >= Number(promo.maxUses)) return false;
+  return true;
+}
+
+function findDeliveryRow(rows, wilaya) {
+  if (!Array.isArray(rows)) return null;
+  const targetDigits = String(wilaya || "").match(/\b\d+\b/);
+  const targetNum = targetDigits ? parseInt(targetDigits[0], 10) : NaN;
+  const targetRaw = String(wilaya || "").trim().toLowerCase();
+  const targetNorm = targetRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return rows.find((row) => {
+    if (!row || !row.wilaya) return false;
+    const raw = String(row.wilaya).trim().toLowerCase();
+    const norm = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const digits = raw.match(/\b\d+\b/);
+    if (digits && !Number.isNaN(targetNum) && parseInt(digits[0], 10) === targetNum) return true;
+    if (norm === targetNorm || norm === targetRaw || raw === targetRaw) return true;
+    if (targetNorm && (norm.includes(targetNorm) || targetNorm.includes(norm))) return true;
+    return false;
+  }) || null;
+}
+
+async function computeAuthoritativeOrder({ items, promoCode, deliveryType, wilaya }) {
+  const rawItems = Array.isArray(items) ? items : [];
+  const normalized = rawItems.map((it) => (it && typeof it === "object" ? { ...it } : {}));
+  const productIds = [...new Set(normalized
+    .filter((it) => !it.isGift)
+    .map((it) => String(it.productId || it.product_id || "").trim())
+    .filter(Boolean))];
+
+  let catalog = [];
+  if (productIds.length > 0) {
+    const select = "id,price,variants,discount,allow_promo,promo_code_ids,status,hidden,bundle_items";
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=in.(${productIds.map(encodeURIComponent).join(",")})&select=${select}&limit=500`, { headers: SB_HEADERS });
+    if (!res.ok) throw new Error("Unable to verify catalog prices. Please try again.");
+    catalog = await res.json().catch(() => []);
+    if (!Array.isArray(catalog)) catalog = [];
+
+    // Cached storefront bundles may still reference a variant SKU instead of a
+    // product id. Resolve those against a lean full catalog before giving up.
+    const found = new Set(catalog.map((p) => String(p.id)));
+    const missing = productIds.filter((id) => !found.has(id));
+    if (missing.length > 0) {
+      const allRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=${select}&limit=1000`, { headers: SB_HEADERS });
+      if (!allRes.ok) throw new Error("Unable to verify catalog prices. Please try again.");
+      const all = await allRes.json().catch(() => []);
+      if (Array.isArray(all)) {
+        const extra = all.filter((p) => {
+          if (missing.includes(String(p.id))) return true;
+          const variants = parseJsonFieldSafe(p.variants, []);
+          return Array.isArray(variants) && variants.some((v) => {
+            if (!v || typeof v !== "object") return false;
+            const skus = [v.sku, ...Object.values(v.flavorSkus || {})].map((s) => String(s || ""));
+            return skus.some((s) => missing.includes(s));
+          });
+        });
+        catalog = catalog.concat(extra);
+      }
+    }
+  }
+
+  const byId = new Map();
+  catalog.forEach((p) => byId.set(String(p.id), p));
+  // Cached bundles can put a variant SKU in `productId`; index those too.
+  catalog.forEach((p) => {
+    const variants = parseJsonFieldSafe(p.variants, []);
+    if (!Array.isArray(variants)) return;
+    variants.forEach((v) => {
+      if (!v || typeof v !== "object") return;
+      [v.sku, ...Object.values(v.flavorSkus || {})].forEach((sku) => {
+        const key = String(sku || "").trim();
+        if (key && !byId.has(key)) byId.set(key, p);
+      });
+    });
+  });
+  const pricedLines = [];
+
+  for (const it of normalized) {
+    if (it.isGift) {
+      it.qty = 1;
+      it.unitPrice = 0;
+      it.unit_price = 0;
+      it.lineTotal = 0;
+      continue;
+    }
+    const pid = String(it.productId || it.product_id || "").trim();
+    const product = byId.get(pid) || null;
+    if (!product || product.hidden === true || String(product.hidden).toLowerCase() === "true" || String(product.status || "").toLowerCase() === "inactive") {
+      const err = new Error("An item in your cart is no longer available. Please refresh and try again.");
+      err.status = 400;
+      throw err;
+    }
+    const qty = Math.max(1, Math.min(99, Math.floor(Number(it.qty) || 1)));
+    const unitPrice = authoritativeUnitPrice(product, it);
+    it.qty = qty;
+    it.unitPrice = unitPrice;
+    it.unit_price = unitPrice;
+    it.lineTotal = unitPrice * qty;
+    pricedLines.push({ product, unitPrice, qty });
+  }
+
+  const subtotal = pricedLines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
+
+  const codes = String(promoCode || "").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
+  const validatedPromos = [];
+  for (const code of codes) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/promo_codes?code=ilike.${encodeURIComponent(code)}&limit=1`, { headers: SB_HEADERS });
+    const rows = await res.json().catch(() => []);
+    const promo = Array.isArray(rows) ? rows[0] : null;
+    if (!promo || !promoStillValid(promo, subtotal)) {
+      const err = new Error(`Promo code "${code}" is no longer valid.`);
+      err.status = 400;
+      throw err;
+    }
+    validatedPromos.push(promo);
+  }
+
+  let promoDiscount = 0;
+  let promoFreeDelivery = false;
+  for (const promo of validatedPromos) {
+    if (promo.type === "free_delivery") {
+      promoFreeDelivery = true;
+      continue;
+    }
+    const eligible = promoEligibleSubtotal(pricedLines, promo);
+    if (promo.type === "percent") promoDiscount += Math.round(eligible * (Number(promo.value) || 0) / 100);
+    else if (promo.type === "fixed") promoDiscount += Math.min(Number(promo.value) || 0, eligible);
+  }
+  promoDiscount = Math.max(0, Math.min(promoDiscount, subtotal));
+
+  let deliveryCost = 0;
+  const deliveryRes = await fetch(`${SUPABASE_URL}/rest/v1/delivery_prices?select=*&limit=500`, { headers: SB_HEADERS });
+  if (!deliveryRes.ok) throw new Error("Unable to verify delivery cost. Please try again.");
+  const deliveryRows = await deliveryRes.json().catch(() => []);
+  const deliveryRow = findDeliveryRow(deliveryRows, wilaya);
+  if (deliveryRow) {
+    const office = String(deliveryType || "").toLowerCase() === "office";
+    const value = office
+      ? (deliveryRow.office_price !== undefined ? deliveryRow.office_price : deliveryRow.officePrice)
+      : (deliveryRow.home_price !== undefined ? deliveryRow.home_price : deliveryRow.homePrice);
+    deliveryCost = Math.max(0, Number(value) || 0);
+  }
+  if (promoFreeDelivery || subtotal >= 15000) deliveryCost = 0;
+
+  return {
+    items: normalized,
+    subtotal,
+    deliveryCost,
+    promoDiscount,
+    total: Math.max(0, subtotal + deliveryCost - promoDiscount),
+    promoCodes: validatedPromos.map((p) => String(p.code || "").trim().toUpperCase()).filter(Boolean),
+    validatedPromos,
+  };
+}
+
 async function sendTelegram(message) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
   try {
@@ -135,22 +393,45 @@ async function adjustStock(items, direction) {
     });
   });
 
-  // Helper: deduct stock from a single inventory row by its canonical id
-  async function patchInvStock(invRow, qty) {
+  // Optimistic-concurrency stock update: the PATCH carries the stock value we
+  // read, so a concurrent order cannot silently overwrite it. A conflict is
+  // retried with a fresh read instead of using the stale snapshot.
+  async function adjustInvStock(invRow, qty, label) {
     const key = String(invRow.id || "").trim().toLowerCase();
-    const curStock = invStock.has(key) ? invStock.get(key) : (Number(invRow.stock) || 0);
-    const newStock = Math.max(0, curStock + direction * qty);
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRow.id)}`, {
-      method: "PATCH",
-      headers: SB_HEADERS,
-      body: JSON.stringify({ stock: newStock }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(`inventory_items PATCH "${invRow.id}" HTTP ${res.status} — ${body.message || res.statusText}`);
+    let expected = invStock.has(key) ? invStock.get(key) : (Number(invRow.stock) || 0);
+    const delta = direction * qty;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const next = Math.max(0, expected + delta);
+      const url = `${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRow.id)}&stock=eq.${encodeURIComponent(expected)}`;
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers: { ...SB_HEADERS, Prefer: "return=representation" },
+        body: JSON.stringify({ stock: next }),
+      });
+      const patched = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg = (patched && (patched.message || patched.error)) || res.statusText || "unknown";
+        throw new Error(`${label} PATCH HTTP ${res.status} — ${msg}`);
+      }
+      if (Array.isArray(patched) && patched.length > 0) {
+        const finalStock = Number(patched[0].stock) || 0;
+        invStock.set(key, finalStock);
+        invRow.stock = finalStock;
+        return finalStock;
+      }
+      // Zero rows means another writer changed stock after our read.
+      const freshRes = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?id=eq.${encodeURIComponent(invRow.id)}&select=stock&limit=1`, { headers: SB_HEADERS });
+      const fresh = await freshRes.json().catch(() => []);
+      if (!freshRes.ok || !Array.isArray(fresh) || fresh.length === 0) {
+        throw new Error(`${label} stock changed concurrently and could not be re-read`);
+      }
+      expected = Number(fresh[0].stock) || 0;
     }
-    invStock.set(key, newStock);
-    invRow.stock = newStock;
+    throw new Error(`${label} stock changed concurrently after 3 attempts`);
+  }
+
+  async function patchInvStock(invRow, qty) {
+    return adjustInvStock(invRow, qty, `inventory_items "${invRow.id}"`);
   }
 
   // Helper: find an inventory row by explicit SKU id (case-insensitive).
@@ -165,17 +446,23 @@ async function adjustStock(items, direction) {
     return null;
   }
 
-  // Helper: PATCH a product row, surfacing HTTP failures
-  async function patchProduct(prodId, body) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(prodId)}`, {
+  // Product writes are conditional on the stock value we read. If another
+  // writer changed it first, fail with an issue instead of overwriting it.
+  async function patchProduct(prodId, body, expectedStock, label) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(prodId)}&stock=eq.${encodeURIComponent(expectedStock)}`, {
       method: "PATCH",
-      headers: SB_HEADERS,
+      headers: { ...SB_HEADERS, Prefer: "return=representation" },
       body: JSON.stringify(body),
     });
+    const patched = await res.json().catch(() => null);
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(`products PATCH "${prodId}" HTTP ${res.status} — ${errBody.message || res.statusText}`);
+      const msg = (patched && (patched.message || patched.error)) || res.statusText || "unknown";
+      throw new Error(`${label} PATCH HTTP ${res.status} — ${msg}`);
     }
+    if (!Array.isArray(patched) || patched.length === 0) {
+      throw new Error(`${label} stock changed concurrently; not overwriting`);
+    }
+    return patched[0];
   }
 
   // Helper: find the catalog product that owns a given SKU (product id, variant
@@ -275,13 +562,14 @@ async function adjustStock(items, direction) {
   // Deduct a catalogue product's variant / flavour stock and its global stock.
   async function deductCatalogStock(st, { qty, variant, flavor, sku }) {
     const variants = st.variants || [];
+    const expectedStock = Number(st.stock) || 0;
 
     // Product without variants (simple product): only the global stock moves.
     if (!variants.length) {
-      const newStock = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+      const newStock = Math.max(0, expectedStock + direction * qty);
       st.stock = newStock;
       try {
-        await patchProduct(st.id, { stock: newStock });
+        await patchProduct(st.id, { stock: newStock }, expectedStock, `product "${st.name}"`);
       } catch (e) {
         console.error(`[adjustStock] ${e.message}`);
         issues.push(`product "${st.name}": ${e.message}`);
@@ -309,10 +597,10 @@ async function adjustStock(items, direction) {
       v.stock = Math.max(0, (Number(v.stock) || 0) + direction * qty);
     }
 
-    const newGlobal = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+    const newGlobal = Math.max(0, expectedStock + direction * qty);
     st.stock = newGlobal;
     try {
-      await patchProduct(st.id, { variants, stock: newGlobal });
+      await patchProduct(st.id, { variants, stock: newGlobal }, expectedStock, `product "${st.name}"`);
     } catch (e) {
       console.error(`[adjustStock] ${e.message}`);
       issues.push(`product "${st.name}": ${e.message}`);
@@ -325,6 +613,9 @@ async function adjustStock(items, direction) {
   // stock is re-derived as the scarcest component allows.
   async function adjustBundle(st, bItems, qty, depth) {
     const realProdId = st.id;
+    // For nested bundles this is the stock left by the component write above;
+    // the next PATCH must be conditional on that exact value.
+    const expectedStock = Number(st.stock) || 0;
     let minStock = Infinity;
 
     for (const bItem of bItems) {
@@ -397,7 +688,7 @@ async function adjustStock(items, direction) {
     // The bundle can be sold as many times as its scarcest component allows
     // (same formula the admin panel uses to derive bundle stock).
     if (minStock === Infinity) {
-      minStock = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+      minStock = Math.max(0, expectedStock + direction * qty);
     }
     const finalStock = Math.max(0, minStock);
 
@@ -407,7 +698,7 @@ async function adjustStock(items, direction) {
     }
     st.stock = finalStock;
     try {
-      await patchProduct(realProdId, variants.length > 0 ? { variants, stock: finalStock } : { stock: finalStock });
+      await patchProduct(realProdId, variants.length > 0 ? { variants, stock: finalStock } : { stock: finalStock }, expectedStock, `bundle "${st.name}"`);
     } catch (e) {
       console.error(`[adjustStock] ${e.message}`);
       issues.push(`bundle "${st.name}": ${e.message}`);
@@ -456,6 +747,7 @@ async function adjustStock(items, direction) {
 
     // 3. Regular product line.
     const realProdId = st.id;
+    const expectedStock = Number(st.stock) || 0;
     const variants = st.variants || [];
     const matchedIdx = pickVariantIndex(st, { variant: rawVariant, flavor: rawFlavor, sku: "" }, false);
 
@@ -487,19 +779,19 @@ async function adjustStock(items, direction) {
       }
       if (!linkedSku && v.sku) linkedSku = v.sku;
 
-      const newGlobal = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+      const newGlobal = Math.max(0, expectedStock + direction * qty);
       st.stock = newGlobal;
       try {
-        await patchProduct(realProdId, { variants, stock: newGlobal });
+        await patchProduct(realProdId, { variants, stock: newGlobal }, expectedStock, `product "${item.name}"`);
       } catch (e) {
         console.error(`[adjustStock] ${e.message}`);
         issues.push(`product "${item.name}": ${e.message}`);
       }
     } else {
-      const newStock = Math.max(0, (Number(st.stock) || 0) + direction * qty);
+      const newStock = Math.max(0, expectedStock + direction * qty);
       st.stock = newStock;
       try {
-        await patchProduct(realProdId, { stock: newStock });
+        await patchProduct(realProdId, { stock: newStock }, expectedStock, `product "${item.name}"`);
       } catch (e) {
         console.error(`[adjustStock] ${e.message}`);
         issues.push(`product "${item.name}": ${e.message}`);
@@ -566,9 +858,23 @@ module.exports = async function handler(req, res) {
     const body = req.body || {};
     const {
       action, fullName, firstName, lastName, phone, address, wilaya, commune,
-      deliveryType, deliveryCost, promoCode, promoDiscount,
-      items, subtotal, total,
+      deliveryType, promoCode: submittedPromoCode,
     } = body;
+
+    // Never trust client prices/discounts/fees. Re-derive every monetary value
+    // from Supabase before validation, persistence, stock changes or Telegram.
+    const authoritative = await computeAuthoritativeOrder({
+      items: body.items,
+      promoCode: submittedPromoCode,
+      deliveryType,
+      wilaya,
+    });
+    const items = authoritative.items;
+    const subtotal = authoritative.subtotal;
+    const deliveryCost = authoritative.deliveryCost;
+    const promoDiscount = authoritative.promoDiscount;
+    const total = authoritative.total;
+    const promoCode = authoritative.promoCodes.join(",");
 
     const id = Date.now().toString();
     const source = action === "submitCartOrder" ? "checkout" : "product-detail";
@@ -589,10 +895,8 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ success: false, error: "Gift conditions not met." });
         }
 
-        // Server-side subtotal (excludes gift lines)
-        const realSubtotal = (items || [])
-          .filter(it => !it.isGift)
-          .reduce((s, it) => s + (Number(it.unitPrice) || Number(it.unit_price) || 0) * (Number(it.qty) || 1), 0);
+        // Authoritative subtotal (gift lines are free and carry qty 1).
+        const realSubtotal = subtotal;
 
         let reqProducts = [];
         if (Array.isArray(gc.required_products)) reqProducts = gc.required_products.map(String);
@@ -673,20 +977,27 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, error: errData.message || "Failed to insert order" });
     }
 
-    // 2. Increment promo code uses if applied
-    if (promoCode) {
+    // 2. Increment promo code uses for the codes that actually validated.
+    // Conditional PATCH prevents two concurrent orders from losing an increment.
+    for (const promo of authoritative.validatedPromos) {
       try {
-        const codes = String(promoCode).split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
-        for (const code of codes) {
-          const prRes = await fetch(`${SUPABASE_URL}/rest/v1/promo_codes?code=ilike.${encodeURIComponent(code)}&limit=1`, { headers: SB_HEADERS });
-          const promoRows = await prRes.json().catch(() => ([]));
-          if (Array.isArray(promoRows) && promoRows.length > 0) {
-            await fetch(`${SUPABASE_URL}/rest/v1/promo_codes?id=eq.${encodeURIComponent(promoRows[0].id)}`, {
-              method: "PATCH",
-              headers: SB_HEADERS,
-              body: JSON.stringify({ uses: (Number(promoRows[0].uses) || 0) + 1 }),
-            });
-          }
+        const promoId = promo.id;
+        const maxUses = Number(promo.max_uses !== undefined ? promo.max_uses : promo.maxUses) || 0;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const readRes = await fetch(`${SUPABASE_URL}/rest/v1/promo_codes?id=eq.${encodeURIComponent(promoId)}&select=uses&limit=1`, { headers: SB_HEADERS });
+          const rows = await readRes.json().catch(() => []);
+          if (!readRes.ok || !Array.isArray(rows) || rows.length === 0) break;
+          const current = Number(rows[0].uses) || 0;
+          if (maxUses > 0 && current >= maxUses) break;
+          const limitFilter = maxUses > 0 ? `&uses=lt.${maxUses}` : "";
+          const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/promo_codes?id=eq.${encodeURIComponent(promoId)}&uses=eq.${current}${limitFilter}`, {
+            method: "PATCH",
+            headers: { ...SB_HEADERS, Prefer: "return=representation" },
+            body: JSON.stringify({ uses: current + 1 }),
+          });
+          const patched = await patchRes.json().catch(() => null);
+          if (!patchRes.ok || !Array.isArray(patched) || patched.length === 0) continue;
+          break;
         }
       } catch (_) {}
     }
@@ -735,6 +1046,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ success: true, id });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message || "Failed to submit order" });
+    const status = Number(err && err.status) || 500;
+    return res.status(status).json({ success: false, error: err.message || "Failed to submit order" });
   }
 };

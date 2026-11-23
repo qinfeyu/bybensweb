@@ -22,7 +22,7 @@
     sec.style.display = 'block';
     
     const imgEl = document.getElementById('giftImage');
-    if (imgEl && prod.imageUrl && prod.imageUrl[0]) imgEl.src = prod.imageUrl[0];
+    if (imgEl && prod.imageUrl && prod.imageUrl[0]) imgEl.src = safeImageUrl(prod.imageUrl[0]);
     
     const nameEl = document.getElementById('giftName');
     if (nameEl) nameEl.textContent = prod.name;
@@ -39,7 +39,7 @@
     const vfEl = document.getElementById('giftVariantFlavor');
     if (vfEl) {
       const parts = [variantStr, flavorStr].filter(Boolean).join(' - ');
-      vfEl.innerHTML = parts + (originalPrice ? ` <span style="text-decoration:line-through; opacity:0.6; margin-left: 8px;">${originalPrice} DA</span>` : '');
+      vfEl.innerHTML = escapeHtml(parts) + (originalPrice ? ` <span style="text-decoration:line-through; opacity:0.6; margin-left: 8px;">${originalPrice} DA</span>` : '');
     }
 
     const conditionType = gc.conditionType || 'amount';
@@ -138,7 +138,7 @@
       if (pb) pb.style.setProperty('--gift-bar-pct', progressPct + '%');
       if (pt) {
         const _tipIcon = '<svg class="gift-tip-icon" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>';
-        pt.innerHTML = _tipIcon + '<span>' + (progressTextObj[lang] || progressTextObj.en) + '</span>';
+        pt.innerHTML = _tipIcon + '<span>' + escapeHtml(progressTextObj[lang] || progressTextObj.en) + '</span>';
       }
       if (st) {
         if (lang === 'fr') st.textContent = 'Verrouillée';
@@ -364,11 +364,11 @@
                   return `
           <div class="checkout-item" style="border: 2px dashed #10b981; background: #ecfdf5;">
             <div class="checkout-item-img">
-              ${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="Gift">` : ''}
+              ${item.imageUrl ? `<img src="${safeImageUrl(Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl)}" alt="Gift">` : ''}
             </div>
             <div class="checkout-item-info">
-              <div class="checkout-item-name">${item.name} <span style="color:#10b981;font-size:12px;margin-left:8px;font-weight:bold;">(FREE GIFT)</span></div>
-              ${item.variant || item.flavor ? `<div class="item-meta" style="color:var(--gray-400);font-size:12px;margin-top:2px;">${[item.variant, item.flavor].filter(Boolean).join(' - ')}</div>` : ''}
+              <div class="checkout-item-name">${escapeHtml(item.name)} <span style="color:#10b981;font-size:12px;margin-left:8px;font-weight:bold;">(FREE GIFT)</span></div>
+              ${item.variant || item.flavor ? `<div class="item-meta" style="color:var(--gray-400);font-size:12px;margin-top:2px;">${escapeHtml([item.variant, item.flavor].filter(Boolean).join(' - '))}</div>` : ''}
               ${(() => {
                 const req = (Array.isArray(_giftConfig && _giftConfig.requiredProducts) ? _giftConfig.requiredProducts : [])
                   .map(id => { const sp = _allProducts.find(x => String(x.id) === String(id)); return sp ? sp.name : ''; })
@@ -381,7 +381,7 @@
                     ? 'نصيحة: أضف هذه المنتجات: ' + req + ' لفتح هذه الهدية!'
                     : 'Tip: Add these products: ' + req + ' to unlock this gift!';
                 const _tipIcon = '<svg class="gift-tip-icon" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>';
-                return '<div class="gift-tip-chip">' + _tipIcon + '<span>' + tipText + '</span></div>';
+                return '<div class="gift-tip-chip">' + _tipIcon + '<span>' + escapeHtml(tipText) + '</span></div>';
               })()}
               <div class="checkout-item-price" style="margin-top: 4px;">
                 ${item.originalPrice ? `<del style="color:#9ca3af; margin-right:8px; font-weight:normal; font-size: 13px;">${item.originalPrice.toLocaleString('fr-DZ')} DA</del>` : ''}
@@ -396,10 +396,10 @@
                 return `
           <div class="checkout-item">
             <div class="checkout-item-img">
-              ${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="${item.name}">` : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`}
+              ${item.imageUrl ? `<img src="${safeImageUrl(Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl)}" alt="${escapeHtml(item.name)}">` : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`}
             </div>
             <div class="checkout-item-info">
-              <div class="checkout-item-name">${item.name}</div>
+              <div class="checkout-item-name">${escapeHtml(item.name)}</div>
               ${(()=>{
                 const product = _allProducts.find(p => p.id === (item.productId || item.id));
                 const flavors = product ? parseField(product.flavors) : [];
@@ -432,7 +432,7 @@
                   html += `<select class="checkout-item-select" onchange="checkoutChangeFlavor(${idx}, this.value)" ${flavorObjs.filter(fo => !isFlavorOOS(fo)).length === 0 ? 'disabled' : ''}>`;
                   flavorObjs.forEach(fo => {
                     const oos = isFlavorOOS(fo);
-                    html += `<option value="${fo.name}" ${item.flavor===fo.name?'selected':''} ${oos ? 'disabled' : ''}>${fo.name}${oos ? ' (OOS)' : ''}</option>`;
+                    html += `<option value="${escapeHtml(fo.name)}" ${item.flavor===fo.name?'selected':''} ${oos ? 'disabled' : ''}>${escapeHtml(fo.name)}${oos ? ' (OOS)' : ''}</option>`;
                   });
                   html += '</select>';
                 }
@@ -443,14 +443,14 @@
                   variants.forEach((v, i) => {
                     const label = typeof v === 'object' ? (v.weight ? `${v.weight}${v.unit||''}` : v.label || v.name || '') : String(v);
                     const oos = isVariantOOS(v, i);
-                    html += `<option value="${i}" data-orig-idx="${i}" ${item.variant===label?'selected':''} ${oos ? 'disabled' : ''}>${label}${oos ? ' (OOS)' : ''}</option>`;
+                    html += `<option value="${i}" data-orig-idx="${i}" ${item.variant===label?'selected':''} ${oos ? 'disabled' : ''}>${escapeHtml(label)}${oos ? ' (OOS)' : ''}</option>`;
                   });
                     html += '</select>';
                   }
                 if (html !== '') html += '</div>'; // Close div if it was opened
                 else { // If no dropdowns, fallback to meta parts
                   const metaParts = [item.flavor, item.variant].filter(Boolean);
-                  if (metaParts.length) html = `<div class="checkout-item-meta">${metaParts.join(' · ')}</div>`;
+                  if (metaParts.length) html = `<div class="checkout-item-meta">${escapeHtml(metaParts.join(' · '))}</div>`;
                 }
                 return html;
               })()}
@@ -647,7 +647,7 @@
               .map(
                 (item) => `
               <div class="order-summary-row">
-                <span class="order-summary-label">${item.name} × ${item.qty}</span>
+                <span class="order-summary-label">${escapeHtml(item.name)} × ${item.qty}</span>
                 <span class="order-summary-val">${(item.unitPrice * item.qty).toLocaleString("fr-DZ")} DA</span>
               </div>`,
               )
@@ -727,8 +727,8 @@
           else if (pr.type === "fixed") label += ` (−${pr.value.toLocaleString("fr-DZ")} DA)`;
           else if (pr.type === "free_delivery") label += " (Free delivery)";
           return `<span style="display:inline-flex;align-items:center;gap:5px;background:#e6f4ec;color:#0a7c3e;border:1px solid #b2dfcc;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">
-            ${label}
-            <button onclick="removePromoCO('${pr.id}')" style="background:none;border:none;cursor:pointer;color:#0a7c3e;font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
+            ${escapeHtml(label)}
+            <button onclick="removePromoCO('${escapeJsAttr(encodeURIComponent(pr.id))}')" style="background:none;border:none;cursor:pointer;color:#0a7c3e;font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
           </span>`;
         }).join("");
       }
@@ -935,10 +935,10 @@
           .map(
             (item, idx) => `
           <div class="cart-row">
-            <div class="cart-row-img">${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="${item.name}">` : ""}</div>
+            <div class="cart-row-img">${item.imageUrl ? `<img src="${safeImageUrl(Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl)}" alt="${escapeHtml(item.name)}">` : ""}</div>
             <div class="cart-row-info">
-              <div class="cart-row-name">${item.name}</div>
-              <div class="cart-row-meta">${[item.flavor, item.variant].filter(Boolean).join(" · ")}</div>
+              <div class="cart-row-name">${escapeHtml(item.name)}</div>
+              <div class="cart-row-meta">${escapeHtml([item.flavor, item.variant].filter(Boolean).join(" · "))}</div>
               <div class="cart-row-bot">
                 <div class="ciq">
                   <button class="ciq-btn" onclick="cartQty(${idx},-1)">&#8722;</button>
@@ -994,24 +994,24 @@
           if (catSubs.length > 0) {
             dHTML += `<div class="cat-item">
               <a href="/supplements/products" class="cat-link">
-                ${cat.name}
+                ${escapeHtml(cat.name)}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
               </a>
               <div class="dropdown">
-                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}">${s.name}</a>`).join("")}
+                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}">${escapeHtml(s.name)}</a>`).join("")}
               </div>
             </div>`;
             mHTML += `<div class="m-cat-item">
               <button class="m-cat-toggle" onclick="toggleMobileCat(this)">
-                ${cat.name} <span class="m-arrow">›</span>
+                ${escapeHtml(cat.name)} <span class="m-arrow">›</span>
               </button>
               <div class="m-sub">
-                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}" class="m-sub-link">${s.name}</a>`).join("")}
+                ${catSubs.map((s) => `<a href="/supplements/products?sub=${encodeURIComponent(s.name)}" class="m-sub-link">${escapeHtml(s.name)}</a>`).join("")}
               </div>
             </div>`;
           } else {
-            dHTML += `<div class="cat-item"><a href="/supplements/products" class="cat-link">${cat.name}</a></div>`;
-            mHTML += `<a href="/supplements/products" class="mobile-nav-link">${cat.name}</a>`;
+            dHTML += `<div class="cat-item"><a href="/supplements/products" class="cat-link">${escapeHtml(cat.name)}</a></div>`;
+            mHTML += `<a href="/supplements/products" class="mobile-nav-link">${escapeHtml(cat.name)}</a>`;
           }
         });
         inner.innerHTML = dHTML;
@@ -1078,7 +1078,7 @@
           if (footerList) {
             footerList.innerHTML = _allCategories
               .slice(0, 6)
-              .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${cat.name}</a></li>`)
+              .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${escapeHtml(cat.name)}</a></li>`)
               .join("");
           }
         } catch (err) {
@@ -1118,14 +1118,14 @@
 
             const _alsoImgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
             const img = _alsoImgs[0]
-              ? `<img src="${_alsoImgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" decoding="async" />${_alsoImgs[1] ? `<img src="${_alsoImgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
+              ? `<img src="${safeImageUrl(_alsoImgs[0])}" alt="${escapeHtml(p.name)}" class="img-primary" loading="lazy" decoding="async" />${_alsoImgs[1] ? `<img src="${safeImageUrl(_alsoImgs[1])}" alt="${escapeHtml(p.name)}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
               : `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gray-200)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
             const badge = computeBadge(p, _bundleId, _topSoldIds);
             return `
-            <div class="also-card" onclick="window.location.href='/supplements/product-detail?id=${p.id}'" style="cursor:pointer">
+            <div class="also-card" onclick="window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'" style="cursor:pointer">
               <div class="also-card-img">${img}${badge ? `<span class="product-badge badge-${badge.type}">${badge.label}</span>` : ''}${saveLabel ? `<span class="product-badge badge-promo" style="top:auto;bottom:10px;left:10px;">${saveLabel}</span>` : ''}</div>
               <div class="also-card-body">
-                <div class="also-card-name">${p.name}</div>
+                <div class="also-card-name">${escapeHtml(p.name)}</div>
                 <div style="display:flex; align-items:baseline; gap:8px; direction:ltr;">
                   <div class="also-card-price">${currentPrice.toLocaleString("fr-DZ")} DA</div>
                   ${oldPrice ? `<span style="font-size:12px; color:var(--gray-400); text-decoration:line-through;">${oldPrice.toLocaleString("fr-DZ")} DA</span>` : ""}
@@ -1133,11 +1133,11 @@
                 <div class="also-card-actions">
                   ${Number(p.stock) <= 0
                     ? `<button class="also-btn-cart" disabled style="opacity:0.45;cursor:not-allowed">Out of Stock</button>`
-                    : `<button class="also-btn-cart" onclick="event.stopPropagation();openAddToCartModal('${p.id}')">
+                    : `<button class="also-btn-cart" onclick="event.stopPropagation();openAddToCartModal('${escapeJsAttr(encodeURIComponent(p.id))}')">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                     Add to Cart
                   </button>`}
-                  <button class="also-btn-buy" onclick="event.stopPropagation();window.location.href='/supplements/product-detail?id=${p.id}'">
+                  <button class="also-btn-buy" onclick="event.stopPropagation();window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
                     Buy Now
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
                   </button>
@@ -1167,7 +1167,7 @@
         document.getElementById("atcFlavorOptions").innerHTML = _atcFlavorObjs.map(fo => {
           const oos = isOOS(fo);
           const active = fo.name === _atcFlavor;
-          return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${fo.name.replace(/'/g, "\\'")}')"`}>${fo.name}${oos ? " (OOS)" : ""}</button>`;
+          return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${escapeJsAttr(fo.name)}')"`}>${escapeHtml(fo.name)}${oos ? " (OOS)" : ""}</button>`;
         }).join("");
       }
       function openAddToCartModal(productId) {
@@ -1176,7 +1176,7 @@
         _atcProduct = p; _atcQty = 1; _atcFlavor = ""; _atcVariantIdx = 0;
         const _atcImg0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
         document.getElementById("atcImg").innerHTML = _atcImg0
-          ? `<img src="${_atcImg0}" alt="${p.name}">`
+          ? `<img src="${safeImageUrl(_atcImg0)}" alt="${escapeHtml(p.name)}">`
           : `<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
         document.getElementById("atcName").textContent = p.name;
         _atcRefreshPrice();
@@ -1190,7 +1190,7 @@
         if (variants.length) {
           document.getElementById("atcWeightOptions").innerHTML = variants.map((v, i) => {
             const lbl = typeof v === "object" ? (v.weight ? `${v.weight}${v.unit||""}` : v.label || v.name || `Option ${i+1}`) : String(v);
-            return `<button class="atc-option${i===0?" active":""}" onclick="atcPickVariant(this,${i})">${lbl}</button>`;
+            return `<button class="atc-option${i===0?" active":""}" onclick="atcPickVariant(this,${i})">${escapeHtml(lbl)}</button>`;
           }).join("");
           weightSec.style.display = "";
         } else { weightSec.style.display = "none"; }
@@ -3521,7 +3521,7 @@
             if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ""; }
             return;
           }
-          const orderIdStr = data.id ? ` Your order ID is <strong>${data.id}</strong>.` : ` Your order of ${items.length} item${items.length !== 1 ? "s" : ""}.`;
+          const orderIdStr = data.id ? ` Your order ID is <strong>${escapeHtml(data.id)}</strong>.` : ` Your order of ${items.length} item${items.length !== 1 ? "s" : ""}.`;
 document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}!${orderIdStr} Total: ${total.toLocaleString("fr-DZ")} DA. We'll call you shortly to confirm.`;
           document.getElementById("successOverlay").classList.add("show");
           if (data && data.id) {
@@ -3550,6 +3550,24 @@ document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullNa
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#39;");
+      }
+
+      function escapeJsAttr(v) {
+        return String(v == null ? "" : v)
+          .replace(/\\/g, "\\\\")
+          .replace(/'/g, "\\'")
+          .replace(/\n/g, "\\n")
+          .replace(/\r/g, "\\r")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function safeImageUrl(v) {
+        const s = String(v == null ? "" : v).trim();
+        if (/^https:\/\//i.test(s) || /^http:\/\//i.test(s) || s.indexOf("//") === 0 || s.indexOf("/") === 0) return s;
+        return "";
       }
 
       function downloadReceipt() {
@@ -3700,21 +3718,21 @@ document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullNa
             const price = getProductPrice(p, 0).toLocaleString("fr-DZ");
             const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
             const thumb = _t0
-              ? `<img src="${_t0}" alt="${p.name}" />`
+              ? `<img src="${safeImageUrl(_t0)}" alt="${escapeHtml(p.name)}" />`
               : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
             return `
-            <div class="search-drop-item" onclick="window.location.href='/supplements/product-detail?id=${encodeURIComponent(p.id)}'">
+            <div class="search-drop-item" onclick="window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
               <div class="search-drop-thumb">${thumb}</div>
               <div class="search-drop-info">
-                <p class="search-drop-brand">${p.brand || ""}</p>
-                <p class="search-drop-name">${p.name}</p>
+                <p class="search-drop-brand">${escapeHtml(p.brand || "")}</p>
+                <p class="search-drop-name">${escapeHtml(p.name)}</p>
               </div>
               <span class="search-drop-price">${price} DA</span>
             </div>`;
           })
           .join("");
         if (!matches.length) {
-          const empty = `<div class="search-drop-empty">No results for "${query}"</div>`;
+          const empty = `<div class="search-drop-empty">No results for "${escapeHtml(query)}"</div>`;
           dropdown.innerHTML = empty;
           dropdown.classList.add("open");
           if (mobileResults) mobileResults.innerHTML = empty;

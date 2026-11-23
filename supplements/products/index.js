@@ -308,6 +308,33 @@
         return Math.max(0, Math.round(base - disc));
       }
 
+      function escapeHtml(v) {
+        return String(v == null ? "" : v)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function escapeJsAttr(v) {
+        return String(v == null ? "" : v)
+          .replace(/\\/g, "\\\\")
+          .replace(/'/g, "\\'")
+          .replace(/\n/g, "\\n")
+          .replace(/\r/g, "\\r")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function safeImageUrl(v) {
+        const s = String(v == null ? "" : v).trim();
+        if (/^https:\/\//i.test(s) || /^http:\/\//i.test(s) || s.indexOf("//") === 0 || s.indexOf("/") === 0) return s;
+        return "";
+      }
+
       function renderCatNav(cats, subs) {
         const catNavInner = document.getElementById("catNavInner");
         const mobileCatItems = document.getElementById("mobileCatItems");
@@ -323,25 +350,25 @@
           if (catSubs.length > 0) {
             desktopHTML += `
               <div class="cat-item">
-                <a href="#" class="cat-link" onclick="filterByCategory('${cat.id}'); return false;">${cat.name}
+                <a href="#" class="cat-link" onclick="filterByCategory('${escapeJsAttr(encodeURIComponent(cat.id))}'); return false;">${escapeHtml(cat.name)}
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
                 </a>
                 <div class="dropdown">
-                  ${catSubs.map((s) => `<a href="#" onclick="filterBySubCategory('${s.id}'); return false;">${s.name}</a>`).join("")}
+                  ${catSubs.map((s) => `<a href="#" onclick="filterBySubCategory('${escapeJsAttr(encodeURIComponent(s.id))}'); return false;">${escapeHtml(s.name)}</a>`).join("")}
                 </div>
               </div>`;
             mobileHTML += `
               <div class="m-cat-item">
                 <button class="m-cat-toggle" onclick="toggleMobileCat(this)">
-                  ${cat.name} <span class="m-arrow">›</span>
+                  ${escapeHtml(cat.name)} <span class="m-arrow">›</span>
                 </button>
                 <div class="m-sub">
-                  ${catSubs.map((s) => `<a href="#" class="m-sub-link" onclick="filterBySubCategory('${s.id}'); toggleMobileMenu(); return false;">${s.name}</a>`).join("")}
+                  ${catSubs.map((s) => `<a href="#" class="m-sub-link" onclick="filterBySubCategory('${escapeJsAttr(encodeURIComponent(s.id))}'); toggleMobileMenu(); return false;">${escapeHtml(s.name)}</a>`).join("")}
                 </div>
               </div>`;
           } else {
-            desktopHTML += `<div class="cat-item"><a href="#" class="cat-link" onclick="filterByCategory('${cat.id}'); return false;">${cat.name}</a></div>`;
-            mobileHTML += `<a href="#" class="m-link" onclick="filterByCategory('${cat.id}'); toggleMobileMenu(); return false;">${cat.name}</a>`;
+            desktopHTML += `<div class="cat-item"><a href="#" class="cat-link" onclick="filterByCategory('${escapeJsAttr(encodeURIComponent(cat.id))}'); return false;">${escapeHtml(cat.name)}</a></div>`;
+            mobileHTML += `<a href="#" class="m-link" onclick="filterByCategory('${escapeJsAttr(encodeURIComponent(cat.id))}'); toggleMobileMenu(); return false;">${escapeHtml(cat.name)}</a>`;
           }
         });
 
@@ -454,7 +481,7 @@
           if (footerList) {
             footerList.innerHTML = allCategories
               .slice(0, 6)
-              .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${cat.name}</a></li>`)
+              .map((cat) => `<li><a href="/supplements/products?cat=${encodeURIComponent(cat.id)}">${escapeHtml(cat.name)}</a></li>`)
               .join("");
           }
           } catch (err) {
@@ -498,12 +525,12 @@
             ${categoryOptions
               .map(
                 (opt) => `
-              <div class="filter-option ${state.categories.includes(opt.value) ? "checked" : ""}" onclick="toggleFilter('categories','${opt.value}',this)">
+              <div class="filter-option ${state.categories.includes(opt.value) ? "checked" : ""}" onclick="toggleFilter('categories','${escapeJsAttr(opt.value)}',this)">
                 <label>
                   <div class="custom-checkbox">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
-                  ${opt.label}
+                  ${escapeHtml(opt.label)}
                 </label>
                 <span class="option-count">${opt.count}</span>
               </div>`,
@@ -533,12 +560,12 @@
             ${visibleSubs
               .map(
                 (opt) => `
-              <div class="filter-option ${state.subCategories.includes(opt.value) ? "checked" : ""}" onclick="toggleFilter('subCategories','${opt.value}',this)">
+              <div class="filter-option ${state.subCategories.includes(opt.value) ? "checked" : ""}" onclick="toggleFilter('subCategories','${escapeJsAttr(opt.value)}',this)">
                 <label>
                   <div class="custom-checkbox">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
-                  ${opt.label}
+                  ${escapeHtml(opt.label)}
                 </label>
                 <span class="option-count">${opt.count}</span>
               </div>`,
@@ -561,12 +588,12 @@
             ${brandOptions
               .map(
                 (opt) => `
-              <div class="filter-option ${state.brands.includes(opt.value) ? "checked" : ""}" onclick="toggleFilter('brands','${opt.value}',this)">
+              <div class="filter-option ${state.brands.includes(opt.value) ? "checked" : ""}" onclick="toggleFilter('brands','${escapeJsAttr(opt.value)}',this)">
                 <label>
                   <div class="custom-checkbox">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
-                  ${opt.label}
+                  ${escapeHtml(opt.label)}
                 </label>
                 <span class="option-count">${opt.count}</span>
               </div>`,
@@ -615,8 +642,8 @@
           </div>
           <div class="filter-body">
             <div class="price-inputs">
-              <input class="price-input" type="number" id="priceMin" placeholder="Min (DA)" value="${state.priceMin}" min="0"/>
-              <input class="price-input" type="number" id="priceMax" placeholder="Max (DA)" value="${state.priceMax}" min="0"/>
+              <input class="price-input" type="number" id="priceMin" placeholder="Min (DA)" value="${escapeHtml(state.priceMin)}" min="0"/>
+              <input class="price-input" type="number" id="priceMax" placeholder="Max (DA)" value="${escapeHtml(state.priceMax)}" min="0"/>
             </div>
             <button class="price-apply" onclick="applyPrice()">Apply Price</button>
           </div>
@@ -769,33 +796,33 @@
               p.flavors && p.flavors.length > 0 ? (typeof p.flavors[0] === "object" ? (p.flavors[0].name || p.flavors[0].label || "") : String(p.flavors[0])) : "";
             const _imgs = Array.isArray(p.imageUrl) ? p.imageUrl : (p.imageUrl ? [p.imageUrl] : []);
             const imgEl = _imgs[0]
-              ? `<img src="${_imgs[0]}" alt="${p.name}" class="img-primary" loading="lazy" decoding="async" />${_imgs[1] ? `<img src="${_imgs[1]}" alt="${p.name}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
+              ? `<img src="${safeImageUrl(_imgs[0])}" alt="${escapeHtml(p.name)}" class="img-primary" loading="lazy" decoding="async" />${_imgs[1] ? `<img src="${safeImageUrl(_imgs[1])}" alt="${escapeHtml(p.name)}" class="img-hover" loading="lazy" decoding="async" />` : ""}`
               : `<svg class="placeholder-icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
 
             return `
-        <article class="product-card${oos ? " is-oos" : ""}" style="animation-delay:${i * 0.05}s;cursor:pointer" onclick="window.location.href='/supplements/product-detail?id=${p.id}'">
+        <article class="product-card${oos ? " is-oos" : ""}" style="animation-delay:${i * 0.05}s;cursor:pointer" onclick="window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
           <div class="product-img">
             ${imgEl}
             ${badge ? `<span class="product-badge badge-${badge.type}">${badge.label}</span>` : ''}
           </div>
           <div class="product-info">
-            <span class="product-brand">${p.brand || ""}</span>
-            <h3 class="product-name">${p.name}</h3>
-            ${flavorLabel ? `<span class="product-flavor">${flavorLabel}</span>` : ""}
+            <span class="product-brand">${escapeHtml(p.brand || "")}</span>
+            <h3 class="product-name">${escapeHtml(p.name)}</h3>
+            ${flavorLabel ? `<span class="product-flavor">${escapeHtml(flavorLabel)}</span>` : ""}
             <div class="product-pricing">
               ${currentPrice > 0 ? `<span class="price">${currentPrice.toLocaleString()} DA</span>` : ""}
               ${oldPrice ? `<span class="price-old">${oldPrice.toLocaleString()} DA</span>` : ""}
               ${saveLabel ? `<span class="price-save">${saveLabel}</span>` : ""}
             </div>
             <div class="product-actions">
-              <button class="btn-cart" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;pointer-events:none;"' : `onclick="event.stopPropagation();openAddToCartModal('${p.id}')"`}>
+              <button class="btn-cart" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;pointer-events:none;"' : `onclick="event.stopPropagation();openAddToCartModal('${escapeJsAttr(encodeURIComponent(p.id))}')"`}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                   <line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
                 </svg>
                 ${oos ? "Out of Stock" : t["btn.addcart"]}
               </button>
-              <button class="btn-buy" onclick="event.stopPropagation();window.location.href='/supplements/product-detail?id=${p.id}'">
+              <button class="btn-buy" onclick="event.stopPropagation();window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
                 ${t["btn.buynow"]}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path d="m9 18 6-6-6-6"/>
@@ -908,7 +935,7 @@
             .map(
               (c, i) => `
         <span class="filter-chip">
-          ${c.label}
+          ${escapeHtml(c.label)}
           <button onclick="chipRemove(${i})" aria-label="Remove filter">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -1030,7 +1057,7 @@
             (p.flavors || []).some((f) => (f.name || "").toLowerCase().includes(q))
         );
         if (!matches.length) {
-          dropdown.innerHTML = `<div class="search-drop-empty">No results for "${query}"</div>`;
+          dropdown.innerHTML = `<div class="search-drop-empty">No results for "${escapeHtml(query)}"</div>`;
           dropdown.classList.add("open");
           return;
         }
@@ -1038,13 +1065,13 @@
           const price = getProductPrice(p).toLocaleString("fr-DZ");
           const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
           const thumb = _t0
-            ? `<img src="${_t0}" alt="${p.name}" />`
+            ? `<img src="${safeImageUrl(_t0)}" alt="${escapeHtml(p.name)}" />`
             : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
-          return `<div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/product-detail?id=${encodeURIComponent(p.id)}'">
+          return `<div class="search-drop-item" onclick="closeSearchDropdown(); window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'">
             <div class="search-drop-thumb">${thumb}</div>
             <div class="search-drop-info">
-              <p class="search-drop-brand">${p.brand || ""}</p>
-              <p class="search-drop-name">${p.name}</p>
+              <p class="search-drop-brand">${escapeHtml(p.brand || "")}</p>
+              <p class="search-drop-name">${escapeHtml(p.name)}</p>
             </div>
             <span class="search-drop-price">${price} DA</span>
           </div>`;
@@ -1091,21 +1118,21 @@
             (p.flavors || []).some((f) => (f.name || "").toLowerCase().includes(q))
         );
         if (!matches.length) {
-          results.innerHTML = `<p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">No results for "${val}"</p>`;
+          results.innerHTML = `<p style="font-size:13px;color:var(--gray-400);text-align:center;margin-top:40px;">No results for "${escapeHtml(val)}"</p>`;
           return;
         }
         results.innerHTML = matches.map((p) => {
           const price = getProductPrice(p).toLocaleString("fr-DZ");
           const _t0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
           const thumb = _t0
-            ? `<img src="${_t0}" alt="${p.name}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" />`
+            ? `<img src="${safeImageUrl(_t0)}" alt="${escapeHtml(p.name)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" />`
             : `<div style="width:48px;height:48px;border-radius:8px;background:var(--gray-100);flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg></div>`;
-          return `<div onclick="closeMobileProductSearch(); window.location.href='/supplements/product-detail?id=${encodeURIComponent(p.id)}'"
+          return `<div onclick="closeMobileProductSearch(); window.location.href='/supplements/product-detail?id=${escapeJsAttr(encodeURIComponent(p.id))}'"
             style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100);cursor:pointer;">
             ${thumb}
             <div style="flex:1;min-width:0;">
-              <p style="font-size:12px;color:var(--gray-400);margin:0 0 2px;">${p.brand || ""}</p>
-              <p style="font-size:14px;font-weight:600;color:var(--gray-800);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</p>
+              <p style="font-size:12px;color:var(--gray-400);margin:0 0 2px;">${escapeHtml(p.brand || "")}</p>
+              <p style="font-size:14px;font-weight:600;color:var(--gray-800);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</p>
             </div>
             <span style="font-size:13px;font-weight:700;color:var(--red);flex-shrink:0;">${price} DA</span>
           </div>`;
@@ -1241,7 +1268,7 @@
         _atcVariantIdx = 0;
         const _atcImg0 = Array.isArray(p.imageUrl) ? p.imageUrl[0] : p.imageUrl;
         document.getElementById("atcImg").innerHTML = _atcImg0
-          ? `<img src="${_atcImg0}" alt="${p.name}">`
+          ? `<img src="${safeImageUrl(_atcImg0)}" alt="${escapeHtml(p.name)}">`
           : `<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`;
         document.getElementById("atcName").textContent = p.name;
         _atcRefreshPrice();
@@ -1268,7 +1295,7 @@
                     ? `${v.weight}${v.unit || ""}`
                     : v.label || v.name || `Option ${i + 1}`
                   : String(v);
-              return `<button class="atc-option${i === 0 ? " active" : ""}" onclick="atcPickVariant(this,${i})">${lbl}</button>`;
+              return `<button class="atc-option${i === 0 ? " active" : ""}" onclick="atcPickVariant(this,${i})">${escapeHtml(lbl)}</button>`;
             })
             .join("");
           weightSec.style.display = "";
@@ -1326,7 +1353,7 @@
         document.getElementById("atcFlavorOptions").innerHTML = _atcFlavorObjs.map(fo => {
           const oos = isOOS(fo);
           const active = fo.name === _atcFlavor;
-          return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${fo.name.replace(/'/g, "\\'")}')"`}>${fo.name}</button>`;
+          return `<button class="atc-option${active ? " active" : ""}" ${oos ? 'disabled style="opacity:.4;cursor:not-allowed;text-decoration:line-through;"' : `onclick="atcPickFlavor(this,'${escapeJsAttr(fo.name)}')"`}>${escapeHtml(fo.name)}</button>`;
         }).join("");
       }
 
@@ -1429,10 +1456,10 @@
           .map(
             (item, idx) => `
           <div class="cart-row">
-            <div class="cart-row-img">${item.imageUrl ? `<img src="${Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl}" alt="${item.name}">` : ""}</div>
+            <div class="cart-row-img">${item.imageUrl ? `<img src="${safeImageUrl(Array.isArray(item.imageUrl) ? item.imageUrl[0] : item.imageUrl)}" alt="${escapeHtml(item.name)}">` : ""}</div>
             <div class="cart-row-info">
-              <div class="cart-row-name">${item.name}</div>
-              <div class="cart-row-meta">${[item.flavor, item.variant].filter(Boolean).join(" · ")}</div>
+              <div class="cart-row-name">${escapeHtml(item.name)}</div>
+              <div class="cart-row-meta">${escapeHtml([item.flavor, item.variant].filter(Boolean).join(" · "))}</div>
               <div class="cart-row-bot">
                 <div class="ciq">
                   <button class="ciq-btn" onclick="cartQty(${idx},-1)">&#8722;</button>
