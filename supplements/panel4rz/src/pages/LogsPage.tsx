@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, Trash2, RefreshCw, ScrollText, ShieldCheck, User, Table2, Calendar } from 'lucide-react';
+import { getAdminAuthHeaders, clearAdminSession, isAdminAuthError } from '../lib/supabase';
 
 type LogRow = {
   id: number;
@@ -15,7 +16,7 @@ type LogsPageProps = {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 };
 
-const ACTIONS = ['auth.login', 'auth.login_failed', 'order.update', 'order.delete', 'order.upsert', 'product.upsert', 'preorder.upsert', 'expense.delete', 'expense.insert', 'customer.upsert', 'inventory.upsert', 'promo.upsert', 'delivery.upsert', 'settings.upsert'];
+const ACTIONS = ['auth.login', 'auth.login_failed', 'auth.login_denied', 'order.update', 'order.delete', 'order.upsert', 'product.upsert', 'preorder.upsert', 'expense.delete', 'expense.insert', 'customer.upsert', 'inventory.upsert', 'promo.upsert', 'delivery.upsert', 'settings.upsert'];
 
 export default function LogsPage({ showToast }: LogsPageProps) {
   const [logs, setLogs] = useState<LogRow[]>([]);
@@ -44,8 +45,13 @@ export default function LogsPage({ showToast }: LogsPageProps) {
       if (filterActor) qp.set('actor', filterActor);
       if (filterDays) qp.set('days', filterDays);
       if (limit && !isNaN(Number(limit))) qp.set('limit', String(limit));
-      const res = await fetch(`/api/admin-logs?${qp.toString()}`);
+      const res = await fetch(`/api/admin-logs?${qp.toString()}`, { headers: getAdminAuthHeaders() });
       const data = await res.json();
+      if (isAdminAuthError(res.status)) {
+        clearAdminSession();
+        showToast('Session expired. Please sign in again.', 'error');
+        return;
+      }
       if (!res.ok) {
         showToast(data.error || 'Failed to load logs', 'error');
         return;
@@ -68,10 +74,15 @@ export default function LogsPage({ showToast }: LogsPageProps) {
     try {
       const res = await fetch('/api/admin-logs', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
         body: JSON.stringify({ ids }),
       });
       const data = await res.json();
+      if (isAdminAuthError(res.status)) {
+        clearAdminSession();
+        showToast('Session expired. Please sign in again.', 'error');
+        return;
+      }
       if (!res.ok) {
         showToast(data.error || 'Delete failed', 'error');
         return;
@@ -88,10 +99,15 @@ export default function LogsPage({ showToast }: LogsPageProps) {
     try {
       const res = await fetch('/api/admin-logs', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
         body: JSON.stringify({ olderThanDays: days }),
       });
       const data = await res.json();
+      if (isAdminAuthError(res.status)) {
+        clearAdminSession();
+        showToast('Session expired. Please sign in again.', 'error');
+        return;
+      }
       if (!res.ok) {
         showToast(data.error || 'Failed to clear', 'error');
         return;
@@ -108,10 +124,15 @@ export default function LogsPage({ showToast }: LogsPageProps) {
     try {
       const res = await fetch('/api/admin-logs', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
         body: JSON.stringify({ all: true }),
       });
       const data = await res.json();
+      if (isAdminAuthError(res.status)) {
+        clearAdminSession();
+        showToast('Session expired. Please sign in again.', 'error');
+        return;
+      }
       if (!res.ok) {
         showToast(data.error || 'Failed to clear', 'error');
         return;

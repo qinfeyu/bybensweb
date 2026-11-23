@@ -1,6 +1,6 @@
 import GiftPage from './pages/GiftPage';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { supabase, ensureSupabaseKey, safeSetLocalStorage } from './lib/supabase';
+import { supabase, ensureSupabaseKey, safeSetLocalStorage, getAdminAuthHeaders, clearAdminSession, isAdminAuthError } from './lib/supabase';
 
 // Strip heavy fields from products before caching to stay well under the 5MB localStorage limit.
 // nutritionalFacts, benefits, description can be very long strings — we omit them from cache.
@@ -103,15 +103,20 @@ export default function App() {
 
   // On mount: check for a live Supabase session (async only, no sync callbacks)
   useEffect(() => {
-    if (localStorage.getItem('bb_admin_auth') === '1') {
+    const hasSessionFlag = localStorage.getItem('bb_admin_auth') === '1';
+    const hasToken = Boolean(localStorage.getItem('bb_admin_token'));
+    if (hasSessionFlag && hasToken) {
       setIsAuthenticated(true);
       setAdminEmail(localStorage.getItem('bb_admin_name') || 'admin@bybens.com');
       setIsSessionChecking(false);
     } else {
+      if (hasSessionFlag) clearAdminSession();
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
-          setIsAuthenticated(true);
+          safeSetLocalStorage('bb_admin_auth', '1');
           setAdminEmail(session.user.email || 'admin@bybens.com');
+          if (session.access_token) safeSetLocalStorage('bb_admin_token', session.access_token);
+          setIsAuthenticated(true);
         }
         setIsSessionChecking(false);
       }).catch(() => {
@@ -156,6 +161,7 @@ export default function App() {
 
   const handleLogout = async () => {
     try { await supabase.auth.signOut(); } catch {}
+    clearAdminSession();
     setIsAuthenticated(false);
     setAdminEmail('admin@bybens.com');
     showToast('Signed out successfully', 'info');
@@ -258,16 +264,21 @@ export default function App() {
       await ensureSupabaseKey();
 
       let adminData: any = null;
+      let adminAuthFailed = false;
       try {
-        const adRes = await fetch('/api/admin-data');
-        if (adRes.ok) {
+        const adRes = await fetch('/api/admin-data', { headers: getAdminAuthHeaders() });
+        if (isAdminAuthError(adRes.status)) {
+          clearAdminSession();
+          setIsAuthenticated(false);
+          adminAuthFailed = true;
+        } else if (adRes.ok) {
           const parsed = await adRes.json();
           if (parsed && parsed.success) adminData = parsed;
         }
       } catch (e) {}
 
       // If /api/admin-data failed or returned no success, execute client fallback queries concurrently in parallel!
-      if (!adminData || !adminData.success) {
+      if (!adminAuthFailed && (!adminData || !adminData.success)) {
         const [
           invRes,
           catRes,
@@ -803,7 +814,12 @@ export default function App() {
       const url = sinceMs
         ? `/api/admin-orders-sync?since=${encodeURIComponent(new Date(sinceMs).toISOString())}`
         : '/api/admin-orders-sync';
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getAdminAuthHeaders() });
+      if (isAdminAuthError(res.status)) {
+        clearAdminSession();
+        setIsAuthenticated(false);
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
 

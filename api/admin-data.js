@@ -12,6 +12,8 @@ const SUPABASE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "";
 
+const { applyAdminCors, requireAdmin } = require("./_lib/admin-auth");
+
 const SB_HEADERS = {
   apikey: SUPABASE_KEY,
   Authorization: `Bearer ${SUPABASE_KEY}`,
@@ -28,14 +30,19 @@ async function sf(path) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  if (!applyAdminCors(req, res)) {
+    return res.status(403).json({ error: "Origin not allowed" });
+  }
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.setHeader("Content-Type", "application/json");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
 
   try {
     const [

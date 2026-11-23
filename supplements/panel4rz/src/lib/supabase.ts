@@ -110,6 +110,36 @@ if (typeof window !== 'undefined') {
   ensureSupabaseKey();
 }
 
+/** Bearer token issued by /api/admin-login; admin APIs require it. */
+export function getAdminAuthHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const token = localStorage.getItem('bb_admin_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function isAdminAuthError(status?: number): boolean {
+  return status === 401 || status === 403;
+}
+
+export function clearAdminSession(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('bb_admin_auth');
+  localStorage.removeItem('bb_admin_name');
+  localStorage.removeItem('bb_admin_token');
+}
+
+function shouldFallbackToAnon(result: any): boolean {
+  // Never retry a rejected admin request through the anon client: a 4xx is a
+  // deliberate server-side decision (auth, allowlist, validation).
+  return !result || result.status === undefined || result.status >= 500;
+}
+
+function proxyFailure(result: any) {
+  const err = result && result.error;
+  if (err && typeof err === 'object') return { data: null, error: err };
+  return { data: null, error: { message: String((err as any) || 'Admin request failed') } };
+}
+
 export async function adminMutate(
   action: 'upsert' | 'insert' | 'update' | 'delete',
   table: string,
@@ -117,13 +147,14 @@ export async function adminMutate(
   match?: Record<string, any>
 ) {
   try {
-    const actorEmail = typeof window !== 'undefined' ? localStorage.getItem('bb_admin_name') || undefined : undefined;
     const res = await fetch('/api/admin-mutate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, table, data, match, actor_email: actorEmail }),
+      headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
+      body: JSON.stringify({ action, table, data, match }),
     });
-    return await res.json();
+    const body = await res.json().catch(() => ({}));
+    if (isAdminAuthError(res.status)) clearAdminSession();
+    return { ...body, status: res.status };
   } catch (e: any) {
     console.error(`adminMutate error [${action} ${table}]:`, e);
     return { error: e.message };
@@ -142,16 +173,14 @@ export const supabase = {
       select: (...args: any[]) => (query.select as any)(...args),
       upsert: async (data: any, options?: any) => {
         const proxyRes = await adminMutate('upsert', table, data);
-        if (proxyRes && proxyRes.success) {
-          return { data: proxyRes.data, error: null };
-        }
+        if (proxyRes && proxyRes.success) return { data: proxyRes.data, error: null };
+        if (!shouldFallbackToAnon(proxyRes)) return proxyFailure(proxyRes);
         return await Promise.resolve(query.upsert(data, options)).catch((err: any) => ({ data: null, error: err }));
       },
       insert: async (data: any, options?: any) => {
         const proxyRes = await adminMutate('insert', table, data);
-        if (proxyRes && proxyRes.success) {
-          return { data: proxyRes.data, error: null };
-        }
+        if (proxyRes && proxyRes.success) return { data: proxyRes.data, error: null };
+        if (!shouldFallbackToAnon(proxyRes)) return proxyFailure(proxyRes);
         return await Promise.resolve(query.insert(data, options)).catch((err: any) => ({ data: null, error: err }));
       },
       update: (data: any) => {
@@ -160,9 +189,8 @@ export const supabase = {
           ...origUpdate,
           eq: async (column: string, value: any) => {
             const proxyRes = await adminMutate('update', table, data, { [column]: value });
-            if (proxyRes && proxyRes.success) {
-              return { data: proxyRes.data, error: null };
-            }
+            if (proxyRes && proxyRes.success) return { data: proxyRes.data, error: null };
+            if (!shouldFallbackToAnon(proxyRes)) return proxyFailure(proxyRes);
             return await Promise.resolve(origUpdate.eq(column, value)).catch((err: any) => ({ data: null, error: err }));
           }
         };
@@ -173,23 +201,20 @@ export const supabase = {
           ...origDelete,
           eq: async (column: string, value: any) => {
             const proxyRes = await adminMutate('delete', table, undefined, { [column]: value });
-            if (proxyRes && proxyRes.success) {
-              return { data: proxyRes.data, error: null };
-            }
+            if (proxyRes && proxyRes.success) return { data: proxyRes.data, error: null };
+            if (!shouldFallbackToAnon(proxyRes)) return proxyFailure(proxyRes);
             return await Promise.resolve(origDelete.eq(column, value)).catch((err: any) => ({ data: null, error: err }));
           },
           like: async (column: string, pattern: string) => {
             const proxyRes = await adminMutate('delete', table, undefined, { [column]: `like:${pattern}` });
-            if (proxyRes && proxyRes.success) {
-              return { data: proxyRes.data, error: null };
-            }
+            if (proxyRes && proxyRes.success) return { data: proxyRes.data, error: null };
+            if (!shouldFallbackToAnon(proxyRes)) return proxyFailure(proxyRes);
             return await Promise.resolve(origDelete.like(column, pattern)).catch((err: any) => ({ data: null, error: err }));
           },
           in: async (column: string, values: any[]) => {
             const proxyRes = await adminMutate('delete', table, undefined, { [column]: `in:(${values.map(v => encodeURIComponent(v)).join(',')})` });
-            if (proxyRes && proxyRes.success) {
-              return { data: proxyRes.data, error: null };
-            }
+            if (proxyRes && proxyRes.success) return { data: proxyRes.data, error: null };
+            if (!shouldFallbackToAnon(proxyRes)) return proxyFailure(proxyRes);
             return await Promise.resolve((origDelete as any).in(column, values)).catch((err: any) => ({ data: null, error: err }));
           }
         };

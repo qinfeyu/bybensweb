@@ -1,21 +1,30 @@
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://uogwlzuiemxwsnpigydg.supabase.co";
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://uogwlzuiemxwsnpigydg.supabase.co";
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
+  "";
+const { applyAdminCors, isAdminAuthConfigured, isAllowedAdminEmail } = require("./_lib/admin-auth");
 let auditLog = () => {};
 try {
   ({ writeAuditLog: auditLog } = require("./_lib/audit-log"));
 } catch (_) {}
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (!applyAdminCors(req, res)) {
+    return res.status(403).json({ error: "Origin not allowed" });
   }
 
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+  if (!isAdminAuthConfigured()) {
+    return res.status(503).json({
+      error: "Admin authorization is not configured (set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and ADMIN_EMAILS).",
+    });
   }
 
   try {
@@ -41,7 +50,17 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    await auditLog({ action: "auth.login", actor: (data.user || {}).email || email, detail: `admin signed in` });
+    const verifiedEmail = (data.user || {}).email || email;
+    if (!isAllowedAdminEmail(verifiedEmail)) {
+      await auditLog({
+        action: "auth.login_denied",
+        actor: verifiedEmail,
+        detail: `non-admin sign-in attempt for ${verifiedEmail}`,
+      });
+      return res.status(403).json({ error: "This account is not authorized for admin access" });
+    }
+
+    await auditLog({ action: "auth.login", actor: verifiedEmail, detail: `admin signed in` });
     return res.status(200).json({
       success: true,
       user: data.user,
