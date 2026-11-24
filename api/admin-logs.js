@@ -1,5 +1,5 @@
 // Admin audit-log viewer + cleanup endpoint.
-//  GET    list the newest audit_logs (prunes stale/over-cap rows first, then reads)
+//  GET    list the newest audit_logs (read-only; retention runs on writes)
 //         ?limit=, ?action=, ?actor=, ?table=, ?days=  (server filters)
 //  DELETE prune rows:  { olderThanDays?: number }  -> delete older than N days
 //                      { ids?: string[] }           -> delete those ids only
@@ -25,33 +25,10 @@ const HEADERS = {
   Authorization: `Bearer ${SUPABASE_KEY}`,
   Prefer: "return=representation",
 };
-const RETENTION_DAYS = 30;
-const MAX_ROWS = 2000;
 const DEFAULT_LIMIT = 200;
 
-async function prune() {
-  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 3600 * 1000).toISOString();
-  try {
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/audit_logs?created_at=lt.${encodeURIComponent(cutoff)}`,
-      { method: "DELETE", headers: HEADERS }
-    );
-  } catch (e) {}
-  try {
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/audit_logs?order=id.desc&limit=${MAX_ROWS}&select=id`,
-      { method: "GET", headers: HEADERS }
-    ).then(async (r) => {
-      const rows = await r.json();
-      if (!Array.isArray(rows) || rows.length === 0) return;
-      const keepId = rows[rows.length - 1].id;
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/audit_logs?id=lt.${keepId}`,
-        { method: "DELETE", headers: HEADERS }
-      );
-    });
-  } catch (e) {}
-}
+// Retention is enforced by the shared audit helper on writes (deterministic
+// interval), not by this read path. A GET must never delete rows.
 
 module.exports = async function handler(req, res) {
   if (!applyAdminCors(req, res)) {
@@ -68,7 +45,6 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      await prune();
       let url = `${SUPABASE_URL}/rest/v1/audit_logs?order=created_at.desc`;
       const { limit, action, actor, table, days } = req.query || {};
       const lim = Math.min(Number(limit) || DEFAULT_LIMIT, 500);
@@ -82,7 +58,7 @@ module.exports = async function handler(req, res) {
       url += `&limit=${lim}`;
       const response = await fetch(url, { method: "GET", headers: HEADERS });
       const data = await response.json();
-      if (!response.ok) return res.status(response.status || 500).json({ error: data.message || data });
+      if (!response.ok) return res.status(response.status || 500).json({ error: "Admin log request failed. Please try again." });
       return res.status(200).json({ success: true, logs: data });
     }
 
@@ -102,9 +78,10 @@ module.exports = async function handler(req, res) {
     }
     const response = await fetch(url, { method: "DELETE", headers: HEADERS });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return res.status(response.status || 500).json({ error: data.message || data });
+    if (!response.ok) return res.status(response.status || 500).json({ error: "Admin log request failed. Please try again." });
     return res.status(200).json({ success: true, data });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error("[admin-logs]", e && e.message ? e.message : e);
+    return res.status(500).json({ error: "Admin log request failed. Please try again." });
   }
 };

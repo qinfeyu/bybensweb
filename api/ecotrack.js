@@ -323,6 +323,7 @@ async function handlePost(req, res) {
 }
 
 module.exports = async function handler(req, res) {
+  if (req.method === "GET") res.setHeader("Cache-Control", "no-store");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");

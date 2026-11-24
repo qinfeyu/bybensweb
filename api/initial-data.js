@@ -21,7 +21,8 @@ async function sf(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: SB_HEADERS });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(`Supabase API error on ${path} [${res.status}]: ${JSON.stringify(data)}`);
+    // Never echo upstream payloads to anonymous storefront callers.
+    throw new Error(`Supabase request failed (${res.status}) while loading initial data.`);
   }
   return data;
 }
@@ -31,7 +32,7 @@ async function loadInitialData() {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY is missing from environment variables.");
   }
 
-  const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings, giftConfig] = await Promise.all([
+  const [rawProducts, categories, subCategories, bundle, promos, deliveryPrices, settings, giftConfig, popups] = await Promise.all([
     sf("products?select=id,name,brand,category_ids,sub_category_ids,image_url,variants,flavors,stock,discount,allow_promo,promo_code_ids,status,created_at,hidden,bundle_items&order=created_at.asc"),
     sf("categories?select=*&order=created_at.asc"),
     sf("sub_categories?select=*"),
@@ -40,6 +41,7 @@ async function loadInitialData() {
     sf("delivery_prices?select=*&order=wilaya.asc"),
     sf("settings?select=*"),
     sf("gift_config?select=*&limit=1"),
+    sf("popups?select=*&enabled=eq.true&order=priority.desc,created_at.desc"),
   ]);
 
   const products = Array.isArray(rawProducts) ? rawProducts.filter((p) => !p.hidden) : [];
@@ -53,6 +55,7 @@ async function loadInitialData() {
     deliveryPrices: Array.isArray(deliveryPrices) ? deliveryPrices : [],
     settings: Array.isArray(settings) ? settings : [],
     gift_config: Array.isArray(giftConfig) ? giftConfig[0] || {} : giftConfig || {},
+    popups: Array.isArray(popups) ? popups : [],
     orders: [],
   };
 }
@@ -64,7 +67,8 @@ module.exports = async function handler(_req, res) {
     res.setHeader("Content-Type", "application/json");
     res.status(200).json(data);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error("[initial-data]", e && e.message ? e.message : e);
+    res.status(500).json({ error: "Unable to load storefront data. Please try again." });
   }
 };
 

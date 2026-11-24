@@ -46,7 +46,8 @@ module.exports = async function handler(req, res) {
     if (!response.ok) {
       await auditLog({ action: "auth.login_failed", actor: email, detail: `login failed for ${email}` });
       return res.status(response.status || 401).json({
-        error: data.error_description || data.msg || data.message || "Invalid credentials"
+        // Do not reflect Supabase Auth error payloads back to the browser.
+        error: "Invalid email or password"
       });
     }
 
@@ -68,6 +69,7 @@ module.exports = async function handler(req, res) {
       refresh_token: data.refresh_token,
     });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error("[admin-login]", e && e.message ? e.message : e);
+    return res.status(500).json({ error: "Unable to sign in. Please try again." });
   }
 };

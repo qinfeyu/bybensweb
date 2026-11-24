@@ -462,14 +462,14 @@
 
         // Description
         document.getElementById("productDescription").innerHTML =
-          p.description ||
+          sanitizeRichText(p.description) ||
           `${escapeHtml(p.name)} by ${escapeHtml(p.brand)} — a premium sports nutrition product.`;
 
         // Nutritional Facts (optional)
         const nutBox = document.getElementById("productNutritionalFactsBox");
         const nutEl = document.getElementById("productNutritionalFacts");
         if (p.nutritionalFacts && p.nutritionalFacts.trim()) {
-          nutEl.innerHTML = p.nutritionalFacts;
+          nutEl.innerHTML = sanitizeRichText(p.nutritionalFacts);
           nutBox.style.display = "";
         } else {
           nutBox.style.display = "none";
@@ -479,7 +479,7 @@
         const benBox = document.getElementById("productBenefitsBox");
         const benEl = document.getElementById("productBenefits");
         if (p.benefits && p.benefits.trim()) {
-          benEl.innerHTML = p.benefits;
+          benEl.innerHTML = sanitizeRichText(p.benefits);
           benBox.style.display = "";
         } else {
           benBox.style.display = "none";
@@ -3422,6 +3422,101 @@ if (orderId) {
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#39;");
+      }
+
+      // Admin-authored rich text is intentionally HTML, but it must not be able
+      // to introduce scripts, event handlers, plugins or remote CSS. Unknown
+      // elements are unwrapped; active content is dropped entirely.
+      const RICH_TEXT_ALLOWED = new Set([
+        "b", "strong", "i", "em", "u", "s", "strike", "p", "br", "div", "span",
+        "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
+        "table", "thead", "tbody", "tfoot", "tr", "td", "th", "a", "img", "hr",
+        "sup", "sub", "small",
+      ]);
+      const RICH_TEXT_DROP = new Set([
+        "script", "style", "iframe", "object", "embed", "svg", "math", "form",
+        "input", "button", "textarea", "select", "option", "link", "meta",
+        "base", "template", "noscript", "audio", "video", "source", "track",
+        "canvas", "applet", "frame", "frameset", "portal", "title", "head",
+      ]);
+      const SAFE_RICH_URL = /^(https?:\/\/|\/\/|\/)/i;
+      const SAFE_STYLE_DECL = new Set([
+        "text-align", "vertical-align", "border", "border-collapse", "border-spacing",
+        "padding", "margin", "width", "height", "max-width", "color",
+        "background-color", "font-weight", "font-size", "font-style",
+        "text-decoration", "white-space", "border-color", "border-style", "border-width",
+      ]);
+
+      function safeRichUrl(value) {
+        return SAFE_RICH_URL.test(String(value || "").trim());
+      }
+
+      function sanitizeRichStyle(value) {
+        return String(value || "")
+          .split(";")
+          .map((decl) => decl.trim())
+          .filter(Boolean)
+          .map((decl) => {
+            const idx = decl.indexOf(":");
+            if (idx < 0) return "";
+            const prop = decl.slice(0, idx).trim().toLowerCase();
+            const val = decl.slice(idx + 1).trim().toLowerCase();
+            if (!/^[a-z-]+$/.test(prop) || !SAFE_STYLE_DECL.has(prop)) return "";
+            if (!/^[^\x00-\x1f<>\\"'{}]+$/.test(val) || /url\s*\(|expression\s*\(|@import/.test(val)) return "";
+            return `${prop}: ${val}`;
+          })
+          .filter(Boolean)
+          .join("; ");
+      }
+
+      function sanitizeRichText(html) {
+        const raw = String(html == null ? "" : html);
+        if (!raw) return "";
+        if (typeof DOMParser === "undefined") return escapeHtml(raw);
+        const parsed = new DOMParser().parseFromString(raw, "text/html");
+        const ELEMENT_NODE = 1;
+        const TEXT_NODE = 3;
+
+        function cleanNode(node) {
+          if (node.nodeType === TEXT_NODE) return document.createTextNode(node.nodeValue || "");
+          if (node.nodeType !== ELEMENT_NODE) return null;
+          const tag = node.nodeName.toLowerCase();
+          if (RICH_TEXT_DROP.has(tag)) return null;
+
+          const keepTag = RICH_TEXT_ALLOWED.has(tag);
+          const out = keepTag ? document.createElement(tag) : document.createDocumentFragment();
+          if (keepTag) {
+            Array.from(node.attributes || []).forEach((attr) => {
+              const name = attr.name.toLowerCase();
+              const value = attr.value || "";
+              if (name.indexOf("on") === 0) return;
+              if (name === "style") {
+                const safe = sanitizeRichStyle(value);
+                if (safe) out.setAttribute("style", safe);
+              } else if (name === "href" && tag === "a") {
+                if (safeRichUrl(value)) out.setAttribute("href", value);
+              } else if (name === "src" && tag === "img") {
+                if (safeRichUrl(value)) out.setAttribute("src", value);
+              } else if ((name === "alt" || name === "title" || name === "width" ||
+                          name === "height" || name === "colspan" || name === "rowspan") &&
+                         !/[\x00-\x1f<>"']/.test(value)) {
+                out.setAttribute(name, value);
+              }
+            });
+          }
+          Array.from(node.childNodes || []).forEach((childNode) => {
+            const child = cleanNode(childNode);
+            if (child) out.appendChild(child);
+          });
+          return out;
+        }
+
+        const container = document.createElement("div");
+        Array.from((parsed.body && parsed.body.childNodes) || []).forEach((childNode) => {
+          const node = cleanNode(childNode);
+          if (node) container.appendChild(node);
+        });
+        return container.innerHTML;
       }
 
       function escapeJsAttr(v) {

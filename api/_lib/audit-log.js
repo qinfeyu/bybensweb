@@ -1,20 +1,19 @@
-// Shared admin audit-log write + prune helpers (server-side, fire-and-forget).
+// Shared admin audit-log write + prune helpers (server-side, best-effort).
 // Used by api/admin-mutate.js and api/admin-login.js so every admin action gets
 // captured in one place without any per-call client coordination.
 //
-// Design goals: near-zero resource cost.
+// Design goals:
 //  - Logs live in a single Supabase table `audit_logs`.
-//  - Retention: lazy prune + row cap (no cron/infra).
-//    * prune-on-read: admin-logs GET deletes rows older than RETENTION_DAYS,
-//      then enforces a hard row cap (keeps the newest MAX_ROWS).
-//    * prune-on-write (opportunistic): ~1 in PRUNE_EVERY_N admin writes also
-//      triggers the same prune, so the table self-limits even under heavy use
-//      and no reads.
-//  - Inserts are fire-and-forget: the audit write can never fail a real op.
+//  - Retention: lazy prune + row cap (no cron/infra), driven by writes only.
+//    Read paths never delete rows; at most one full prune per hour per warm
+//    instance, so retention is deterministic rather than probabilistic.
+//  - A failed audit write/prune never fails the operator's real action, but it
+//    is always logged: a broken audit trail must not fail silently.
 
 const RETENTION_DAYS = 30;
 const MAX_ROWS = 2000;
-const PRUNE_EVERY_N = 10; // 1-in-10 chance to prune opportunistically
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+let lastPruneAt = 0;
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
@@ -35,52 +34,58 @@ const HEADERS = {
   Prefer: "return=representation",
 };
 
-function failSilently(e) {
-  // A failed log/ prune must never break the caller's real work.
-  if (process.env.NODE_ENV !== "production") {
-    console.error("[audit-log] non-fatal:", e && e.message ? e.message : e);
-  }
+function reportFailure(e) {
+  console.error("[audit-log]", e && e.message ? e.message : e);
 }
 
 /** Enforce the retention window, then hard row cap, on the audit_logs table. */
 async function pruneAuditLogs() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    reportFailure(new Error("audit_logs destination is not configured"));
+    return;
+  }
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 3600 * 1000).toISOString();
   try {
     // 1) Remove rows older than the retention window.
-    await fetch(
+    const oldRes = await fetch(
       `${SUPABASE_URL}/rest/v1/audit_logs?created_at=lt.${encodeURIComponent(cutoff)}`,
       { method: "DELETE", headers: HEADERS }
     );
-  } catch (e) {
-    failSilently(e);
-  }
-  try {
-    // 2) Hard cap: keep only the newest MAX_ROWS (row id is a bigint identity,
-    //    so ordering by id = recency).
-    await fetch(
+    if (!oldRes.ok) throw new Error(`retention delete failed: HTTP ${oldRes.status}`);
+
+    // 2) Hard cap: keep only the newest MAX_ROWS (bigint id = recency).
+    const listRes = await fetch(
       `${SUPABASE_URL}/rest/v1/audit_logs?order=id.desc&limit=${MAX_ROWS}&select=id`,
       { method: "GET", headers: HEADERS }
-    ).then(async (r) => {
-      const rows = await r.json();
-      if (!Array.isArray(rows) || rows.length === 0) return;
-      const keepId = rows[rows.length - 1].id; // smallest id of what we keep
-      // Delete everything with a smaller id (older than the 2000 most recent).
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/audit_logs?id=lt.${keepId}`,
-        { method: "DELETE", headers: HEADERS }
-      );
-    });
+    );
+    if (!listRes.ok) throw new Error(`row-cap read failed: HTTP ${listRes.status}`);
+    const rows = await listRes.json();
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    const keepId = rows[rows.length - 1].id; // smallest id of what we keep
+
+    const capRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/audit_logs?id=lt.${keepId}`,
+      { method: "DELETE", headers: HEADERS }
+    );
+    if (!capRes.ok) throw new Error(`row-cap delete failed: HTTP ${capRes.status}`);
   } catch (e) {
-    failSilently(e);
+    reportFailure(e);
   }
 }
 
+/** Deterministic opportunistic prune: at most once per interval per instance. */
+async function maybePrune() {
+  const now = Date.now();
+  if (now - lastPruneAt < PRUNE_INTERVAL_MS) return false;
+  lastPruneAt = now;
+  await pruneAuditLogs();
+  return true;
+}
+
 /**
- * Append one admin action to the audit log.
- * Returns the (already error-swallowed) fetch promise so callers can await it.
- * NOTE: On serverless runtimes (Vercel) an un-awaited fetch can be killed when
- * the handler returns, so callers MUST await the returned promise.
+ * Append one admin action to the audit log. Resolves true only when Supabase
+ * accepted the row; never throws into the caller's real operation.
+ * Callers MUST await the returned promise on serverless runtimes.
  * @param {object} opts
  * @param {string} opts.action    e.g. "order.delete", "product.upsert", "auth.login"
  * @param {string} [opts.actor]   admin email resolved from auth (may be empty)
@@ -88,8 +93,12 @@ async function pruneAuditLogs() {
  * @param {string} [opts.targetId] primary-key value of the affected row(s)
  * @param {string} [opts.detail]  compact one-line human description
  */
-function writeAuditLog({ action, actor, table, targetId, detail }) {
-  if (!action) return Promise.resolve();
+async function writeAuditLog({ action, actor, table, targetId, detail }) {
+  if (!action) return false;
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    reportFailure(new Error("audit_logs destination is not configured"));
+    return false;
+  }
   const payload = {
     action,
     actor_email: actor || null,
@@ -98,21 +107,17 @@ function writeAuditLog({ action, actor, table, targetId, detail }) {
     detail: detail || "",
   };
   try {
-    return fetch(`${SUPABASE_URL}/rest/v1/audit_logs`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/audit_logs`, {
       method: "POST",
       headers: HEADERS,
       body: JSON.stringify([payload]),
-    }).catch(failSilently);
+    });
+    if (!response.ok) throw new Error(`audit write failed: HTTP ${response.status}`);
+    await maybePrune();
+    return true;
   } catch (e) {
-    failSilently(e);
-    return Promise.resolve();
-  }
-}
-
-/** Opportunistic prune: roughly 1 in PRUNE_EVERY_N calls does the full prune. */
-function maybePrune() {
-  if (Math.floor(Math.random() * PRUNE_EVERY_N) === 0) {
-    pruneAuditLogs().catch(failSilently);
+    reportFailure(e);
+    return false;
   }
 }
 
