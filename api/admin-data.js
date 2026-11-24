@@ -61,6 +61,7 @@ module.exports = async function handler(req, res) {
       bundle,
       giftConfig,
       notes,
+      popups,
     ] = await Promise.all([
       sf("inventory_items?select=*&order=created_at.desc"),
       sf("categories?select=*&order=created_at.asc"),
@@ -77,6 +78,7 @@ module.exports = async function handler(req, res) {
       sf("bundle?select=*&limit=1"),
       sf("gift_config?select=*&limit=1"),
       sf("notes?select=*&limit=1"),
+      sf("popups?select=*&order=priority.desc,created_at.desc"),
     ]);
 
     return res.status(200).json({
@@ -96,6 +98,7 @@ module.exports = async function handler(req, res) {
       bundle: Array.isArray(bundle) ? bundle[0] || {} : bundle || {},
       giftConfig: Array.isArray(giftConfig) ? giftConfig[0] || {} : giftConfig || {},
       notes: Array.isArray(notes) ? notes[0] || {} : notes || {},
+      popups: Array.isArray(popups) ? popups : [],
     });
   } catch (e) {
     console.error("[admin-data]", e && e.message ? e.message : e);

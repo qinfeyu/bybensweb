@@ -38,6 +38,7 @@ const ALLOWED_TABLES = new Set([
   "bundle",
   "gift_config",
   "notes",
+  "popups",
 ]);
 const SAFE_ACTIONS = new Set(["upsert", "insert", "update", "delete"]);
 const SAFE_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/;

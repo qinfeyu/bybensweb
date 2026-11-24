@@ -231,6 +231,32 @@
     };
   }
 
+  function _remapPopup(p) {
+    if (!p) return null;
+    return {
+      id: String(p.id || ''),
+      enabled: p.enabled === true || p.enabled === 'true',
+      titleEn: p.title_en || '',
+      titleFr: p.title_fr || '',
+      titleAr: p.title_ar || '',
+      bodyEn: p.body_en || '',
+      bodyFr: p.body_fr || '',
+      bodyAr: p.body_ar || '',
+      imageUrl: p.image_url || '',
+      ctaTextEn: p.cta_text_en || '',
+      ctaTextFr: p.cta_text_fr || '',
+      ctaTextAr: p.cta_text_ar || '',
+      ctaUrl: p.cta_url || '',
+      displayPages: p.display_pages || 'all',
+      dismissMode: p.dismiss_mode || 'session',
+      priority: Number(p.priority) || 0,
+      startAt: p.start_at || null,
+      endAt: p.end_at || null,
+      createdAt: p.created_at || null,
+      updatedAt: p.updated_at || null,
+    };
+  }
+
   window.sbRemapInitialData = function (raw) {
     if (!raw) return null;
     var prods = Array.isArray(raw.products) ? raw.products : [];
@@ -273,6 +299,7 @@
       subCategories: (Array.isArray(raw.subCategories) ? raw.subCategories : Array.isArray(raw.sub_categories) ? raw.sub_categories : []).map(_remapSubCategory),
       bundle: _remapBundle(bundleRow),
       giftConfig: giftConfig,
+      popups: (Array.isArray(raw.popups) ? raw.popups : []).map(_remapPopup).filter(Boolean),
       promos: (Array.isArray(raw.promos) ? raw.promos : Array.isArray(raw.promo_codes) ? raw.promo_codes : []).map(_remapPromo),
       deliveryPrices: (Array.isArray(raw.deliveryPrices) ? raw.deliveryPrices : Array.isArray(raw.delivery_prices) ? raw.delivery_prices : []).map(_remapDeliveryPrice),
       orders: (Array.isArray(raw.orders) ? raw.orders : []).map(_remapOrder),

@@ -1,0 +1,181 @@
+/* ByBens storefront popup / announcement modal */
+.bb-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  z-index: 9600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, visibility .25s ease;
+}
+
+.bb-popup-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.bb-popup-modal {
+  background: var(--white, #fff);
+  color: var(--black, #0a0a0a);
+  width: 100%;
+  max-width: 520px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg, 0 12px 40px rgba(0,0,0,0.14), 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(24px) scale(0.985);
+  transition: transform .28s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+}
+
+.bb-popup-overlay.open .bb-popup-modal {
+  transform: translateY(0) scale(1);
+}
+
+.bb-popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1c1c1c;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  transition: transform .15s ease, background .15s ease;
+}
+
+.bb-popup-close:hover {
+  transform: scale(1.05);
+  background: #fff;
+}
+
+.bb-popup-image {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  display: block;
+  background: var(--gray-100, #ebebeb);
+}
+
+.bb-popup-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.bb-popup-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--red, #ad0000);
+  margin-bottom: 10px;
+}
+
+.bb-popup-title {
+  font-family: var(--font-display, "Bebas Neue", sans-serif);
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  margin: 0 0 12px;
+  color: var(--black, #0a0a0a);
+}
+
+.bb-popup-text {
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--gray-600, #5a5a5a);
+  margin: 0;
+  white-space: pre-line;
+}
+
+.bb-popup-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.bb-popup-btn {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .18s ease, color .18s ease, transform .15s ease;
+}
+
+.bb-popup-btn:hover { transform: translateY(-1px); }
+.bb-popup-btn:active { transform: translateY(0); }
+
+.bb-popup-btn-primary {
+  background: var(--red, #ad0000);
+  color: #fff;
+  box-shadow: var(--shadow-red, 0 4px 20px rgba(173,0,0,0.3));
+}
+
+.bb-popup-btn-primary:hover {
+  background: var(--red-hover, #8a0000);
+}
+
+.bb-popup-btn-secondary {
+  background: var(--gray-100, #ebebeb);
+  color: var(--gray-800, #1c1c1c);
+}
+
+.bb-popup-btn-secondary:hover {
+  background: var(--gray-200, #d9d9d9);
+}
+
+.bb-popup-modal[dir="rtl"] .bb-popup-body {
+  text-align: right;
+}
+
+.bb-popup-modal[dir="rtl"] .bb-popup-actions {
+  justify-content: flex-start;
+}
+
+.bb-popup-modal[dir="rtl"] .bb-popup-close {
+  right: auto;
+  left: 12px;
+}
+
+@media (max-width: 640px) {
+  .bb-popup-overlay { padding: 12px; }
+  .bb-popup-modal { max-width: 100%; border-radius: 18px; }
+  .bb-popup-body { padding: 20px; }
+  .bb-popup-actions { flex-direction: column; }
+  .bb-popup-btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-popup-overlay, .bb-popup-modal, .bb-popup-btn, .bb-popup-close {
+    transition: none !important;
+  }
+}

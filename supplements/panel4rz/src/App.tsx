@@ -34,7 +34,8 @@ import type {
   PromoCode,
   DeliveryPrice,
   BundleConfig,
-  Note
+  Note,
+  Popup
 } from './types';
 import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal, LogOut, Globe, ExternalLink } from 'lucide-react';
 
@@ -59,6 +60,7 @@ import { CustomersPage } from './pages/CustomersPage';
     import { SettingsPage } from './pages/SettingsPage';
     import LogsPage from './pages/LogsPage';
     import NotesPage from './pages/NotesPage';
+    import PopupsPage from './pages/PopupsPage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -184,6 +186,7 @@ export default function App() {
   const [bundleConfig, setBundleConfig] = useState<BundleConfig | null>(null);
   const [giftConfig, setGiftConfig] = useState<any | null>(null);
   const [note, setNote] = useState<Note>({ id: 'main', content: '' });
+  const [popups, setPopups] = useState<Popup[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [preorders, setPreorders] = useState<PreOrder[]>([]);
   const [preorderItems, setPreorderItems] = useState<PreOrderItem[]>([]);
@@ -728,6 +731,41 @@ export default function App() {
             updated_by: rawNote.updated_by ?? null,
           });
         }
+
+        // 14. Fetch Popups
+        let rawPopups: any[] = [];
+        if (adminData && Array.isArray(adminData.popups)) {
+          rawPopups = adminData.popups;
+        } else {
+          const { data: pData } = await supabase
+            .from('popups')
+            .select('*')
+            .order('priority', { ascending: false })
+            .order('created_at', { ascending: false });
+          if (pData) rawPopups = pData;
+        }
+        setPopups((Array.isArray(rawPopups) ? rawPopups : []).map((p: any) => ({
+          id: String(p.id || ''),
+          enabled: p.enabled === true || p.enabled === 'true',
+          title_en: p.title_en || '',
+          title_fr: p.title_fr || '',
+          title_ar: p.title_ar || '',
+          body_en: p.body_en || '',
+          body_fr: p.body_fr || '',
+          body_ar: p.body_ar || '',
+          image_url: p.image_url || '',
+          cta_text_en: p.cta_text_en || '',
+          cta_text_fr: p.cta_text_fr || '',
+          cta_text_ar: p.cta_text_ar || '',
+          cta_url: p.cta_url || '',
+          display_pages: p.display_pages || 'all',
+          dismiss_mode: (p.dismiss_mode === '7_days' || p.dismiss_mode === 'until_closed') ? p.dismiss_mode : 'session',
+          priority: Number(p.priority) || 0,
+          start_at: p.start_at || null,
+          end_at: p.end_at || null,
+          created_at: p.created_at || undefined,
+          updated_at: p.updated_at || undefined,
+        })).filter((p: Popup) => p.id));
 } catch (e: any) {
       console.warn("Data refresh notice:", e);
     }
@@ -2541,6 +2579,62 @@ setGiftConfig(config);
     }
   };
 
+  // ── POPUP MUTATIONS ──
+  const handleSavePopup = async (popup: Popup) => {
+    const now = new Date().toISOString();
+    const payload = {
+      id: popup.id,
+      enabled: !!popup.enabled,
+      title_en: popup.title_en || '',
+      title_fr: popup.title_fr || '',
+      title_ar: popup.title_ar || '',
+      body_en: popup.body_en || '',
+      body_fr: popup.body_fr || '',
+      body_ar: popup.body_ar || '',
+      image_url: popup.image_url || '',
+      cta_text_en: popup.cta_text_en || '',
+      cta_text_fr: popup.cta_text_fr || '',
+      cta_text_ar: popup.cta_text_ar || '',
+      cta_url: popup.cta_url || '',
+      display_pages: popup.display_pages || 'all',
+      dismiss_mode: popup.dismiss_mode || 'session',
+      priority: Number(popup.priority) || 0,
+      start_at: popup.start_at || null,
+      end_at: popup.end_at || null,
+      created_at: popup.created_at || now,
+      updated_at: now,
+    };
+
+    try {
+      const { error } = await supabase.from('popups').upsert(payload);
+      if (error) throw error;
+      const saved: Popup = { ...popup, ...payload } as Popup;
+      setPopups(prev => {
+        const exists = prev.some(p => p.id === saved.id);
+        const next = exists ? prev.map(p => p.id === saved.id ? saved : p) : [saved, ...prev];
+        return next.sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      });
+      showToast('✓ Popup saved successfully!');
+    } catch (e) {
+      console.error('Failed to save popup:', e);
+      showToast('Failed to save popup. Please try again.', 'error');
+      throw e;
+    }
+  };
+
+  const handleDeletePopup = async (id: string) => {
+    try {
+      const { error } = await supabase.from('popups').delete().eq('id', id);
+      if (error) throw error;
+      setPopups(prev => prev.filter(p => p.id !== id));
+      showToast('✓ Popup deleted successfully!');
+    } catch (e) {
+      console.error('Failed to delete popup:', e);
+      showToast('Failed to delete popup. Please try again.', 'error');
+      throw e;
+    }
+  };
+
   // ── Global search results ──
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -3070,6 +3164,15 @@ setGiftConfig(config);
               <NotesPage
                 note={note}
                 onSave={handleSaveNote}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === 'popups' && (
+              <PopupsPage
+                popups={popups}
+                onSavePopup={handleSavePopup}
+                onDeletePopup={handleDeletePopup}
                 showToast={showToast}
               />
             )}

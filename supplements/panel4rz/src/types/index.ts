@@ -1,4 +1,4 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'bundle' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'logs' | 'settings' | 'gift' | 'notes';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'bundle' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'logs' | 'settings' | 'gift' | 'notes' | 'popups';
 
 export interface BundleConfig {
   id?: number | string;
@@ -247,4 +247,27 @@ export interface Note {
   content: string;
   updated_at?: string;
   updated_by?: string | null;
+}
+
+export interface Popup {
+  id: string;
+  enabled: boolean;
+  title_en: string;
+  title_fr: string;
+  title_ar: string;
+  body_en: string;
+  body_fr: string;
+  body_ar: string;
+  image_url: string;
+  cta_text_en: string;
+  cta_text_fr: string;
+  cta_text_ar: string;
+  cta_url: string;
+  display_pages: string;
+  dismiss_mode: 'session' | '7_days' | 'until_closed';
+  priority: number;
+  start_at?: string | null;
+  end_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }

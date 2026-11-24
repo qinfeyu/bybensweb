@@ -24,7 +24,8 @@ import { Gift,
   Package,
   ChevronDown,
   ScrollText,
-  StickyNote
+  StickyNote,
+  Megaphone
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -75,8 +76,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'products', label: 'Products Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
         { id: 'categories', label: 'Categories', icon: <Layers className="w-4 h-4" /> },
         { id: 'gift', label: 'Free Gift', icon: <Gift className="w-4 h-4" /> },
-      { id: 'promos', label: 'Promo Codes', icon: <Tag className="w-4 h-4 text-red-400" /> },
-        { id: 'bundle', label: 'Featured Bundle', icon: <Package className="w-4 h-4 text-amber-400" /> }
+        { id: 'promos', label: 'Promo Codes', icon: <Tag className="w-4 h-4 text-red-400" /> },
+        { id: 'bundle', label: 'Featured Bundle', icon: <Package className="w-4 h-4 text-amber-400" /> },
+        { id: 'popups', label: 'Popups', icon: <Megaphone className="w-4 h-4 text-sky-400" /> }
       ]
     },
     {
