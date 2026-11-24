@@ -23,7 +23,8 @@ import { Gift,
   Tag,
   Package,
   ChevronDown,
-  ScrollText
+  ScrollText,
+  StickyNote
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -98,6 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'SYSTEM',
       items: [
+        { id: 'notes', label: 'Notes', icon: <StickyNote className="w-4 h-4" /> },
         { id: 'logs', label: 'Audit Logs', icon: <ScrollText className="w-4 h-4" /> },
         { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> }
       ]

@@ -1,11 +1,11 @@
 const CLOUDINARY_CLOUD = "dbxna1ipc";
 const CLOUDINARY_PRESET = "Bybens";
 
-export async function uploadToCloudinary(file: File): Promise<string> {
+export async function uploadToCloudinary(file: File, folder = "bybens-products"): Promise<string> {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("upload_preset", CLOUDINARY_PRESET);
-  fd.append("folder", "bybens-products");
+  fd.append("folder", folder);
 
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`,

@@ -1,4 +1,4 @@
-export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'bundle' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'logs' | 'settings' | 'gift';
+export type TabType = 'dashboard' | 'inventory' | 'products' | 'categories' | 'promos' | 'bundle' | 'delivery' | 'orders' | 'preorders' | 'pos' | 'unpaid' | 'expenses' | 'customers' | 'logs' | 'settings' | 'gift' | 'notes';
 
 export interface BundleConfig {
   id?: number | string;
@@ -240,4 +240,11 @@ export interface GiftConfig {
   message_en: string;
   message_fr: string;
   message_ar: string;
+}
+
+export interface Note {
+  id: string;
+  content: string;
+  updated_at?: string;
+  updated_by?: string | null;
 }

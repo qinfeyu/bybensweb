@@ -60,6 +60,7 @@ module.exports = async function handler(req, res) {
       promoCodes,
       bundle,
       giftConfig,
+      notes,
     ] = await Promise.all([
       sf("inventory_items?select=*&order=created_at.desc"),
       sf("categories?select=*&order=created_at.asc"),
@@ -75,6 +76,7 @@ module.exports = async function handler(req, res) {
       sf("promo_codes?select=*&order=created_at.desc"),
       sf("bundle?select=*&limit=1"),
       sf("gift_config?select=*&limit=1"),
+      sf("notes?select=*&limit=1"),
     ]);
 
     return res.status(200).json({
@@ -93,8 +95,10 @@ module.exports = async function handler(req, res) {
       promoCodes: Array.isArray(promoCodes) ? promoCodes : [],
       bundle: Array.isArray(bundle) ? bundle[0] || {} : bundle || {},
       giftConfig: Array.isArray(giftConfig) ? giftConfig[0] || {} : giftConfig || {},
+      notes: Array.isArray(notes) ? notes[0] || {} : notes || {},
     });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error("[admin-data]", e && e.message ? e.message : e);
+    return res.status(500).json({ error: "Unable to load admin data. Please try again." });
   }
 };

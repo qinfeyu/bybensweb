@@ -37,6 +37,7 @@ const ALLOWED_TABLES = new Set([
   "promo_codes",
   "bundle",
   "gift_config",
+  "notes",
 ]);
 const SAFE_ACTIONS = new Set(["upsert", "insert", "update", "delete"]);
 const SAFE_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -128,8 +129,8 @@ module.exports = async function handler(req, res) {
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      console.error(`Admin mutate error on ${table} [${action}]:`, result);
-      return res.status(response.status || 500).json({ error: result.message || result });
+      console.error(`Admin mutate error on ${table} [${action}]: HTTP ${response.status}`);
+      return res.status(response.status || 500).json({ error: "Admin write failed. Please try again." });
     }
 
     // Build a useful audit detail string that includes the row identifier and
@@ -154,6 +155,7 @@ module.exports = async function handler(req, res) {
     await writeAuditLog({ action, actor, table, detail: auditDetail });
     return res.status(200).json({ success: true, data: result });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error("[admin-mutate]", e && e.message ? e.message : e);
+    return res.status(500).json({ error: "Admin write failed. Please try again." });
   }
 };

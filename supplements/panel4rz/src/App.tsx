@@ -33,7 +33,8 @@ import type {
   SubCategory,
   PromoCode,
   DeliveryPrice,
-  BundleConfig
+  BundleConfig,
+  Note
 } from './types';
 import { Lock, Mail, ShieldCheck, ArrowRight, Bell, Search, X, Package, Users, RefreshCw, Wallet, Menu, LayoutDashboard, Boxes, ShoppingBag, ShoppingCart, Calculator, MoreHorizontal, LogOut, Globe, ExternalLink } from 'lucide-react';
 
@@ -57,6 +58,7 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { CustomersPage } from './pages/CustomersPage';
     import { SettingsPage } from './pages/SettingsPage';
     import LogsPage from './pages/LogsPage';
+    import NotesPage from './pages/NotesPage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -181,6 +183,7 @@ export default function App() {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [bundleConfig, setBundleConfig] = useState<BundleConfig | null>(null);
   const [giftConfig, setGiftConfig] = useState<any | null>(null);
+  const [note, setNote] = useState<Note>({ id: 'main', content: '' });
   const [orders, setOrders] = useState<Order[]>([]);
   const [preorders, setPreorders] = useState<PreOrder[]>([]);
   const [preorderItems, setPreorderItems] = useState<PreOrderItem[]>([]);
@@ -707,6 +710,23 @@ export default function App() {
         }
         if (rawGiftConfig) {
           setGiftConfig(rawGiftConfig);
+        }
+
+        // 13. Fetch Shared Notes
+        let rawNote: any = null;
+        if (adminData && adminData.notes) {
+          rawNote = Array.isArray(adminData.notes) ? adminData.notes[0] : adminData.notes;
+        } else {
+          const noteRes = await supabase.from('notes').select('*').limit(1);
+          if (noteRes.data && noteRes.data.length > 0) rawNote = noteRes.data[0];
+        }
+        if (rawNote && rawNote.id) {
+          setNote({
+            id: rawNote.id || 'main',
+            content: rawNote.content || '',
+            updated_at: rawNote.updated_at,
+            updated_by: rawNote.updated_by ?? null,
+          });
         }
 } catch (e: any) {
       console.warn("Data refresh notice:", e);
@@ -2502,6 +2522,25 @@ setGiftConfig(config);
     showToast("✓ Settings updated successfully!");
   };
 
+  // ── NOTES MUTATIONS ──
+  const handleSaveNote = async (content: string) => {
+    const payload: Note = {
+      id: 'main',
+      content,
+      updated_at: new Date().toISOString(),
+      updated_by: localStorage.getItem('bb_admin_name') || localStorage.getItem('bb_admin_auth') || null,
+    };
+    setNote(payload);
+    try {
+      const { error } = await supabase.from('notes').upsert(payload);
+      if (error) throw error;
+      showToast('✓ Note saved successfully!');
+    } catch (e) {
+      console.error('Failed to save note:', e);
+      showToast('Failed to save note. Please try again.', 'error');
+    }
+  };
+
   // ── Global search results ──
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -3023,6 +3062,14 @@ setGiftConfig(config);
                 preorderItems={preorderItems}
                 expenses={expenses}
                 onSaveSettings={handleSaveSettings}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === 'notes' && (
+              <NotesPage
+                note={note}
+                onSave={handleSaveNote}
                 showToast={showToast}
               />
             )}
