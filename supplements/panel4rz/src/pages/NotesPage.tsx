@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bold, Italic, List, ListOrdered, Link2, ImagePlus, Save, StickyNote, Clock, User } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, Link2, ImagePlus, Save, StickyNote, Clock, User, Trash2 } from 'lucide-react';
 import type { Note } from '../types';
 import { uploadToCloudinary } from '../lib/cloudinary';
 
@@ -29,6 +29,18 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
+  const [selectedImgWidth, setSelectedImgWidth] = useState(100);
+
+  const clearImageSelection = () => {
+    const editor = editorRef.current;
+    if (editor) {
+      editor.querySelectorAll('img.bb-img-selected').forEach((el) => {
+        el.classList.remove('bb-img-selected');
+      });
+    }
+    setSelectedImg(null);
+  };
 
   useEffect(() => {
     const nextContent = note.content || '';
@@ -37,6 +49,7 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
 
     if (!editor) return;
 
+    clearImageSelection();
     const current = editor.innerHTML;
     if (current !== nextContent) {
       editor.innerHTML = nextContent;
@@ -48,9 +61,70 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
     editorRef.current?.focus();
   };
 
+  const getCleanHtml = () => {
+    const editor = editorRef.current;
+    if (!editor) return '';
+    editor.querySelectorAll('img.bb-img-selected').forEach((el) => el.classList.remove('bb-img-selected'));
+    const html = editor.innerHTML;
+    if (selectedImg && editor.contains(selectedImg)) {
+      selectedImg.classList.add('bb-img-selected');
+    }
+    return html;
+  };
+
   const syncDirty = () => {
-    const current = editorRef.current?.innerHTML || '';
-    setIsDirty(current !== savedContentRef.current);
+    setIsDirty(getCleanHtml() !== savedContentRef.current);
+  };
+
+  const getImageWidthPercent = (img: HTMLImageElement) => {
+    const width = img.style.width;
+    if (width.endsWith('%')) {
+      const parsed = parseFloat(width);
+      if (!Number.isNaN(parsed)) return Math.max(10, Math.min(100, Math.round(parsed)));
+    }
+    const editorWidth = editorRef.current?.clientWidth || 1;
+    const rectWidth = img.getBoundingClientRect().width;
+    if (rectWidth > 0 && editorWidth > 0) {
+      return Math.max(10, Math.min(100, Math.round((rectWidth / editorWidth) * 100)));
+    }
+    return 100;
+  };
+
+  const selectImage = (img: HTMLImageElement) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.querySelectorAll('img.bb-img-selected').forEach((el) => {
+      if (el !== img) el.classList.remove('bb-img-selected');
+    });
+    img.classList.add('bb-img-selected');
+    setSelectedImg(img);
+    setSelectedImgWidth(getImageWidthPercent(img));
+  };
+
+  const handleEditorClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    if (target && target.tagName === 'IMG' && editorRef.current?.contains(target)) {
+      selectImage(target as HTMLImageElement);
+      return;
+    }
+    clearImageSelection();
+  };
+
+  const setImageWidth = (width: number) => {
+    if (!selectedImg || !editorRef.current?.contains(selectedImg)) return;
+    const clamped = Math.max(10, Math.min(100, Math.round(width)));
+    selectedImg.style.width = `${clamped}%`;
+    selectedImg.style.height = 'auto';
+    selectedImg.style.maxWidth = '100%';
+    setSelectedImgWidth(clamped);
+    syncDirty();
+  };
+
+  const removeSelectedImage = () => {
+    if (!selectedImg || !editorRef.current?.contains(selectedImg)) return;
+    selectedImg.remove();
+    setSelectedImg(null);
+    syncDirty();
   };
 
   const runCommand = (command: string, value?: string) => {
@@ -127,6 +201,7 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
 
   const handleSave = async () => {
     if (isSaving) return;
+    clearImageSelection();
     const content = editorRef.current?.innerHTML || '';
     setIsSaving(true);
     try {
@@ -185,7 +260,7 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
           </div>
         </div>
 
-        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60">
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 space-y-3">
           <div className="flex flex-wrap gap-2">
             <button type="button" className={toolbarButtonClass} onClick={() => runCommand('bold')} title="Bold">
               <Bold className="w-3.5 h-3.5" /> Bold
@@ -219,6 +294,45 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
               onChange={handleImagePick}
             />
           </div>
+
+          {selectedImg && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2">
+              <span className="text-[11px] font-extrabold uppercase tracking-wide text-amber-800">Image size</span>
+              {[25, 50, 75, 100].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setImageWidth(size)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                    selectedImgWidth === size
+                      ? 'bg-amber-500 text-white border-amber-500'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {size}%
+                </button>
+              ))}
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 ml-1">
+                <span>Custom</span>
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  value={selectedImgWidth}
+                  onChange={(e) => setImageWidth(Number(e.target.value))}
+                  className="w-32 accent-red-600"
+                />
+                <span className="w-10 text-slate-800">{selectedImgWidth}%</span>
+              </label>
+              <button
+                type="button"
+                onClick={removeSelectedImage}
+                className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-600 text-xs font-bold hover:bg-rose-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Remove
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="p-5">
@@ -231,7 +345,8 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
             .bb-notes-editor ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
             .bb-notes-editor ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
             .bb-notes-editor a { color: #dc2626; text-decoration: underline; }
-            .bb-notes-editor img { max-width: 100%; height: auto; border-radius: 12px; margin: 8px 0; display: block; }
+            .bb-notes-editor img { max-width: 100%; height: auto; border-radius: 12px; margin: 8px 0; display: block; cursor: pointer; }
+            .bb-notes-editor img.bb-img-selected { outline: 3px solid #f59e0b; outline-offset: 2px; }
             .bb-notes-editor p { margin: 0.5rem 0; }
           `}</style>
           <div
@@ -242,6 +357,7 @@ export default function NotesPage({ note, onSave, showToast }: NotesPageProps) {
             data-placeholder="Write your shared business notes here... Use the toolbar to format text, add links, or insert images."
             onInput={syncDirty}
             onBlur={syncDirty}
+            onClick={handleEditorClick}
             onPaste={handlePaste}
             onDrop={handleDrop}
             onDragOver={(e) => {
