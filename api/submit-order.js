@@ -168,20 +168,32 @@ async function computeAuthoritativeOrder({ items, promoCode, deliveryType, wilay
 
   let catalog = [];
   if (productIds.length > 0) {
-    const select = "id,price,variants,discount,allow_promo,promo_code_ids,status,hidden,bundle_items";
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=in.(${productIds.map(encodeURIComponent).join(",")})&select=${select}&limit=500`, { headers: SB_HEADERS });
-    if (!res.ok) throw new Error("Unable to verify catalog prices. Please try again.");
-    catalog = await res.json().catch(() => []);
-    if (!Array.isArray(catalog)) catalog = [];
+    const select = "id,variants,discount,allow_promo,promo_code_ids,status,hidden,bundle_items";
+    const fetchCatalog = async (url, label) => {
+      const res = await fetch(url, { headers: SB_HEADERS });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg = body && (body.message || body.error || body.details) ? (body.message || body.error || body.details) : `HTTP ${res.status}`;
+        console.error(`[submit-order] ${label} failed:`, msg);
+        throw new Error("Unable to verify catalog prices. Please try again.");
+      }
+      return Array.isArray(body) ? body : [];
+    };
+
+    catalog = await fetchCatalog(
+      `${SUPABASE_URL}/rest/v1/products?id=in.(${productIds.map(encodeURIComponent).join(",")})&select=${select}&limit=500`,
+      "catalog lookup"
+    );
 
     // Cached storefront bundles may still reference a variant SKU instead of a
     // product id. Resolve those against a lean full catalog before giving up.
     const found = new Set(catalog.map((p) => String(p.id)));
     const missing = productIds.filter((id) => !found.has(id));
     if (missing.length > 0) {
-      const allRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=${select}&limit=1000`, { headers: SB_HEADERS });
-      if (!allRes.ok) throw new Error("Unable to verify catalog prices. Please try again.");
-      const all = await allRes.json().catch(() => []);
+      const all = await fetchCatalog(
+        `${SUPABASE_URL}/rest/v1/products?select=${select}&limit=1000`,
+        "catalog fallback lookup"
+      );
       if (Array.isArray(all)) {
         const extra = all.filter((p) => {
           if (missing.includes(String(p.id))) return true;
