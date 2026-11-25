@@ -3350,61 +3350,68 @@
           },
         ];
 
+        const submitBtn = document.querySelector(".btn-order");
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = "0.6"; }
+
         let orderId = null;
-          try {
-            const res = await fetch("/api/submit-order", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                action: "submitProductOrder",
-                source: "product-detail",
-                fullName,
-                phone,
-                address,
-                wilaya: selectedWilayaCode
-                  ? `${selectedWilayaCode} - ${wilayaName}`
-                  : "",
-                commune: selectedCommuneName,
-                deliveryType: selectedDelivery,
-                deliveryCost: deliveryCharge,
-                promoCode: appliedPromos.map((pr) => pr.code).join(","),
-                promoDiscount: discount,
-                items: orderItemPayload,
-                subtotal,
-                total: totalNum,
-              }),
-            });
-            const data = await res.json().catch(() => null);
-            if (data && data.success && data.id) {
-               orderId = data.id;
-            }
-          } catch (err) {
-            console.error("Order submission error:", err);
+        try {
+          const res = await fetch("/api/submit-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "submitProductOrder",
+              source: "product-detail",
+              fullName,
+              phone,
+              address,
+              wilaya: selectedWilayaCode
+                ? `${selectedWilayaCode} - ${wilayaName}`
+                : "",
+              commune: selectedCommuneName,
+              deliveryType: selectedDelivery,
+              deliveryCost: deliveryCharge,
+              promoCode: appliedPromos.map((pr) => pr.code).join(","),
+              promoDiscount: discount,
+              items: orderItemPayload,
+              subtotal,
+              total: totalNum,
+            }),
+          });
+          const data = await res.json().catch(() => null);
+          if (data && data.success && data.id) {
+            orderId = data.id;
+          } else if (data && data.success === false) {
+            showToast(data.error || "Order failed. Please try again.");
           }
-  
-if (orderId) {
-             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order ID is <strong>${escapeHtml(orderId)}</strong>. Total: ${total} DA. We'll call you shortly to confirm.`;
-             _receiptData = {
-               orderId: String(orderId),
-               fullName,
-               phone,
-               address,
-               wilaya: selectedWilayaCode ? `${selectedWilayaCode} - ${wilayaName}` : "",
-               commune: selectedCommuneName,
-               deliveryType: selectedDelivery,
-               deliveryCost: deliveryCharge,
-               promoCode: appliedPromos.map((pr) => pr.code).join(","),
-               promoDiscount: discount,
-               items: orderItemPayload,
-               subtotal,
-               total: totalNum,
-             };
-             const rBtn = document.getElementById("downloadReceiptBtn");
-             if (rBtn) { rBtn.style.display = "inline-flex"; }
-          } else {
-             document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order for ${escapeHtml(p.name)} - ${selectedQty}. Total: ${total} DA. We'll call you shortly to confirm.`;
-          }
-          document.getElementById("successOverlay").classList.add("show");
+        } catch (err) {
+          console.error("Order submission error:", err);
+          showToast("Order failed. Please try again.");
+        } finally {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ""; }
+        }
+
+        if (!orderId) return;
+
+        document.getElementById("successMsg").innerHTML = `Thank you ${escapeHtml(fullName)}! Your order ID is <strong>${escapeHtml(orderId)}</strong>. Total: ${total} DA. We'll call you shortly to confirm.`;
+        _receiptData = {
+          orderId: String(orderId),
+          fullName,
+          phone,
+          address,
+          wilaya: selectedWilayaCode ? `${selectedWilayaCode} - ${wilayaName}` : "",
+          commune: selectedCommuneName,
+          deliveryType: selectedDelivery,
+          deliveryCost: deliveryCharge,
+          promoCode: appliedPromos.map((pr) => pr.code).join(","),
+          promoDiscount: discount,
+          items: orderItemPayload,
+          subtotal,
+          total: totalNum,
+        };
+        const rBtn = document.getElementById("downloadReceiptBtn");
+        if (rBtn) { rBtn.style.display = "inline-flex"; }
+        document.getElementById("successOverlay").classList.add("show");
         }
 
       function closeSuccess() {
