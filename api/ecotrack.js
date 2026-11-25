@@ -252,26 +252,33 @@ async function handlePost(req, res) {
 
     let data = await response.json().catch(() => null);
 
-    // 2. Auto-Match Commune if 422 "Commune mal écrite"
-    if (!response.ok && response.status === 422 && JSON.stringify(data).includes("Commune mal ")) {
+    // 2. Auto-Match Commune if Ecotrack rejects the commune name/wilaya mapping.
+    const communeError = !response.ok && response.status === 422 && JSON.stringify(data || "").toLowerCase().includes("commune");
+    if (communeError) {
       try {
         const communesUrl = ECOTRACK_API_URL.replace('/create/order', '/get/communes');
         const resComm = await fetch(`${communesUrl}?api_token=${ECOTRACK_API_TOKEN}&wilaya_id=${payload.code_wilaya}`, {
           headers: { "Authorization": `Bearer ${ECOTRACK_API_TOKEN}` }
         });
         const commData = await resComm.json().catch(() => null);
-        
+
         let correctedCommune = null;
         if (commData && typeof commData === 'object') {
           const targetNorm = normalizeString(payload.commune);
           const items = Array.isArray(commData) ? commData : Object.values(commData);
-          for (const c of items) {
-            if (c && c.nom && c.wilaya_id == payload.code_wilaya) {
-              if (normalizeString(c.nom) === targetNorm) {
-                correctedCommune = c.nom;
-                break;
-              }
-            }
+          const wilayaCommunes = items.filter((c) => c && c.nom && String(c.wilaya_id) === String(payload.code_wilaya));
+
+          // 1) Exact normalized match
+          const exact = wilayaCommunes.find((c) => normalizeString(c.nom) === targetNorm);
+          if (exact) correctedCommune = exact.nom;
+
+          // 2) Unique partial match (handles minor spelling/spacing differences)
+          if (!correctedCommune && targetNorm) {
+            const partial = wilayaCommunes.filter((c) => {
+              const n = normalizeString(c.nom);
+              return n.includes(targetNorm) || targetNorm.includes(n);
+            });
+            if (partial.length === 1) correctedCommune = partial[0].nom;
           }
         }
 
@@ -287,6 +294,11 @@ async function handlePost(req, res) {
             body: buildFormParams(payload)
           });
           data = await response.json().catch(() => null);
+        } else {
+          console.warn("[ecotrack] Commune auto-correction could not find a match", {
+            commune: payload.commune,
+            code_wilaya: payload.code_wilaya,
+          });
         }
       } catch (err) {
         console.error("Commune auto-correction failed", err);
